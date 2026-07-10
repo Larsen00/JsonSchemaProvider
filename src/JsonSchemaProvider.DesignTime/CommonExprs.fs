@@ -115,6 +115,21 @@ module internal CommonExprs =
         |> Array.find (fun methodInfo -> methodInfo.Name = "OfArray")
         |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod(elementType)
 
+    let private arrayGetMethodInfo (elementType: Type) : MethodInfo =
+        arrayModuleType.GetMethods()
+        |> Array.find (fun methodInfo -> methodInfo.Name = "Get")
+        |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod elementType
+
+    let private arraySkipMethodInfo (elementType: Type) : MethodInfo =
+        arrayModuleType.GetMethods()
+        |> Array.find (fun methodInfo -> methodInfo.Name = "Skip")
+        |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod elementType
+
+    let private arrayAppendMethodInfo (elementType: Type) : MethodInfo =
+        arrayModuleType.GetMethods()
+        |> Array.find (fun methodInfo -> methodInfo.Name = "Append")
+        |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod elementType
+
     let private opEqualityMethodInfo =
         match <@@ (=) @@> with
         | Lambda(_, Lambda(_, Call(_, mi, _))) -> mi
@@ -168,3 +183,12 @@ module internal CommonExprs =
         Expr.Call(opEqualityMethodInfo, [ lhs; rhs ])
 
     let callOpNot (arg: Expr) : Expr = Expr.Call(opNotMethodInfo, [ arg ])
+
+    let callArrayGet (index: int) (array: Expr) (elementType: Type) : Expr = 
+        Expr.Call(arrayGetMethodInfo elementType, [ array; Expr.Value index ])
+
+    let callArraySkip (count: int) (array: Expr) (elementType: Type) : Expr =
+        Expr.Call(arraySkipMethodInfo elementType, [ Expr.Value count; array ])
+
+    let callArrayAppend (array1: Expr) (array2: Expr) (elementType: Type) : Expr =
+        Expr.Call(arrayAppendMethodInfo elementType, [ array1; array2 ])

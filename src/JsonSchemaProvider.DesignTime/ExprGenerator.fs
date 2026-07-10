@@ -40,7 +40,7 @@ module ExprGenerator =
         match fSharpType with
         | FSharpBool -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
         | FSharpClass(_) -> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue(jsonVal) @@>
-        | FSharpList(innerType) ->
+        | FSharpList(innerType, arrayKeywords) -> //TODO: An idea would be to greate a file for the List type that holds this conversion as when we add more keywords it will get more complex 
             // Implements: <@@ fun (jsonVal: JsonValue) -> List.ofArray (Array.map %%generateForInner (jsonVal.AsArray())) @@>
             // Recursive call to generateJsonValToRuntimeTypeConversion for the inner type
             let generateForInner: Expr = 
@@ -50,14 +50,37 @@ module ExprGenerator =
             let innerRuntimeType: Type = 
                 fSharpTypeToRuntimeType classMap innerType compileFlags
 
-            let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
-            let jsonValAsArray = CommonExprs.callJsonValueAsArray (Expr.Var(jsonValVar))
+            // Declare a variable to hold the JsonValue parameter
+            let jsonValVar: Var = 
+                Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
 
-            let mappedArray =
-                CommonExprs.callArrayMap generateForInner jsonValAsArray typeof<JsonValue> innerRuntimeType
 
-            let arrayAsList = CommonExprs.callListOfArray mappedArray innerRuntimeType
-            Expr.Lambda(jsonValVar, arrayAsList)
+            let jsonValAsArray: Expr = 
+                CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
+
+            match arrayKeywords.MinItems, compileFlags.CompileMinItems with
+            | Some minItems, true when minItems > 0 ->
+
+                let mappedArrVar = Var($"mappedArr{Guid.NewGuid()}",innerRuntimeType.MakeArrayType())
+                let mappedArrExpr = CommonExprs.callArrayMap generateForInner jsonValAsArray typeof<JsonValue> innerRuntimeType
+
+                let elemExprs: list<Expr> = [ 
+                    for i in 0 .. minItems - 1 -> CommonExprs.callArrayGet i (Expr.Var mappedArrVar) innerRuntimeType
+                    ]
+                let restExpr =
+                    CommonExprs.callListOfArray
+                        (CommonExprs.callArraySkip minItems (Expr.Var(mappedArrVar)) innerRuntimeType)
+                        innerRuntimeType
+
+                let tupleExpr = Expr.NewTuple(elemExprs @ [ restExpr ])
+                Expr.Lambda(jsonValVar, Expr.Let(mappedArrVar, mappedArrExpr, tupleExpr))
+                
+            | _ -> 
+                let mappedArray: Expr =
+                    CommonExprs.callArrayMap generateForInner jsonValAsArray typeof<JsonValue> innerRuntimeType
+                let arrayAsList: Expr = 
+                    CommonExprs.callListOfArray mappedArray innerRuntimeType
+                Expr.Lambda(jsonValVar, arrayAsList)
         | FSharpDouble -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
         | FSharpInt -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
         | FSharpString -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
@@ -75,7 +98,7 @@ module ExprGenerator =
             else
                 <@@ fun (runtimeObj: bool) -> JsonValue.Boolean(runtimeObj) @@>
         | FSharpClass(_) -> <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
-        | FSharpList(innerType) ->
+        | FSharpList(innerType, arrayKeywords) ->
             // Implements: <@@ fun runtimeObj -> Array.ofList (List.map %%generatoreForInner runtimeObj)@@>
             let generateForInner: Expr =
                 generateRuntimeTypeToJsonValConversion classMap false innerType compileFlags
@@ -84,11 +107,27 @@ module ExprGenerator =
             let listRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
             let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid}", listRuntimeType)
 
-            let mappedList =
-                CommonExprs.callListMap generateForInner (Expr.Var(runtimeObjVar)) innerRuntimeType typeof<JsonValue>
+            match arrayKeywords.MinItems, compileFlags.CompileMinItems with
+            | Some minItems, true when minItems > 0 ->
 
-            let listAsArray = CommonExprs.callArrayOfList mappedList typeof<JsonValue>
-            Expr.Lambda(runtimeObjVar, CommonExprs.newJsonValueArray listAsArray)
+                let elemExprs = [ for i in 0 .. minItems - 1 -> Expr.Application(generateForInner, Expr.TupleGet(Expr.Var runtimeObjVar, i)) ]
+
+                let restList = Expr.TupleGet(Expr.Var runtimeObjVar, minItems)
+                let mappedRestList = CommonExprs.callListMap generateForInner restList innerRuntimeType typeof<JsonValue>
+                let restArray = CommonExprs.callArrayOfList mappedRestList typeof<JsonValue>
+
+                // Concatenate the fixed elements and the rest of the array
+                let mandatoryArray = Expr.NewArray(typeof<JsonValue>, elemExprs)
+                let fullArray: Expr = CommonExprs.callArrayAppend mandatoryArray restArray typeof<JsonValue>
+                Expr.Lambda(runtimeObjVar, CommonExprs.newJsonValueArray fullArray)
+                
+
+            | _ -> 
+                let mappedList =
+                    CommonExprs.callListMap generateForInner (Expr.Var(runtimeObjVar)) innerRuntimeType typeof<JsonValue>
+
+                let listAsArray = CommonExprs.callArrayOfList mappedList typeof<JsonValue>
+                Expr.Lambda(runtimeObjVar, CommonExprs.newJsonValueArray listAsArray)
         | FSharpDouble ->
             if optional then
                 <@@ fun (runtimeObj: Nullable<double>) -> JsonValue.Float(runtimeObj.Value) @@>

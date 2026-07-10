@@ -8,6 +8,8 @@
     <None Include="Debug.fsx" />
     <Compile Include="SchemaConversionTests.fs" />
     <Compile Include="JsonSchemaProviderTests.fs" />
+    <Compile Include="NJsonSchemaTests.fs" />
+    <Compile Include="ArrayTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

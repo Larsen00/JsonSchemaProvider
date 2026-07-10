@@ -34,9 +34,18 @@ module TypeLevelConversion =
         CompileMinItems: bool
     }
 
+    let FSharpListType (innerStaticType: Type) arrayKeywords compileFlags =
+        match arrayKeywords with
+        | { MinItems = Some minItems } when compileFlags.CompileMinItems ->
 
-            
+            // This generates a tuple where the if the minItems is n > 0 then the tuple will be T * T * ... * T * List<T> where T is the innerStaticType and there are n occurrences of T in the tuple.
+            let listType = typedefof<_ list>.MakeGenericType innerStaticType
+            Array.append (Array.create minItems innerStaticType) [| listType |] 
+            |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
 
+        | _ ->
+            typedefof<_ list>.MakeGenericType innerStaticType
+         
     let rec fSharpTypeToCompileTimeType
         (classMap: Map<string, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
@@ -45,9 +54,10 @@ module TypeLevelConversion =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass(name) -> classMap[name]
-        | FSharpList(innerFSharpType) ->
+        | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
-            typedefof<_ list>.MakeGenericType(innerStaticType)
+            FSharpListType innerStaticType arrayKeywords compileFlags
+            
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
         | FSharpString -> typeof<string>
@@ -56,9 +66,9 @@ module TypeLevelConversion =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass(_) -> typeof<NullableJsonValue>
-        | FSharpList(innerFSharpType) ->
+        | FSharpList(innerFSharpType, arrayKeywords) -> // TODO: Handle array keywords if needed
             let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
-            typedefof<_ list>.MakeGenericType(innerRuntimeType)
+            FSharpListType innerRuntimeType arrayKeywords compileFlags
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
         | FSharpString -> typeof<string>

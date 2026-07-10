@@ -27,18 +27,26 @@ module SchemaConversion =
     open NJsonSchema
     open JsonSchemaProvider
 
-    type JsonProperty =
-        { Name: string
-          Optional: bool
-          PropertyType: JsonSchemaType }
+    // JSON Schema offers a variety of keywords to validate data against specific types.
+    // In the following types, we wont to store these keywords
+    type ArrayKeywords = {
+        MinItems: int option
+    }
+
+    type JsonProperty = { 
+        Name: string
+        Optional: bool
+        PropertyType: JsonSchemaType 
+    }
 
     and JsonSchemaType =
         | JsonObject of JsonProperty list
-        | JsonArray of JsonSchemaType
+        | JsonArray of JsonSchemaType * ArrayKeywords
         | JsonBoolean
         | JsonInteger
         | JsonNumber
         | JsonString
+        // TODO: None is missing from the specification
 
     let rec private parseObject (schema: JsonSchema) : JsonSchemaType =
         let isOptional (name: string) =
@@ -52,7 +60,12 @@ module SchemaConversion =
         |> Seq.toList
         |> JsonObject
 
-    and private parseArray (schema: JsonSchema) : JsonSchemaType = parseType schema.Item |> JsonArray
+    and private parseArray (schema: JsonSchema) : JsonSchemaType = 
+        let keywords = {
+            // When minItems is omitted, it defaults to 0 according to the JSON Schema specification 
+            MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
+         }
+        JsonArray(parseType schema.Item, keywords)
 
     and private parseType (schema: JsonSchema) : JsonSchemaType =
         match schema.Type with
@@ -65,6 +78,7 @@ module SchemaConversion =
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
     let parseJsonSchemaStructured (schema: JsonSchema) : JsonSchemaType =
+        // TODO: Support other types than object at the root level
         if schema.Type <> JsonObjectType.Object then
             failwith "Only object supported."
 
@@ -75,8 +89,8 @@ module SchemaConversion =
         parseJsonSchemaStructured schema
 
     type FSharpType =
-        | FSharpClass of string
-        | FSharpList of FSharpType
+        | FSharpClass of string // Json object and the name // TODO: is this misleading? Since F# doesn't have classes 
+        | FSharpList of FSharpType * ArrayKeywords
         | FSharpDouble
         | FSharpInt
         | FSharpString
@@ -112,11 +126,11 @@ module SchemaConversion =
         match jsonSchemaType with
         | JsonBoolean -> (FSharpBool, None)
         | JsonObject(properties) -> (FSharpClass(lhsName), Some(jsonPropertyListToFSharpClassTree lhsName properties))
-        | JsonArray(innerType) ->
+        | JsonArray(innerType, keywords) ->
             let (innerFSharpType, maybeClass) =
                 jsonSchemaTypeToFSharpTypeAndNestedClass lhsName innerType
 
-            (FSharpList(innerFSharpType), maybeClass)
+            FSharpList(innerFSharpType, keywords), maybeClass
         | JsonInteger -> (FSharpInt, None)
         | JsonNumber -> (FSharpDouble, None)
         | JsonString -> (FSharpString, None)
