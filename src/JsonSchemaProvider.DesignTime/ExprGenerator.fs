@@ -35,14 +35,21 @@ module ExprGenerator =
     let rec private generateJsonValToRuntimeTypeConversion
         (classMap: Map<string, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
+        (compileFlags: CompileFlags)
         : Expr =
         match fSharpType with
         | FSharpBool -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
         | FSharpClass(_) -> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue(jsonVal) @@>
         | FSharpList(innerType) ->
             // Implements: <@@ fun (jsonVal: JsonValue) -> List.ofArray (Array.map %%generateForInner (jsonVal.AsArray())) @@>
-            let generateForInner = generateJsonValToRuntimeTypeConversion classMap innerType
-            let innerRuntimeType = fSharpTypeToRuntimeType classMap innerType
+            // Recursive call to generateJsonValToRuntimeTypeConversion for the inner type
+            let generateForInner: Expr = 
+                generateJsonValToRuntimeTypeConversion classMap innerType compileFlags
+
+            // Get the runtime type of the inner type
+            let innerRuntimeType: Type = 
+                fSharpTypeToRuntimeType classMap innerType compileFlags
+
             let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
             let jsonValAsArray = CommonExprs.callJsonValueAsArray (Expr.Var(jsonValVar))
 
@@ -59,6 +66,7 @@ module ExprGenerator =
         (classMap: Map<string, ProvidedTypeDefinition>)
         (optional: bool)
         (fSharpType: FSharpType)
+        (compileFlags: CompileFlags)
         : Expr =
         match fSharpType with
         | FSharpBool ->
@@ -69,12 +77,11 @@ module ExprGenerator =
         | FSharpClass(_) -> <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
         | FSharpList(innerType) ->
             // Implements: <@@ fun runtimeObj -> Array.ofList (List.map %%generatoreForInner runtimeObj)@@>
-            let generateForInner =
-                generateRuntimeTypeToJsonValConversion classMap false innerType
+            let generateForInner: Expr =
+                generateRuntimeTypeToJsonValConversion classMap false innerType compileFlags
 
-            let innerRuntimeType = fSharpTypeToRuntimeType classMap innerType
-            let listRuntimeType = fSharpTypeToRuntimeType classMap fSharpType
-
+            let innerRuntimeType = fSharpTypeToRuntimeType classMap innerType compileFlags
+            let listRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
             let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid}", listRuntimeType)
 
             let mappedList =
@@ -99,11 +106,12 @@ module ExprGenerator =
         { Name = name
           Optional = optional
           FSharpType = fSharpType }
+        (compileFlags: CompileFlags)
         : Expr list -> Expr =
-        let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap fSharpType
+        let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
 
         let convertToRuntimeType =
-            generateJsonValToRuntimeTypeConversion classMap fSharpType
+            generateJsonValToRuntimeTypeConversion classMap fSharpType compileFlags
 
         if optional then
             fun (args: Expr list) ->
@@ -158,6 +166,7 @@ module ExprGenerator =
         (optional: bool)
         (fSharpType: FSharpType)
         (arg: Expr)
+        (compileFlags: CompileFlags)
         =
         if optional then
             let isNull = generateIsNullCheck fSharpType arg
@@ -169,7 +178,7 @@ module ExprGenerator =
                     typeof<string * JsonValue>,
                     [ Expr.NewTuple(
                           [ Expr.Value(name)
-                            Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType, arg) ]
+                            Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType compileFlags, arg) ]
                       ) ]
                 )
 
@@ -179,7 +188,7 @@ module ExprGenerator =
                 typeof<string * JsonValue>,
                 [ Expr.NewTuple(
                       [ Expr.Value(name)
-                        Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType, arg) ]
+                        Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType compileFlags, arg) ]
                   ) ]
             )
 
@@ -189,6 +198,7 @@ module ExprGenerator =
         (schemaHashCode: int32)
         (schemaSource: string)
         (properties: FSharpProperty list)
+        (compileFlags: CompileFlags)
         : Expr list -> Expr =
         fun (args: Expr list) ->
             let elementType = typedefof<(string * JsonValue)[]>
@@ -198,7 +208,7 @@ module ExprGenerator =
                          Optional = optional
                          FSharpType = fSharpType },
                        arg) in List.zip properties args ->
-                      generatePropertyCreation classMap name optional fSharpType arg ]
+                      generatePropertyCreation classMap name optional fSharpType arg compileFlags ]
 
             let fields = Expr.NewArray(elementType, elements)
 

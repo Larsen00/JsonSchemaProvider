@@ -42,17 +42,18 @@ module TypeProvider =
     let private createProvidedProperties
         (classMap: Map<string, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
+        (compileFlags: CompileFlags)
         : ProvidedProperty list =
         [ for { Name = name
                 Optional = optional
                 FSharpType = fSharpType } as property in properties ->
 
-              let plainPropertyCompileTimeType = fSharpTypeToCompileTimeType classMap fSharpType
+              let plainPropertyCompileTimeType = fSharpTypeToCompileTimeType classMap fSharpType compileFlags
 
               ProvidedProperty(
                   propertyName = name,
                   propertyType = optionalOrPlainType optional plainPropertyCompileTimeType,
-                  getterCode = generatePropertyGetter classMap property
+                  getterCode = generatePropertyGetter classMap property compileFlags
               ) ]
 
     let private createProvidedCreateMethod
@@ -62,11 +63,12 @@ module TypeProvider =
         (schemaHashCode: int32)
         (schemaString: string)
         (providedTypeDefinition: ProvidedTypeDefinition)
+        (compileFlags: CompileFlags)
         : ProvidedMethod =
         let parameters =
             [ for property in properties ->
                   let parameterType =
-                      fSharpTypeToMethodParameterType classMap property.Optional property.FSharpType
+                      fSharpTypeToMethodParameterType classMap property.Optional property.FSharpType compileFlags
 
                   if property.Optional then
                       ProvidedParameter(property.Name, parameterType, false, defaultValueForNullableType parameterType)
@@ -77,7 +79,7 @@ module TypeProvider =
             methodName = "Create",
             parameters = parameters,
             returnType = providedTypeDefinition,
-            invokeCode = generateCreateInvokeCode nestedClass classMap schemaHashCode schemaString properties,
+            invokeCode = generateCreateInvokeCode nestedClass classMap schemaHashCode schemaString properties compileFlags,
             isStatic = true
         )
 
@@ -116,11 +118,12 @@ module TypeProvider =
         (schemaString: string)
         (providedTypeData: ProvidedTypeData)
         (nestedClasses: FSharpClassTree list)
+        (compileFlags: CompileFlags)
         : Map<string, ProvidedTypeDefinition> =
         nestedClasses
         |> List.map (fun nestedClass ->
             (nestedClass.Name,
-             fSharpClassTreeToProvidedTypeDefinition schemaHashCode schemaString providedTypeData nestedClass true))
+             fSharpClassTreeToProvidedTypeDefinition schemaHashCode schemaString providedTypeData nestedClass true compileFlags))
         |> Map.ofList
 
     and private fSharpClassTreeToProvidedTypeDefinition
@@ -131,6 +134,7 @@ module TypeProvider =
           Properties = properties
           NestedClasses = nestedClasses }
         (nestedClass: bool)
+        (compileFlags: CompileFlags)
         : ProvidedTypeDefinition =
         let providedTypeDefinition =
             ProvidedTypeDefinition(
@@ -141,14 +145,14 @@ module TypeProvider =
             )
 
         let classMap =
-            createNestedClassProvidedTypeDefinitions schemaHashCode schemaString providedTypeData nestedClasses
+            createNestedClassProvidedTypeDefinitions schemaHashCode schemaString providedTypeData nestedClasses compileFlags
 
         classMap
         |> Map.values
         |> Seq.iter (fun nestedClassProvidedTypeDefinition ->
             providedTypeDefinition.AddMember(nestedClassProvidedTypeDefinition))
 
-        let providedProperties = createProvidedProperties classMap properties
+        let providedProperties = createProvidedProperties classMap properties compileFlags
 
         providedProperties
         |> List.iter (fun providedProperty -> providedTypeDefinition.AddMember(providedProperty))
@@ -161,6 +165,7 @@ module TypeProvider =
                 schemaHashCode
                 schemaString
                 providedTypeDefinition
+                compileFlags
 
         providedTypeDefinition.AddMember(createMethod)
 
@@ -179,13 +184,16 @@ module TypeProvider =
         (namespaceName: string)
         (typeName: string)
         (runtimeType: Type)
+        (compileFlags: CompileFlags)
         : ProvidedTypeDefinition =
-        let providedTypeData =
-            { Assembly = assembly
-              NamespaceName = namespaceName
-              RuntimeType = runtimeType }
+        
+        let providedTypeData ={ 
+                Assembly = assembly
+                NamespaceName = namespaceName
+                RuntimeType = runtimeType 
+        }
 
         let fSharpClassTree =
             parseJsonSchemaStructured schema |> jsonObjectToFSharpClassTree typeName
 
-        fSharpClassTreeToProvidedTypeDefinition schemaHashCode (schema.ToJson()) providedTypeData fSharpClassTree false
+        fSharpClassTreeToProvidedTypeDefinition schemaHashCode (schema.ToJson()) providedTypeData fSharpClassTree false compileFlags

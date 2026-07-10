@@ -28,27 +28,36 @@ module TypeLevelConversion =
     open SchemaConversion
     open ProviderImplementation.ProvidedTypes
     open JsonSchemaProvider
+    // open Microsoft.FSharp.Reflection
+
+    type CompileFlags = {
+        CompileMinItems: bool
+    }
+
+
+            
 
     let rec fSharpTypeToCompileTimeType
         (classMap: Map<string, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
+        (compileFlags: CompileFlags)
         : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass(name) -> classMap[name]
         | FSharpList(innerFSharpType) ->
-            let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType
+            let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
             typedefof<_ list>.MakeGenericType(innerStaticType)
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
         | FSharpString -> typeof<string>
 
-    let rec fSharpTypeToRuntimeType (classMap: Map<string, ProvidedTypeDefinition>) (fSharpType: FSharpType) : Type =
+    let rec fSharpTypeToRuntimeType (classMap: Map<string, ProvidedTypeDefinition>) (fSharpType: FSharpType) (compileFlags: CompileFlags) : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass(_) -> typeof<NullableJsonValue>
         | FSharpList(innerFSharpType) ->
-            let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType
+            let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
             typedefof<_ list>.MakeGenericType(innerRuntimeType)
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
@@ -76,6 +85,7 @@ module TypeLevelConversion =
         (classMap: Map<string, ProvidedTypeDefinition>)
         (optional: bool)
         (fSharpType: FSharpType)
+        (compileFlags: CompileFlags)
         : Type =
-        let compileTimeType = fSharpTypeToCompileTimeType classMap fSharpType
+        let compileTimeType = fSharpTypeToCompileTimeType classMap fSharpType compileFlags
         nullableOrPlainType optional compileTimeType

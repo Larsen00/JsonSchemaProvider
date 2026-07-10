@@ -116,8 +116,8 @@ module SchemaConversionTests =
                                         { Name = "propB"
                                           Optional = true
                                           PropertyType = JsonString } ]
-                                  )
-                              )
+                                  ),{ MinItems = None}
+                              ), { MinItems = None}
                           ) } ]
                 )
 
@@ -191,7 +191,7 @@ module SchemaConversionTests =
                   Properties =
                     [ { Name = "values"
                         Optional = true
-                        FSharpType = FSharpList(FSharpList(FSharpClass("values"))) } ]
+                        FSharpType = FSharpList(FSharpList(FSharpClass("values"), { MinItems = None}), { MinItems = None}) } ]
                   NestedClasses =
                     [ { Name = "values"
                         Properties =

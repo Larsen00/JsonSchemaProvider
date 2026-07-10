@@ -41,9 +41,11 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
     let namespaceName = "JsonSchemaProvider"
     let thisAssembly = Assembly.GetExecutingAssembly()
 
-    let staticParams =
-        [ ProvidedStaticParameter("schema", typeof<string>, "")
-          ProvidedStaticParameter("schemaFile", typeof<string>, "") ]
+    let staticParams = [ 
+            ProvidedStaticParameter("schema", typeof<string>, "")
+            ProvidedStaticParameter("schemaFile", typeof<string>, "")
+            ProvidedStaticParameter("compileMinItems", typeof<bool>, false)
+        ]
 
     let runtimeType = typeof<NullableJsonValue>
 
@@ -52,7 +54,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
 
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
-        | [| :? string as schemaSource; :? string as schemaFile |] ->
+        | [| :? string as schemaSource; :? string as schemaFile; :? bool as compileMinItems |] ->
             if schemaSource = "" && schemaFile = "" || schemaSource <> "" && schemaFile <> "" then
                 failwith "Only one of schema or schemaFile must be set."
 
@@ -64,9 +66,12 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
 
             let schema = SchemaCache.parseSchema schemaString
             let schemaHashCode = schemaString.GetHashCode()
+            let compileUsingKeywordFlags : TypeLevelConversion.CompileFlags = { 
+                CompileMinItems = compileMinItems 
+            }
 
             let providedType =
-                TypeProvider.run schema schemaHashCode thisAssembly namespaceName typeName runtimeType
+                TypeProvider.run schema schemaHashCode thisAssembly namespaceName typeName runtimeType compileUsingKeywordFlags
 
             providedType
         | paramValues -> failwithf "Unexpected parameter values %A." paramValues
