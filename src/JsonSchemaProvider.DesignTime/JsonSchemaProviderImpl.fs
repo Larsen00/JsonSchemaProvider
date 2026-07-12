@@ -66,7 +66,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
 
             let schema = SchemaCache.parseSchema schemaString
             let schemaHashCode = schemaString.GetHashCode()
-            let compileUsingKeywordFlags : TypeLevelConversion.CompileFlags = { 
+            let compileUsingKeywordFlags : ProviderConfiguration.CompileFlags = { 
                 CompileMinItems = compileMinItems 
             }
 

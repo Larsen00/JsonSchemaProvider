@@ -35,7 +35,7 @@ module ExprGenerator =
     let rec private generateJsonValToRuntimeTypeConversion
         (classMap: Map<string, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
         match fSharpType with
         | FSharpBool -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
@@ -89,7 +89,7 @@ module ExprGenerator =
         (classMap: Map<string, ProvidedTypeDefinition>)
         (optional: bool)
         (fSharpType: FSharpType)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
         match fSharpType with
         | FSharpBool ->
@@ -145,7 +145,7 @@ module ExprGenerator =
         { Name = name
           Optional = optional
           FSharpType = fSharpType }
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
         let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
 
@@ -205,7 +205,7 @@ module ExprGenerator =
         (optional: bool)
         (fSharpType: FSharpType)
         (arg: Expr)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         =
         if optional then
             let isNull = generateIsNullCheck fSharpType arg
@@ -237,7 +237,7 @@ module ExprGenerator =
         (schemaHashCode: int32)
         (schemaSource: string)
         (properties: FSharpProperty list)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
         fun (args: Expr list) ->
             let elementType = typedefof<(string * JsonValue)[]>

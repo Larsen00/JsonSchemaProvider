@@ -26,12 +26,7 @@ namespace JsonSchemaProvider.DesignTime
 module SchemaConversion =
     open NJsonSchema
     open JsonSchemaProvider
-
-    // JSON Schema offers a variety of keywords to validate data against specific types.
-    // In the following types, we wont to store these keywords
-    type ArrayKeywords = {
-        MinItems: int option
-    }
+    open System
 
     type JsonProperty = { 
         Name: string
@@ -41,7 +36,7 @@ module SchemaConversion =
 
     and JsonSchemaType =
         | JsonObject of JsonProperty list
-        | JsonArray of JsonSchemaType * ArrayKeywords
+        | JsonArray of JsonSchemaType * JsonArray.SpecificKeywords
         | JsonBoolean
         | JsonInteger
         | JsonNumber

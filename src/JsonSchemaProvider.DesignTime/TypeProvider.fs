@@ -42,7 +42,7 @@ module TypeProvider =
     let private createProvidedProperties
         (classMap: Map<string, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedProperty list =
         [ for { Name = name
                 Optional = optional
@@ -63,7 +63,7 @@ module TypeProvider =
         (schemaHashCode: int32)
         (schemaString: string)
         (providedTypeDefinition: ProvidedTypeDefinition)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedMethod =
         let parameters =
             [ for property in properties ->
@@ -118,7 +118,7 @@ module TypeProvider =
         (schemaString: string)
         (providedTypeData: ProvidedTypeData)
         (nestedClasses: FSharpClassTree list)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : Map<string, ProvidedTypeDefinition> =
         nestedClasses
         |> List.map (fun nestedClass ->
@@ -134,7 +134,7 @@ module TypeProvider =
           Properties = properties
           NestedClasses = nestedClasses }
         (nestedClass: bool)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
         let providedTypeDefinition =
             ProvidedTypeDefinition(
@@ -184,7 +184,7 @@ module TypeProvider =
         (namespaceName: string)
         (typeName: string)
         (runtimeType: Type)
-        (compileFlags: CompileFlags)
+        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
         
         let providedTypeData ={ 

@@ -21,6 +21,8 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\JsonSchemaProvider.Runtime\JsonSchemaProvider.Runtime.fs" />
+    <Compile Include="ProviderConfiguration.fs"/>
+    <Compile Include="Types\JsonArray.fs"/>
     <Compile Include="SchemaConversion.fs" />
     <Compile Include="TypeLevelConversion.fs" />
     <Compile Include="CommonExprs.fs" />
