@@ -51,16 +51,16 @@ module SchemaConversion =
         |> Seq.map (fun pair ->
             { Name = pair.Key
               Optional = isOptional (pair.Key)
-              PropertyType = parseType pair.Value })
+              PropertyType = parseJsonSchemaStructured pair.Value })
         |> Seq.toList
         |> JsonObject
 
     and private parseArray (schema: JsonSchema) : JsonSchemaType = 
-        let keywords = {
+        let keywords : JsonArray.SpecificKeywords = {
             // When minItems is omitted, it defaults to 0 according to the JSON Schema specification 
             MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
          }
-        JsonArray(parseType schema.Item, keywords)
+        JsonArray(parseJsonSchemaStructured schema.Item, keywords)
 
     and private parseType (schema: JsonSchema) : JsonSchemaType =
         match schema.Type with
@@ -83,69 +83,58 @@ module SchemaConversion =
         let schema = SchemaCache.parseSchema input
         parseJsonSchemaStructured schema
 
-    type FSharpType =
-        | FSharpClass of string // Json object and the name // TODO: is this misleading? Since F# doesn't have classes 
-        | FSharpList of FSharpType * ArrayKeywords
-        | FSharpDouble
-        | FSharpInt
-        | FSharpString
-        | FSharpBool
-
+    // Fsharp match types to the JsonProperty and JsonSchemaType types. // DEV_NOTE: I removed the orginal FSharpClassTree type since it had and extra layer of complexity that was not needed. This way the types now look more like the original JSON schema types and are easier to reason about.
     type FSharpProperty =
         { Name: string
           Optional: bool
           FSharpType: FSharpType }
+    
+    and FSharpType =
+        | FSharpClass of string * FSharpProperty list // Json object and the name // TODO: is this misleading? Since F# doesn't have classes 
+        | FSharpList of FSharpType * JsonArray.SpecificKeywords
+        | FSharpDouble
+        | FSharpInt
+        | FSharpString
+        | FSharpBool
+        
 
-    type FSharpClassTree =
-        { Name: string
-          Properties: FSharpProperty list
-          NestedClasses: FSharpClassTree list }
 
-    let rec private jsonPropertyToFSharpPropertyAndNestedClass
+// '    and FSharpClassTree =
+//         { Name: string
+//           Properties: FSharpProperty list }
+//           NestedClasses: FSharpClassTree list }'
+
+    let rec private jsonPropertyToFSharpProperty
         ({ Name = propertyName
            Optional = optional
            PropertyType = propertyType }: JsonProperty)
-        : FSharpProperty * FSharpClassTree option =
-        let (fSharpType, maybeClass) =
-            jsonSchemaTypeToFSharpTypeAndNestedClass propertyName propertyType
+        : FSharpProperty  =
+        let fSharpType = jsonSchemaTypeToFSharpType propertyName propertyType
 
-        ({ Name = propertyName
-           Optional = optional
-           FSharpType = fSharpType },
-         maybeClass)
+        { 
+            Name = propertyName
+            Optional = optional
+            FSharpType = fSharpType 
+        }
 
-    and private jsonSchemaTypeToFSharpTypeAndNestedClass
+    and private jsonSchemaTypeToFSharpType
         (lhsName: string)
         (jsonSchemaType: JsonSchemaType)
-        : FSharpType * FSharpClassTree option =
+        : FSharpType =
         match jsonSchemaType with
-        | JsonBoolean -> (FSharpBool, None)
-        | JsonObject(properties) -> (FSharpClass(lhsName), Some(jsonPropertyListToFSharpClassTree lhsName properties))
+        | JsonBoolean -> FSharpBool
+        | JsonObject properties -> FSharpClass (lhsName, List.map jsonPropertyToFSharpProperty properties)
         | JsonArray(innerType, keywords) ->
-            let (innerFSharpType, maybeClass) =
-                jsonSchemaTypeToFSharpTypeAndNestedClass lhsName innerType
+            let innerFSharpType = jsonSchemaTypeToFSharpType lhsName innerType
+            FSharpList(innerFSharpType, keywords)
+            
+        | JsonInteger -> FSharpInt
+        | JsonNumber -> FSharpDouble
+        | JsonString -> FSharpString
+        
+            
 
-            FSharpList(innerFSharpType, keywords), maybeClass
-        | JsonInteger -> (FSharpInt, None)
-        | JsonNumber -> (FSharpDouble, None)
-        | JsonString -> (FSharpString, None)
-
-    and private jsonPropertyListToFSharpClassTree
-        (lhsName: string)
-        (jsonProperties: JsonProperty list)
-        : FSharpClassTree =
-        let (fSharpProperties, maybeNestedClasses) =
-            jsonProperties
-            |> List.map jsonPropertyToFSharpPropertyAndNestedClass
-            |> List.unzip
-
-        let nestedClasses = maybeNestedClasses |> List.map Option.toList |> List.concat
-
-        { Name = lhsName
-          Properties = fSharpProperties
-          NestedClasses = nestedClasses }
-
-    let jsonObjectToFSharpClassTree (lhsName: string) (jsonSchemaType: JsonSchemaType) : FSharpClassTree =
+    let jsonObjectToFSharpClass (lhsName: string) (jsonSchemaType: JsonSchemaType) : FSharpType =
         match jsonSchemaType with
-        | JsonObject(properties) -> jsonPropertyListToFSharpClassTree lhsName properties
+        | JsonObject _ -> jsonSchemaTypeToFSharpType lhsName jsonSchemaType
         | _ -> failwith "Only object type supported"

@@ -37,7 +37,7 @@ module TypeLevelConversion =
         : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
-        | FSharpClass(name) -> classMap[name]
+        | FSharpClass(name, _) -> classMap[name]
         | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
             JsonArray.FSharpListType innerStaticType arrayKeywords compileFlags

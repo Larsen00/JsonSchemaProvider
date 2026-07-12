@@ -39,6 +39,13 @@ module TypeProvider =
           NamespaceName: string
           RuntimeType: Type }
 
+    let rec private extractNestedClasses (fSharpType: FSharpType) : (string * FSharpProperty list) list =
+      match fSharpType with
+      | FSharpClass(name, properties) -> [ (name, properties) ]
+      | FSharpList(inner, _) -> extractNestedClasses inner
+      | FSharpOneOf types -> types |> List.collect extractNestedClasses
+      | FSharpBool | FSharpInt | FSharpDouble | FSharpString -> []
+
     let private createProvidedProperties
         (classMap: Map<string, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
@@ -117,22 +124,21 @@ module TypeProvider =
         (schemaHashCode: int32)
         (schemaString: string)
         (providedTypeData: ProvidedTypeData)
-        (nestedClasses: FSharpClassTree list)
+        (properties: FSharpProperty list)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Map<string, ProvidedTypeDefinition> =
-        nestedClasses
-        |> List.map (fun nestedClass ->
-            (nestedClass.Name,
-             fSharpClassTreeToProvidedTypeDefinition schemaHashCode schemaString providedTypeData nestedClass true compileFlags))
+        properties 
+        |> List.collect (fun property -> extractNestedClasses property.FSharpType)
+        |> List.map (fun (name, nestedProperties) ->
+            name, fSharpClassTreeToProvidedTypeDefinition schemaHashCode schemaString providedTypeData name nestedProperties true compileFlags)
         |> Map.ofList
 
     and private fSharpClassTreeToProvidedTypeDefinition
         (schemaHashCode: int32)
         (schemaString: string)
         (providedTypeData: ProvidedTypeData)
-        { Name = className
-          Properties = properties
-          NestedClasses = nestedClasses }
+        (className: string)
+        (properties: FSharpProperty list)
         (nestedClass: bool)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
@@ -144,8 +150,9 @@ module TypeProvider =
                 Some(providedTypeData.RuntimeType)
             )
 
+
         let classMap =
-            createNestedClassProvidedTypeDefinitions schemaHashCode schemaString providedTypeData nestedClasses compileFlags
+            createNestedClassProvidedTypeDefinitions schemaHashCode schemaString providedTypeData properties compileFlags
 
         classMap
         |> Map.values
@@ -193,7 +200,7 @@ module TypeProvider =
                 RuntimeType = runtimeType 
         }
 
-        let fSharpClassTree =
-            parseJsonSchemaStructured schema |> jsonObjectToFSharpClassTree typeName
-
-        fSharpClassTreeToProvidedTypeDefinition schemaHashCode (schema.ToJson()) providedTypeData fSharpClassTree false compileFlags
+        match parseJsonSchemaStructured schema |> jsonObjectToFSharpClass typeName with
+        | FSharpClass(className, properties) ->
+            fSharpClassTreeToProvidedTypeDefinition schemaHashCode (schema.ToJson()) providedTypeData className properties false compileFlags
+        | _ -> failwith "Root schema must be an object" // TODO: lift this restriction when oneOf-as-root is supported
