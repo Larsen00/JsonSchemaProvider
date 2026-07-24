@@ -51,7 +51,7 @@ module TypeLevelConversion =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass(_) -> typeof<NullableJsonValue>
-        | FSharpList(innerFSharpType, arrayKeywords) -> // TODO: Handle array keywords if needed
+        | FSharpList(innerFSharpType, arrayKeywords) -> 
             let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
             JsonArray.FSharpListType innerRuntimeType arrayKeywords compileFlags
         | FSharpDouble -> typeof<double>
