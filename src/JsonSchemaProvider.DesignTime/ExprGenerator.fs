@@ -84,6 +84,7 @@ module ExprGenerator =
         | FSharpDouble -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
         | FSharpInt -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
         | FSharpString -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
+        // | FSharpOneOf innerFSharpTypes -> 
 
     let rec private generateRuntimeTypeToJsonValConversion
         (classMap: Map<string, ProvidedTypeDefinition>)
@@ -139,6 +140,30 @@ module ExprGenerator =
             else
                 <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
         | FSharpString -> <@@ fun (runtimeObj: string) -> JsonValue.String(runtimeObj) @@>
+
+        | FSharpOneOf [single] -> 
+            generateRuntimeTypeToJsonValConversion classMap optional single compileFlags
+
+        | FSharpOneOf (head :: rest) -> 
+            let headConversion = generateRuntimeTypeToJsonValConversion classMap false head compileFlags
+            let restConversion = generateRuntimeTypeToJsonValConversion classMap false (FSharpOneOf rest) compileFlags
+
+            let choiceType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
+            let cases = Reflection.FSharpType.GetUnionCases choiceType
+            let choice1 = cases.[0]
+            let choice2 = cases.[1]
+
+            let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid()}", choiceType)
+
+            let isChoice1 = Expr.UnionCaseTest(Expr.Var runtimeObjVar, choice1)
+            let headValue = Expr.PropertyGet(Expr.Var runtimeObjVar, choice1.GetFields().[0])
+            let thenBranch = Expr.Application(headConversion, headValue)
+
+            let restValue = Expr.PropertyGet(Expr.Var runtimeObjVar, choice2.GetFields().[0])
+            let elseBranch = Expr.Application(restConversion, restValue)
+
+            Expr.Lambda(runtimeObjVar, Expr.IfThenElse(isChoice1, thenBranch, elseBranch))
+                     
 
     let generatePropertyGetter
         (classMap: Map<string, ProvidedTypeDefinition>)

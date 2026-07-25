@@ -45,6 +45,9 @@ module TypeLevelConversion =
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
         | FSharpString -> typeof<string>
+        | FSharpOneOf innerFSharpTypes -> 
+            JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToCompileTimeType classMap t compileFlags) innerFSharpTypes
+            
 
 
     let rec fSharpTypeToRuntimeType (classMap: Map<string, ProvidedTypeDefinition>) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
@@ -57,6 +60,8 @@ module TypeLevelConversion =
         | FSharpDouble -> typeof<double>
         | FSharpInt -> typeof<int>
         | FSharpString -> typeof<string>
+        | FSharpOneOf innerFSharpTypes -> 
+            JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToRuntimeType classMap t compileFlags) innerFSharpTypes
 
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then

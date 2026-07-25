@@ -42,6 +42,7 @@ module SchemaConversion =
         | JsonNumber
         | JsonString
         // TODO: None is missing from the specification
+        | JsonOneOf of JsonSchemaType list 
 
     let rec private parseObject (schema: JsonSchema) : JsonSchemaType =
         let isOptional (name: string) =
@@ -72,12 +73,21 @@ module SchemaConversion =
         | JsonObjectType.String -> JsonString
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
-    let parseJsonSchemaStructured (schema: JsonSchema) : JsonSchemaType =
-        // TODO: Support other types than object at the root level
-        if schema.Type <> JsonObjectType.Object then
-            failwith "Only object supported."
+    and private parseOneOf (schema: JsonSchema) : JsonSchemaType =
+        schema.OneOf |> List.ofSeq |> List.map parseJsonSchemaStructured |> JsonOneOf
 
-        parseType schema
+    and parseJsonSchemaStructured (schema: JsonSchema) : JsonSchemaType =
+        // TODO: Support other types than object at the root level
+
+        match schema.Type with
+        | JsonObjectType.None -> 
+            if schema.OneOf.Count > 0 then
+                parseOneOf schema
+            else
+                failwith "Unsupported JSON schema type None"
+
+        | _ -> 
+            parseType schema
 
     let parseJsonSchema (input: string) : JsonSchemaType =
         let schema = SchemaCache.parseSchema input
@@ -96,7 +106,7 @@ module SchemaConversion =
         | FSharpInt
         | FSharpString
         | FSharpBool
-        
+        | FSharpOneOf of FSharpType list
 
 
 // '    and FSharpClassTree =
@@ -131,7 +141,7 @@ module SchemaConversion =
         | JsonInteger -> FSharpInt
         | JsonNumber -> FSharpDouble
         | JsonString -> FSharpString
-        
+        | JsonOneOf types -> FSharpOneOf <| List.map (jsonSchemaTypeToFSharpType lhsName) types
             
 
     let jsonObjectToFSharpClass (lhsName: string) (jsonSchemaType: JsonSchemaType) : FSharpType =
