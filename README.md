@@ -4,6 +4,8 @@ This is a fork of [florenzen/JsonSchemaProvider](https://github.com/florenzen/Js
 master's thesis (see [CLAUDE.md](CLAUDE.md) for background). It is not published to NuGet and does not track the
 upstream project.
 
+Original work Copyright (c) 2024 Florian Lorenzen, MIT licensed — see [LICENSE](LICENSE). 
+
 The JsonSchemaProvider provides F# types from [JSON schemas](https://json-schema.org). It can be used to build
 JSON values in a strongly typed way that conform to the schema or to parse JSON values into an F# value that
 can be queried in a strongly typed way. Specifications like numeric ranges or string patterns that cannot be

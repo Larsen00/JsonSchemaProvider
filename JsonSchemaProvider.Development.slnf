@@ -1,0 +1,10 @@
+{
+  "solution": {
+    "path": "JsonSchemaProvider.sln",
+    "projects": [
+      "src\\JsonSchemaProvider.DesignTime\\JsonSchemaProvider.DesignTime.fsproj",
+      "src\\JsonSchemaProvider.Runtime\\JsonSchemaProvider.fsproj",
+      "tests\\JsonSchemaProvider.DesignTime.Tests\\JsonSchemaProvider.DesignTime.Tests.fsproj"
+    ]
+  }
+}
