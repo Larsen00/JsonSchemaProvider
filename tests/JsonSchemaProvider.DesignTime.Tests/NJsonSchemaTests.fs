@@ -70,10 +70,41 @@ module NJsonSchemaTests =
                 "ActualProperties still reflects only the last (non-$ref) allOf branch"
         }
 
+    // A numeric-looking JSON string is never a valid "number" instance, no matter what its text
+    // says - JSON Schema's "type" checks the underlying JSON kind, not whether the text could be
+    // coerced. This is what guarantees a oneOf like [number, string] is never actually ambiguous
+    // at the schema level for a value like the JSON string "42.5" - only the string branch is
+    // ever truly satisfied, regardless of what a lenient runtime conversion might accept.
+    let numericLookingStringFailsNumberType =
+        test "A JSON string with numeric-looking text does not validate against type: number" {
+            let schema = """{ "type": "number" }""" |> SchemaCache.parseSchema
+            let errors = schema.Validate("\"42.5\"")
+            Expect.isFalse (Seq.isEmpty errors) "A quoted JSON string must not satisfy type: number"
+        }
+
+    let numericLookingStringPassesStringType =
+        test "A JSON string with numeric-looking text validates against type: string" {
+            let schema = """{ "type": "string" }""" |> SchemaCache.parseSchema
+            let errors = schema.Validate("\"42.5\"")
+            Expect.isTrue (Seq.isEmpty errors) "A quoted JSON string must satisfy type: string"
+        }
+
+    let numericLookingStringUniquelyMatchesStringBranchOfOneOf =
+        test "oneOf [number, string] accepts a numeric-looking JSON string only via the string branch" {
+            let schema =
+                """{ "oneOf": [ { "type": "number" }, { "type": "string" } ] }"""
+                |> SchemaCache.parseSchema
+            let errors = schema.Validate("\"42.5\"")
+            Expect.isTrue (Seq.isEmpty errors) "The document is valid overall - satisfied uniquely by the string branch"
+        }
+
     [<Tests>]
     let tests =
         testList
             "JsonSchemaProvider.Tests.NJsonSchemaTests"
             [ minItemsDefaultsToZeroWhenAbsent
               actualPropertiesDoesNotMergePlainAllOfBranches
-              actualPropertiesDoesNotMergeRefBasedAllOfBranches ]
+              actualPropertiesDoesNotMergeRefBasedAllOfBranches
+              numericLookingStringFailsNumberType
+              numericLookingStringPassesStringType
+              numericLookingStringUniquelyMatchesStringBranchOfOneOf ]

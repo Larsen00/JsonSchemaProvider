@@ -6,9 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="Debug.fsx" />
-    <Compile Include="SchemaConversionTests.fs" />
     <Compile Include="JsonSchemaProviderTests.fs" />
-    <Compile Include="NJsonSchemaTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
@@ -22,6 +20,7 @@
     <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="FSharp.Data.Json.Core" Version="6.6.0" />
     <PackageReference Include="NJsonSchema" Version="11.5.2" />
+    <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- <Reference Include="JsonSchemaProvider">
