@@ -1,7 +1,8 @@
 # JsonSchemaProvider: F# type provider for JSON schema
 
-[![NuGet Badge](https://buildstats.info/nuget/JsonSchemaProvider?includePreReleases=true)](https://www.nuget.org/packages/JsonSchemaProvider/)
-[![GitHub Actions](https://github.com/florenzen/JsonSchemaProvider/actions/workflows/main.yml/badge.svg?branch=main)](https://github.com/florenzen/JsonSchemaProvider/actions/workflows/main.yml?branch=main)
+This is a fork of [florenzen/JsonSchemaProvider](https://github.com/florenzen/JsonSchemaProvider) used for a DTU
+master's thesis (see [CLAUDE.md](CLAUDE.md) for background). It is not published to NuGet and does not track the
+upstream project.
 
 The JsonSchemaProvider provides F# types from [JSON schemas](https://json-schema.org). It can be used to build
 JSON values in a strongly typed way that conform to the schema or to parse JSON values into an F# value that
@@ -13,52 +14,29 @@ The JSON schema can either be given as an inline string literal or by a local fi
 The type provider is built around [NJsonSchema](https://njsonschema.org/) for the schema parsing and validation
 and uses the `JsonValue` data type from [FSharp.Data](https://fsprojects.github.io/FSharp.Data/).
 
-The version history is kept in the [changelog](CHANGELOG.md).
-
-See the [documentation](https://florenzen.github.io/JsonSchemaProvider) for instructions and
-examples how to use the type provider.
-
 ## Building
 
-The type provider requires the .NET SDK 8 or higher.
-
-The code comes with a [Dev Container specification](.devcontainer/devcontainer.json) that sets up the necessary
-tools and the .NET SDK.
-
-When not inside the Dev Container, issue a
+The type provider requires the .NET SDK 10 or higher (see [global.json](global.json)).
 
 ```bash
-dotnet tool restore
+dotnet build JsonSchemaProvider.sln
 ```
 
-to install the .NET tools listed in [dotnet-tools.json](.config/dotnet-tools.json).
+Tests are split into two projects:
 
-The code is built using [FAKE](https://fake.build) as follows.
-
-On Linux/macOS:
+- `tests/JsonSchemaProvider.DesignTime.Tests` — unit tests for the schema-conversion/type-level logic. These
+  call the DesignTime code directly and never invoke the type provider itself.
+- `tests/JsonSchemaProvider.Tests` — tests that actually instantiate `JsonSchemaProvider<...>`, exercising the
+  type provider end to end.
 
 ```bash
-./build.sh
+dotnet test tests/JsonSchemaProvider.DesignTime.Tests
+dotnet test tests/JsonSchemaProvider.Tests
 ```
 
-On Windows:
-
-```powershell
-build.cmd
-```
-
-The FAKE build script is based on [MiniScaffold](https://github.com/TheAngryByrd/MiniScaffold) and provides
-most of its build targets. The list of available targets can be obtained by
-
-```bash
-./build.sh ListTargets
-```
-
-### Environment Variables
-
-- `CONFIGURATION` will set the [configuration](https://docs.microsoft.com/en-us/dotnet/core/tools/dotnet-build?tabs=netcore2x#options) of the dotnet commands. 
-  If not set, it will default to Release.
-  - `CONFIGURATION=Debug ./build.sh` will result in `-c` additions to commands such as in `dotnet build -c Debug`
+If a build fails with a file-in-use error on `JsonSchemaProvider.DesignTime.dll`, it's because Ionide's
+background compiler service (FSAC) still has it loaded from editing a file that uses the type provider. Run
+"F#: Restart Language Server" from VS Code's command palette to release the lock.
 
 ## Debugging
 
