@@ -12,6 +12,12 @@ module Utilities =
         else
             Ok value
 
+    let tryCreateRangedInt (min: int) (max: int) (value: int) : Result<int, string> =
+        if value < min || value > max then
+            Error(sprintf "InnerProvider: value out of range: %d not in [%d, %d]" value min max)
+        else
+            Ok value
+
 /// Minimal standalone type provider, structurally modelled on the
 /// (unrelated, prior-art) ConstrainedTypes project's BoundedString<Length>.
 /// Spike-only: proves whether a *second* provider can programmatically
@@ -25,6 +31,10 @@ type InnerProviderProvider(config: TypeProviderConfig) as this =
 
     let boundedStringProvider =
         ProvidedTypeDefinition(asm, ns, "BoundedString", Some typeof<string>)
+
+    // Spike addition: does ProvidedStaticParameter support a default value,
+    // so `Int<Min=0, Max=100>` AND `Int<Min=0>` (Max omitted) both work?
+    let rangedIntProvider = ProvidedTypeDefinition(asm, ns, "Int", Some typeof<int>)
 
     do
         boundedStringProvider.DefineStaticParameters(
@@ -47,7 +57,29 @@ type InnerProviderProvider(config: TypeProviderConfig) as this =
                 provided
         )
 
-        this.AddNamespace(ns, [ boundedStringProvider ])
+        rangedIntProvider.DefineStaticParameters(
+            [ ProvidedStaticParameter("Min", typeof<int>)
+              ProvidedStaticParameter("Max", typeof<int>, parameterDefaultValue = System.Int32.MaxValue) ],
+            fun name args ->
+                let min = args.[0] :?> int
+                let max = args.[1] :?> int
+                let provided = ProvidedTypeDefinition(asm, ns, name, Some typeof<int>)
+
+                let tryCreate =
+                    ProvidedMethod(
+                        "TryCreate",
+                        [ ProvidedParameter("value", typeof<int>) ],
+                        typeof<Result<int, string>>,
+                        invokeCode = (fun args -> <@@ tryCreateRangedInt min max (%%args.[0]: int) @@>),
+                        isStatic = true
+                    )
+
+                provided.AddMember(tryCreate)
+
+                provided
+        )
+
+        this.AddNamespace(ns, [ boundedStringProvider; rangedIntProvider ])
 
 [<TypeProviderAssembly>]
 do ()
