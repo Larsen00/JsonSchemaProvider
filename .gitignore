@@ -277,3 +277,6 @@ temp/
 docs/
 
 .DS_Store
+
+# Private folders
+ideas/
