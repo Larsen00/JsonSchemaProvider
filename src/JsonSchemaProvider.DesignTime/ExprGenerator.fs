@@ -8,6 +8,24 @@ module ExprGenerator =
     open JsonSchemaProvider
     open System
     open ProviderImplementation.ProvidedTypes
+    open FSharp.Data.Runtime
+
+    let rec private generateStructualMatchExpr (fsharpType: FSharpType) (jsonValExpr: Expr) =
+        match fsharpType with
+        | FSharpBool -> <@@ (JsonRefinement.tryBoolean %%jsonValExpr).IsSome @@>
+        | FSharpInt -> <@@ (JsonRefinement.tryInteger %%jsonValExpr).IsSome @@>
+        | FSharpDouble -> <@@ (JsonRefinement.tryFloat %%jsonValExpr).IsSome @@>
+        | FSharpString -> <@@ (JsonRefinement.tryString %%jsonValExpr).IsSome @@>
+        | FSharpClass(_) -> <@@ (JsonRefinement.tryObject %%jsonValExpr).IsSome @@>
+        | FSharpList(_, arrayKeywords) -> <@@ (JsonRefinement.tryArray %%jsonValExpr arrayKeywords).IsSome @@> // Todo: also check the content of the array to match the inner type
+        | FSharpOneOf [single] -> generateStructualMatchExpr single jsonValExpr
+        | FSharpOneOf (head :: tail) -> 
+            let headMatchExpr = generateStructualMatchExpr head jsonValExpr
+            let tailMatchExpr = generateStructualMatchExpr (FSharpOneOf tail) jsonValExpr
+            <@@ %%headMatchExpr || %%tailMatchExpr @@>
+
+
+
 
     let rec private generateJsonValToRuntimeTypeConversion
         (classMap: Map<string, ProvidedTypeDefinition>)
@@ -61,7 +79,39 @@ module ExprGenerator =
         | FSharpDouble -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
         | FSharpInt -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
         | FSharpString -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
-        // | FSharpOneOf innerFSharpTypes -> 
+        // We can assume that the json value is a valid one, hence we can justify that the first branch of oneOf that matches the json value is the correct one. 
+        | FSharpOneOf [single] -> 
+            generateJsonValToRuntimeTypeConversion classMap single compileFlags
+        | FSharpOneOf (head :: tail) ->
+
+            // Frist we generate the conversion for the head and tail of the oneOf type. (The tail being how to unfold the choise type)
+            let headConversion = generateJsonValToRuntimeTypeConversion classMap head compileFlags
+            let tailConversion = generateJsonValToRuntimeTypeConversion classMap (FSharpOneOf tail) compileFlags
+
+            // Get the type of the choice ie. something like Choice<_, _> 
+            let choiceType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
+
+            // Retrive the types within the choice 
+            let cases = Reflection.FSharpType.GetUnionCases choiceType
+            let choice1 = cases.[0] // Will always be a FSharpType
+            let choice2 = cases.[1] // Can be a FSharpType or another Choice type
+
+            let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
+            let jsonValExpr = Expr.Var jsonValVar
+
+            // Generate the expression that checks if the json value matches the head type 
+            let headMatches = generateStructualMatchExpr head jsonValExpr
+            
+            // The expression that will be executed if the head matches - ie. we will convert the json value to the head type
+            let thenBranch = Expr.NewUnionCase(choice1, [Expr.Application(headConversion, jsonValExpr) ])
+
+            // The expression that will be executed if the head does not match - ie. we will continue the unfolding of the choice type and try to match the nect type in the choice.
+            let elseBranch = Expr.NewUnionCase(choice2, [Expr.Application(tailConversion, jsonValExpr) ])
+
+
+            Expr.Lambda(jsonValVar, Expr.IfThenElse(headMatches, thenBranch,
+            elseBranch))
+
 
     let rec private generateRuntimeTypeToJsonValConversion
         (classMap: Map<string, ProvidedTypeDefinition>)
@@ -128,15 +178,17 @@ module ExprGenerator =
             let choiceType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
             let cases = Reflection.FSharpType.GetUnionCases choiceType
             let choice1 = cases.[0]
-            let choice2 = cases.[1]
+
+            let headRuntimeType = fSharpTypeToRuntimeType classMap head compileFlags
+            let tailRuntimeType = fSharpTypeToRuntimeType classMap (FSharpOneOf rest) compileFlags
 
             let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid()}", choiceType)
 
             let isChoice1 = Expr.UnionCaseTest(Expr.Var runtimeObjVar, choice1)
-            let headValue = Expr.PropertyGet(Expr.Var runtimeObjVar, choice1.GetFields().[0])
+            let headValue = CommonExprs.callGetChoice1Of2 headRuntimeType tailRuntimeType (Expr.Var runtimeObjVar)
             let thenBranch = Expr.Application(headConversion, headValue)
 
-            let restValue = Expr.PropertyGet(Expr.Var runtimeObjVar, choice2.GetFields().[0])
+            let restValue = CommonExprs.callGetChoice2Of2 headRuntimeType tailRuntimeType (Expr.Var runtimeObjVar)
             let elseBranch = Expr.Application(restConversion, restValue)
 
             Expr.Lambda(runtimeObjVar, Expr.IfThenElse(isChoice1, thenBranch, elseBranch))

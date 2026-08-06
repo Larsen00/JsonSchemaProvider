@@ -8,10 +8,11 @@
     <None Include="Debug.fsx" />
     <Compile Include="JsonSchemaProviderTests.fs" />
     <Compile Include="ArrayTests.fs" />
+    <Compile Include="OneOfTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Update="FSharp.Core" Version="10.*" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="altcover" Version="9.0.102" />

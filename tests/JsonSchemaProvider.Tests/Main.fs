@@ -9,4 +9,4 @@ module Main =
         runTestsWithCLIArgs
             []
             args
-            (testList "JsonSchemaProvider.Tests" [ JsonSchemaProviderTests.tests; ArrayTests.tests ])
+            (testList "JsonSchemaProvider.Tests" [ JsonSchemaProviderTests.tests; ArrayTests.tests; OneOfTests.tests ])

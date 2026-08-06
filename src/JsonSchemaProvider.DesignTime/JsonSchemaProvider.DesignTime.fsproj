@@ -14,15 +14,20 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="NJsonSchema" Version="11.0.2" />
     <PackageReference Include="System.Text.Encodings.Web" Version="6.0.0" />
-    <PackageReference Update="FSharp.Core" Version="8.*">
+    <PackageReference Update="FSharp.Core" Version="10.0.102">
       <!-- This excludes FSharp.Core.xml and FSharp.Core.resources.dll while referencing the right FSharp.Core.dll version -->
       <ExcludeAssets>runtime;contentFiles</ExcludeAssets>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\JsonSchemaProvider.Runtime\validation.fs" />
+    <Compile Include="..\JsonSchemaProvider.Runtime\Types\JsonArray.fs" />
+    <Compile Include="..\JsonSchemaProvider.Runtime\JsonRefinement.fs" />
+    <Compile Include="..\JsonSchemaProvider.Runtime\ChoiceAccessors.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\JsonSchemaProvider.Runtime.fs" />
     <Compile Include="ProviderConfiguration.fs"/>
     <Compile Include="Types\JsonArray.fs"/>
+    <Compile Include="Subschemas\JsonOneOf.fs"/>
     <Compile Include="SchemaConversion.fs" />
     <Compile Include="TypeLevelConversion.fs" />
     <Compile Include="CommonExprs.fs" />

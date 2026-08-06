@@ -11,8 +11,10 @@ module SchemaConversion =
         PropertyType: JsonSchemaType 
     }
 
+    // type Name = string
     and JsonSchemaType =
         | JsonObject of JsonProperty list
+        // | JsonObject of List<Name * JsonObject.SpecificKeywords * JsonSchemaType> // TODO
         | JsonArray of JsonSchemaType * JsonArray.SpecificKeywords
         | JsonBoolean
         | JsonInteger

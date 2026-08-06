@@ -107,6 +107,16 @@ module internal CommonExprs =
         |> Array.find (fun methodInfo -> methodInfo.Name = "Append")
         |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod elementType
 
+    let private choiceAccessorsType =
+        typeof<NullableJsonValue>.Assembly.GetTypes()
+        |> Array.find (fun ty -> ty.Name = "ChoiceAccessors")
+
+    let private getChoice1Of2MethodInfo (headType: Type) (tailType: Type) : MethodInfo =
+        choiceAccessorsType.GetMethod("getChoice1Of2").MakeGenericMethod(headType, tailType)
+
+    let private getChoice2Of2MethodInfo (headType: Type) (tailType: Type) : MethodInfo =
+        choiceAccessorsType.GetMethod("getChoice2Of2").MakeGenericMethod(headType, tailType)
+
     let private opEqualityMethodInfo =
         match <@@ (=) @@> with
         | Lambda(_, Lambda(_, Call(_, mi, _))) -> mi
@@ -169,3 +179,9 @@ module internal CommonExprs =
 
     let callArrayAppend (array1: Expr) (array2: Expr) (elementType: Type) : Expr =
         Expr.Call(arrayAppendMethodInfo elementType, [ array1; array2 ])
+
+    let callGetChoice1Of2 (headType: Type) (tailType: Type) (receiver: Expr) : Expr =
+        Expr.Call(getChoice1Of2MethodInfo headType tailType, [ receiver ])
+
+    let callGetChoice2Of2 (headType: Type) (tailType: Type) (receiver: Expr) : Expr =
+        Expr.Call(getChoice2Of2MethodInfo headType tailType, [ receiver ])
