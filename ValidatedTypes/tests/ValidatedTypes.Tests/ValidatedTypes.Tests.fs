@@ -1,35 +1,19 @@
 module ValidatedTypesTests
 
-open MyNamespace
+open ValidatedTypes.Provided
 open NUnit.Framework
 
-[<Test>]
-let ``Default constructor should create instance`` () =
-    Assert.That(MyType().InnerState, Is.EqualTo("My internal state"))
+type Minimum1 = Number<"{\"minimum\": 1}">
 
 [<Test>]
-let ``Constructor with parameter should create instance`` () =
-    Assert.That(MyType("override").InnerState, Is.EqualTo("override"))
+let ``create succeeds when value meets minimum`` () =
+    match Minimum1.create(5.0) with
+    | Ok v -> Assert.That(v, Is.EqualTo(5.0))
+    | Error errs -> Assert.Fail(String.concat "; " errs)
 
 [<Test>]
-let ``Method with ReflectedDefinition parameter should get its name`` () =
-    let myValue = 2
-    Assert.That(MyType.NameOf(myValue), Is.EqualTo("myValue"))
-
-type Generative2 = ValidatedTypes.GenerativeProvider<2>
-type Generative4 = ValidatedTypes.GenerativeProvider<4>
-
-[<Test>]
-let ``Can access properties of generative provider 2`` () =
-    let obj = Generative2()
-    Assert.That(obj.Property1, Is.EqualTo(1))
-    Assert.That(obj.Property2, Is.EqualTo(2))
-
-[<Test>]
-let ``Can access properties of generative provider 4`` () =
-    let obj = Generative4()
-    Assert.That(obj.Property1, Is.EqualTo(1))
-    Assert.That(obj.Property2, Is.EqualTo(2))
-    Assert.That(obj.Property3, Is.EqualTo(3))
-    Assert.That(obj.Property4, Is.EqualTo(4))
+let ``create fails when value is below minimum`` () =
+    match Minimum1.create(0.0) with
+    | Error _ -> Assert.Pass()
+    | Ok _ -> Assert.Fail("expected a validation error")
 

@@ -17,6 +17,7 @@
     </Compile>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="..\ValidatedTypes.Runtime\ValidatedTypes.Runtime.fs" />
+    <Compile Include="..\ValidatedTypes.Runtime\Types\Number.fs" />
     <Compile Include="ValidatedTypes.DesignTime.fs" />
     <None Include="paket.references" />
   </ItemGroup>
@@ -32,6 +33,7 @@
       <!-- This excludes FSharp.Core.xml and FSharp.Core.resources.dll while referencing the right FSharp.Core.dll version -->
       <ExcludeAssets>runtime;contentFiles</ExcludeAssets>
     </PackageReference>
+    <PackageReference Include="JsonSchemaProvider" Version="0.1.2" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

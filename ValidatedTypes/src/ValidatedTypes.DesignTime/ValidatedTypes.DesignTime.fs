@@ -9,6 +9,9 @@ open FSharp.Core.CompilerServices
 open MyNamespace
 open ProviderImplementation
 open ProviderImplementation.ProvidedTypes
+open ValidatedTypes.DesignTime
+// open ValidatedTypes.DesignTime.Number
+
 
 // Put any utility helpers here
 [<AutoOpen>]
@@ -17,84 +20,57 @@ module internal Helpers =
 
 [<TypeProvider>]
 type BasicErasingProvider (config : TypeProviderConfig) as this =
-    inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("ValidatedTypes.DesignTime", "ValidatedTypes.Runtime")], addDefaultProbingLocation=true)
+    inherit TypeProviderForNamespaces (config, addDefaultProbingLocation=true)
 
-    let ns = "MyNamespace"
-    let asm = Assembly.GetExecutingAssembly()
+    let namespaceName  = "ValidatedTypes.Provided"
+    let thisAssembly  = Assembly.GetExecutingAssembly()
 
-    // check we contain a copy of runtime files, and are not referencing the runtime DLL
-    do assert (typeof<DataSource>.Assembly.GetName().Name = asm.GetName().Name)  
+    let createType typeName (constrains: string) =
 
-    let createTypes () =
-        let myType = ProvidedTypeDefinition(asm, ns, "MyType", Some typeof<obj>)
+        match Number.parse constrains with
+        | Error errors ->
+            let errorMessages = String.Join("; ", errors)
+            raise (ArgumentException errorMessages)
 
-        let ctor = ProvidedConstructor([], invokeCode = fun args -> <@@ "My internal state" :> obj @@>)
-        myType.AddMember(ctor)
+        | Ok _ ->
+            // The Ok case above is only a design-time validation gate - it
+            // catches malformed constraint JSON as a compile-time error.
+            // The parsed NumberValidations value itself can't be embedded
+            // into the quotation below (it's a design-time-only instance of
+            // an erased provided type), so the quotation re-parses the raw
+            // string at runtime instead.
+            let t = ProvidedTypeDefinition(thisAssembly, namespaceName, typeName, Some typeof<obj>)
 
-        let ctor2 = ProvidedConstructor([ProvidedParameter("InnerState", typeof<string>)], invokeCode = fun args -> <@@ (%%(args.[0]):string) :> obj @@>)
-        myType.AddMember(ctor2)
+            let tryCreate =
+                ProvidedMethod(
+                    methodName = "create",
+                    parameters = [ ProvidedParameter("value", typeof<float>)],
+                    returnType = typeof<Result<float, list<string>>>,
+                    isStatic = true,
+                    invokeCode = (fun args ->
 
-        let innerState = ProvidedProperty("InnerState", typeof<string>, getterCode = fun args -> <@@ (%%(args.[0]) :> obj) :?> string @@>)
-        myType.AddMember(innerState)
+                        <@@
+                            let inputValue = %%args.[0] : float
+                            Number.create inputValue constrains
+                        @@>
+                    )
+                )
 
-        let meth = ProvidedMethod("StaticMethod", [], typeof<DataSource>, isStatic=true, invokeCode = (fun args -> Expr.Value(null, typeof<DataSource>)))
-        myType.AddMember(meth)
+            t.AddMember tryCreate
 
-        let nameOf =
-            let param = ProvidedParameter("p", typeof<Expr<int>>)
-            param.AddCustomAttribute {
-                new CustomAttributeData() with
-                    member __.Constructor = typeof<ReflectedDefinitionAttribute>.GetConstructor([||])
-                    member __.ConstructorArguments = [||] :> _
-                    member __.NamedArguments = [||] :> _
-            }
-            ProvidedMethod("NameOf", [ param ], typeof<string>, isStatic = true, invokeCode = fun args ->
-                <@@
-                    match (%%args.[0]) : Expr<int> with
-                    | Microsoft.FSharp.Quotations.Patterns.ValueWithName (_, _, n) -> n
-                    | e -> failwithf "Invalid quotation argument (expected ValueWithName): %A" e
-                @@>)
-        myType.AddMember(nameOf)
 
-        [myType]
-
+            t
+                
     do
-        this.AddNamespace(ns, createTypes())
+        // Define the provided type "Number"
+        let NumberType = ProvidedTypeDefinition(thisAssembly, namespaceName, "Number", Some typeof<obj>)
 
-[<TypeProvider>]
-type BasicGenerativeProvider (config : TypeProviderConfig) as this =
-    inherit TypeProviderForNamespaces (config, assemblyReplacementMap=[("ValidatedTypes.DesignTime", "ValidatedTypes.Runtime")])
+        // Define the static parameters for the "Number" type
+        NumberType.DefineStaticParameters(
+            [
+                ProvidedStaticParameter("Json",typeof<string>, parameterDefaultValue = "{}")
+            ],
+            fun typeName args -> createType typeName (args.[0] :?> string))
 
-    let ns = "ValidatedTypes"
-    let asm = Assembly.GetExecutingAssembly()
-
-    // check we contain a copy of runtime files, and are not referencing the runtime DLL
-    do assert (typeof<DataSource>.Assembly.GetName().Name = asm.GetName().Name)  
-
-    let createType typeName (count:int) =
-        let asm = ProvidedAssembly()
-        let myType = ProvidedTypeDefinition(asm, ns, typeName, Some typeof<obj>, isErased=false)
-
-        let ctor = ProvidedConstructor([], invokeCode = fun args -> <@@ "My internal state" :> obj @@>)
-        myType.AddMember(ctor)
-
-        let ctor2 = ProvidedConstructor([ProvidedParameter("InnerState", typeof<string>)], invokeCode = fun args -> <@@ (%%(args.[1]):string) :> obj @@>)
-        myType.AddMember(ctor2)
-
-        for i in 1 .. count do 
-            let prop = ProvidedProperty("Property" + string i, typeof<int>, getterCode = fun args -> <@@ i @@>)
-            myType.AddMember(prop)
-
-        let meth = ProvidedMethod("StaticMethod", [], typeof<DataSource>, isStatic=true, invokeCode = (fun args -> Expr.Value(null, typeof<DataSource>)))
-        myType.AddMember(meth)
-        asm.AddTypes [ myType ]
-
-        myType
-
-    let myParamType = 
-        let t = ProvidedTypeDefinition(asm, ns, "GenerativeProvider", Some typeof<obj>, isErased=false)
-        t.DefineStaticParameters( [ProvidedStaticParameter("Count", typeof<int>)], fun typeName args -> createType typeName (unbox<int> args.[0]))
-        t
-    do
-        this.AddNamespace(ns, [myParamType])
+        this.AddNamespace(namespaceName, [NumberType])
 
