@@ -13,7 +13,7 @@ module ExprGenerator =
     let rec private generateStructualMatchExpr (fsharpType: FSharpType) (jsonValExpr: Expr) =
         match fsharpType with
         | FSharpBool -> <@@ (JsonRefinement.tryBoolean %%jsonValExpr).IsSome @@>
-        | FSharpInt -> <@@ (JsonRefinement.tryInteger %%jsonValExpr).IsSome @@>
+        | FSharpInt(_) -> <@@ (JsonRefinement.tryInteger %%jsonValExpr).IsSome @@>
         | FSharpDouble -> <@@ (JsonRefinement.tryFloat %%jsonValExpr).IsSome @@>
         | FSharpString -> <@@ (JsonRefinement.tryString %%jsonValExpr).IsSome @@>
         | FSharpClass(_) -> <@@ (JsonRefinement.tryObject %%jsonValExpr).IsSome @@>
@@ -77,7 +77,7 @@ module ExprGenerator =
                     CommonExprs.callListOfArray mappedArray innerRuntimeType
                 Expr.Lambda(jsonValVar, arrayAsList)
         | FSharpDouble -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
-        | FSharpInt -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
+        | FSharpInt(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
         | FSharpString -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
         // We can assume that the json value is a valid one, hence we can justify that the first branch of oneOf that matches the json value is the correct one. 
         | FSharpOneOf [single] -> 
@@ -161,7 +161,7 @@ module ExprGenerator =
                 <@@ fun (runtimeObj: Nullable<double>) -> JsonValue.Float(runtimeObj.Value) @@>
             else
                 <@@ fun (runtimeObj: double) -> JsonValue.Float(runtimeObj) @@>
-        | FSharpInt ->
+        | FSharpInt(_) ->
             if optional then
                 <@@ fun (runtimeObj: Nullable<int>) -> JsonValue.Number(decimal runtimeObj.Value) @@>
             else
@@ -249,7 +249,7 @@ module ExprGenerator =
     let private generateIsNullCheck (fSharpType: FSharpType) (arg: Expr) : Expr =
         match fSharpType with
         | FSharpBool -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
-        | FSharpInt -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
+        | FSharpInt(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
         | FSharpDouble -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
         | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
 

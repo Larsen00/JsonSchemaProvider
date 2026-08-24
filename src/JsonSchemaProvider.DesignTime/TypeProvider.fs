@@ -21,7 +21,7 @@ module TypeProvider =
       | FSharpClass(name, properties) -> [ (name, properties) ]
       | FSharpList(inner, _) -> extractNestedClasses inner
       | FSharpOneOf types -> types |> List.collect extractNestedClasses
-      | FSharpBool | FSharpInt | FSharpDouble | FSharpString -> []
+      | FSharpBool | FSharpInt(_) | FSharpDouble | FSharpString -> []
 
     let private createProvidedProperties
         (classMap: Map<string, ProvidedTypeDefinition>)

@@ -9,6 +9,7 @@
     <Compile Include="JsonSchemaProviderTests.fs" />
     <Compile Include="ArrayTests.fs" />
     <Compile Include="OneOfTests.fs" />
+    <Compile Include="TempIntegerWiringCheck.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -20,7 +20,7 @@ module TypeLevelConversion =
             JsonArrayProvidedType.FSharpListType innerStaticType arrayKeywords compileFlags
             
         | FSharpDouble -> typeof<double>
-        | FSharpInt -> typeof<int>
+        | FSharpInt(_) -> typeof<int>
         | FSharpString -> typeof<string>
         | FSharpOneOf innerFSharpTypes -> 
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToCompileTimeType classMap t compileFlags) innerFSharpTypes
@@ -35,7 +35,7 @@ module TypeLevelConversion =
             let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerRuntimeType arrayKeywords compileFlags
         | FSharpDouble -> typeof<double>
-        | FSharpInt -> typeof<int>
+        | FSharpInt(_) -> typeof<int>
         | FSharpString -> typeof<string>
         | FSharpOneOf innerFSharpTypes -> 
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToRuntimeType classMap t compileFlags) innerFSharpTypes

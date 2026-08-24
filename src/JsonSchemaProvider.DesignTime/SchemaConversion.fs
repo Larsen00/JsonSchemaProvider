@@ -17,7 +17,7 @@ module SchemaConversion =
         // | JsonObject of List<Name * JsonObject.SpecificKeywords * JsonSchemaType> // TODO
         | JsonArray of JsonSchemaType * JsonArray.SpecificKeywords
         | JsonBoolean
-        | JsonInteger
+        | JsonInteger of JsonInteger.SpecificKeywords
         | JsonNumber
         | JsonString
         // TODO: None is missing from the specification
@@ -46,7 +46,15 @@ module SchemaConversion =
         match schema.Type with
         | JsonObjectType.Array -> parseArray schema
         | JsonObjectType.Boolean -> JsonBoolean
-        | JsonObjectType.Integer -> JsonInteger
+        | JsonObjectType.Integer -> 
+            let m x = x |> Option.ofNullable |> Option.map float
+            JsonInteger {
+                minimum = schema.Minimum |> m
+                maximum = schema.Maximum |> m
+                exclusiveMinimum = schema.ExclusiveMinimum |> m
+                exclusiveMaximum = schema.ExclusiveMaximum |> m
+                multipleOf = schema.MultipleOf |> m
+            }
         | JsonObjectType.Number -> JsonNumber
         | JsonObjectType.Object -> parseObject schema
         | JsonObjectType.String -> JsonString
@@ -82,7 +90,7 @@ module SchemaConversion =
         | FSharpClass of string * FSharpProperty list // Json object and the name // TODO: is this misleading? Since F# doesn't have classes 
         | FSharpList of FSharpType * JsonArray.SpecificKeywords
         | FSharpDouble
-        | FSharpInt
+        | FSharpInt of JsonInteger.SpecificKeywords
         | FSharpString
         | FSharpBool
         | FSharpOneOf of FSharpType list
@@ -117,7 +125,7 @@ module SchemaConversion =
             let innerFSharpType = jsonSchemaTypeToFSharpType lhsName innerType
             FSharpList(innerFSharpType, keywords)
             
-        | JsonInteger -> FSharpInt
+        | JsonInteger(keywords) -> FSharpInt keywords
         | JsonNumber -> FSharpDouble
         | JsonString -> FSharpString
         | JsonOneOf types -> FSharpOneOf <| List.map (jsonSchemaTypeToFSharpType lhsName) types
