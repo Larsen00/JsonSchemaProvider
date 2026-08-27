@@ -7,6 +7,7 @@ module TypeLevelConversion =
     open JsonSchemaProvider
     // open Microsoft.FSharp.Reflection
 
+    // This is the getter function. An it produces the type of an allready created instance of the fsharp type. 
     let rec fSharpTypeToCompileTimeType
         (classMap: Map<string, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)

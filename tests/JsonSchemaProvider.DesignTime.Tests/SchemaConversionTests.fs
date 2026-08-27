@@ -74,6 +74,15 @@ module SchemaConversionTests =
           "required": ["body"]
         }"""
 
+    let jsonIntegerNoneKeywords : JsonSchemaProvider.JsonInteger.SpecificKeywords = 
+      {
+        minimum = None
+        maximum = None
+        exclusiveMinimum = None
+        exclusiveMaximum = None
+        multipleOf = None
+    }
+
     let nestedArrayWithObjectItemsShouldBeParsedCorrectly =
         test "NestedArrayWithObjectItems should be parsed correctly" {
             let actual = parseJsonSchema nestedArrayWithObjectItems
@@ -89,7 +98,7 @@ module SchemaConversionTests =
 
                                       [ { Name = "propA"
                                           Optional = true
-                                          PropertyType = JsonInteger }
+                                          PropertyType = JsonInteger jsonIntegerNoneKeywords  }
                                         { Name = "propB"
                                           Optional = true
                                           PropertyType = JsonString } ]
@@ -117,7 +126,7 @@ module SchemaConversionTests =
                               "header",
                               [ { Name = "id"
                                   Optional = false
-                                  FSharpType = FSharpInt }
+                                  FSharpType = FSharpInt jsonIntegerNoneKeywords }
                                 { Name = "sender"
                                   Optional = false
                                   FSharpType = FSharpString }
@@ -131,13 +140,13 @@ module SchemaConversionTests =
                                         "time",
                                         [ { Name = "hour"
                                             Optional = false
-                                            FSharpType = FSharpInt }
+                                            FSharpType = FSharpInt jsonIntegerNoneKeywords }
                                           { Name = "minute"
                                             Optional = false
-                                            FSharpType = FSharpInt }
+                                            FSharpType = FSharpInt jsonIntegerNoneKeywords }
                                           { Name = "second"
                                             Optional = false
-                                            FSharpType = FSharpInt } ]
+                                            FSharpType = FSharpInt jsonIntegerNoneKeywords } ]
                                     ) } ]
                           ) }
                       { Name = "body"
@@ -147,7 +156,7 @@ module SchemaConversionTests =
                               "body",
                               [ { Name = "length"
                                   Optional = false
-                                  FSharpType = FSharpInt }
+                                  FSharpType = FSharpInt jsonIntegerNoneKeywords }
                                 { Name = "payload"
                                   Optional = false
                                   FSharpType = FSharpString } ]
@@ -175,7 +184,7 @@ module SchemaConversionTests =
                                       "values",
                                       [ { Name = "propA"
                                           Optional = true
-                                          FSharpType = FSharpInt }
+                                          FSharpType = FSharpInt jsonIntegerNoneKeywords }
                                         { Name = "propB"
                                           Optional = true
                                           FSharpType = FSharpString } ]

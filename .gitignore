@@ -281,3 +281,4 @@ docs/
 # Private folders
 ideas/
 notes/
+.vscode/settings.json
