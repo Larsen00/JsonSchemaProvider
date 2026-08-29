@@ -19,16 +19,19 @@ module TypeProvider =
           SchemaString: string
           CompileFlags: ProviderConfiguration.CompileFlags }
 
-    let rec private extractNestedClasses (fSharpType: FSharpType) : (string * FSharpProperty list) list =
-      match fSharpType with
-      | FSharpClass(name, properties) -> [ (name, properties) ]
-      | FSharpList(inner, _) -> extractNestedClasses inner
-      | FSharpOneOf types -> types |> List.collect extractNestedClasses
-      | FSharpBool | FSharpInt(_) | FSharpDouble | FSharpString -> []
+    let rec private extractNestedClasses (fSharpType: FSharpType) : (Guid * FSharpProperty list) list =
+
+        let t_properties = []
+
+        match fSharpType with
+        | FSharpClass(classID, properties) -> [ (classID, t_properties) ]
+        | FSharpList(inner, _) -> extractNestedClasses inner
+        | FSharpOneOf types -> types |> List.collect extractNestedClasses
+        | FSharpBool | FSharpInt(_) | FSharpDouble | FSharpString -> []
 
     let private createProvidedProperties
         (context: GenerationContext)
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
         : ProvidedProperty list =
         [ for { Name = name
@@ -47,7 +50,7 @@ module TypeProvider =
     let private createProvidedCreateMethod
         (context: GenerationContext)
         (nestedClass: bool)
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
         (providedTypeDefinition: ProvidedTypeDefinition)
         : ProvidedMethod =
@@ -111,11 +114,11 @@ module TypeProvider =
     let rec private createNestedClassProvidedTypeDefinitions
         (context: GenerationContext)
         (properties: FSharpProperty list)
-        : Map<string, ProvidedTypeDefinition> =
+        : Map<Guid, ProvidedTypeDefinition> =
         properties
         |> List.collect (fun property -> extractNestedClasses property.FSharpType)
         |> List.map (fun (name, nestedProperties) ->
-            name, fSharpClassTreeToProvidedTypeDefinition context name nestedProperties true)
+            name, fSharpClassTreeToProvidedTypeDefinition context "name" nestedProperties true)
         |> Map.ofList
 
     and private fSharpClassTreeToProvidedTypeDefinition
@@ -182,7 +185,10 @@ module TypeProvider =
               SchemaString = schema.ToJson()
               CompileFlags = compileFlags }
 
-        match parseJsonSchemaStructured schema |> jsonObjectToFSharpClass typeName with
-        | FSharpClass(className, properties) ->
-            fSharpClassTreeToProvidedTypeDefinition context className properties false
+        let temp = []
+        let classNAme = "temp"
+
+        match parseJsonSchemaStructured schema |> jsonSchemaTypeToFSharpType with
+        | FSharpClass(classID, properties) ->
+            fSharpClassTreeToProvidedTypeDefinition context classNAme temp false
         | _ -> failwith "Root schema must be an object" // TODO: lift this restriction when oneOf-as-root is supported
