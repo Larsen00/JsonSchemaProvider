@@ -11,10 +11,13 @@ module TypeProvider =
     open JsonSchemaProvider
     open FSharp.Data
 
-    type private ProvidedTypeData =
+    type private GenerationContext =
         { Assembly: Assembly
           NamespaceName: string
-          RuntimeType: Type }
+          RuntimeType: Type
+          SchemaHashCode: int32
+          SchemaString: string
+          CompileFlags: ProviderConfiguration.CompileFlags }
 
     let rec private extractNestedClasses (fSharpType: FSharpType) : (string * FSharpProperty list) list =
       match fSharpType with
@@ -24,35 +27,34 @@ module TypeProvider =
       | FSharpBool | FSharpInt(_) | FSharpDouble | FSharpString -> []
 
     let private createProvidedProperties
+        (context: GenerationContext)
         (classMap: Map<string, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
-        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedProperty list =
         [ for { Name = name
                 Optional = optional
                 FSharpType = fSharpType } as property in properties ->
 
-              let plainPropertyCompileTimeType = fSharpTypeToCompileTimeType classMap fSharpType compileFlags
+              let plainPropertyCompileTimeType =
+                  fSharpTypeToCompileTimeType classMap fSharpType context.CompileFlags
 
               ProvidedProperty(
                   propertyName = name,
                   propertyType = optionalOrPlainType optional plainPropertyCompileTimeType,
-                  getterCode = generatePropertyGetter classMap property compileFlags
+                  getterCode = generatePropertyGetter classMap property context.CompileFlags
               ) ]
 
     let private createProvidedCreateMethod
+        (context: GenerationContext)
         (nestedClass: bool)
         (classMap: Map<string, ProvidedTypeDefinition>)
         (properties: FSharpProperty list)
-        (schemaHashCode: int32)
-        (schemaString: string)
         (providedTypeDefinition: ProvidedTypeDefinition)
-        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedMethod =
         let parameters =
             [ for property in properties ->
                   let parameterType =
-                      fSharpTypeToMethodParameterType classMap property.Optional property.FSharpType compileFlags
+                      fSharpTypeToMethodParameterType classMap property.Optional property.FSharpType context.CompileFlags
 
                   if property.Optional then
                       ProvidedParameter(property.Name, parameterType, false, defaultValueForNullableType parameterType)
@@ -63,15 +65,24 @@ module TypeProvider =
             methodName = "Create",
             parameters = parameters,
             returnType = providedTypeDefinition,
-            invokeCode = generateCreateInvokeCode nestedClass classMap schemaHashCode schemaString properties compileFlags,
+            invokeCode =
+                generateCreateInvokeCode
+                    nestedClass
+                    classMap
+                    context.SchemaHashCode
+                    context.SchemaString
+                    properties
+                    context.CompileFlags,
             isStatic = true
         )
 
     let private createProvidedParseMethod
+        (context: GenerationContext)
         (returnType: Type)
-        (schemaHashCode: int32)
-        (schemaString: string)
         : ProvidedMethod =
+        let schemaHashCode = context.SchemaHashCode
+        let schemaString = context.SchemaString
+
         ProvidedMethod(
             methodName = "Parse",
             parameters = [ ProvidedParameter("json", typeof<string>) ],
@@ -98,64 +109,56 @@ module TypeProvider =
         )
 
     let rec private createNestedClassProvidedTypeDefinitions
-        (schemaHashCode: int32)
-        (schemaString: string)
-        (providedTypeData: ProvidedTypeData)
+        (context: GenerationContext)
         (properties: FSharpProperty list)
-        (compileFlags: ProviderConfiguration.CompileFlags)
         : Map<string, ProvidedTypeDefinition> =
-        properties 
+        properties
         |> List.collect (fun property -> extractNestedClasses property.FSharpType)
         |> List.map (fun (name, nestedProperties) ->
-            name, fSharpClassTreeToProvidedTypeDefinition schemaHashCode schemaString providedTypeData name nestedProperties true compileFlags)
+            name, fSharpClassTreeToProvidedTypeDefinition context name nestedProperties true)
         |> Map.ofList
 
     and private fSharpClassTreeToProvidedTypeDefinition
-        (schemaHashCode: int32)
-        (schemaString: string)
-        (providedTypeData: ProvidedTypeData)
+        (context: GenerationContext)
         (className: string)
         (properties: FSharpProperty list)
         (nestedClass: bool)
-        (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
         let providedTypeDefinition =
             ProvidedTypeDefinition(
-                providedTypeData.Assembly,
-                providedTypeData.NamespaceName,
+                context.Assembly,
+                context.NamespaceName,
                 className + (if nestedClass then "Obj" else ""),
-                Some(providedTypeData.RuntimeType)
+                Some(context.RuntimeType)
             )
 
 
         let classMap =
-            createNestedClassProvidedTypeDefinitions schemaHashCode schemaString providedTypeData properties compileFlags
+            createNestedClassProvidedTypeDefinitions context properties
 
         classMap
         |> Map.values
         |> Seq.iter (fun nestedClassProvidedTypeDefinition ->
             providedTypeDefinition.AddMember(nestedClassProvidedTypeDefinition))
 
-        let providedProperties = createProvidedProperties classMap properties compileFlags
+        let providedProperties = createProvidedProperties context classMap properties
 
         providedProperties
         |> List.iter (fun providedProperty -> providedTypeDefinition.AddMember(providedProperty))
 
         let createMethod =
             createProvidedCreateMethod
+                context
                 nestedClass
                 classMap
                 properties
-                schemaHashCode
-                schemaString
                 providedTypeDefinition
-                compileFlags
 
         providedTypeDefinition.AddMember(createMethod)
 
         if not nestedClass then
             let parseMethod =
-                createProvidedParseMethod providedTypeDefinition schemaHashCode schemaString
+                createProvidedParseMethod context providedTypeDefinition
 
             providedTypeDefinition.AddMember(parseMethod)
 
@@ -170,14 +173,16 @@ module TypeProvider =
         (runtimeType: Type)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
-        
-        let providedTypeData ={ 
-                Assembly = assembly
-                NamespaceName = namespaceName
-                RuntimeType = runtimeType 
-        }
+
+        let context =
+            { Assembly = assembly
+              NamespaceName = namespaceName
+              RuntimeType = runtimeType
+              SchemaHashCode = schemaHashCode
+              SchemaString = schema.ToJson()
+              CompileFlags = compileFlags }
 
         match parseJsonSchemaStructured schema |> jsonObjectToFSharpClass typeName with
         | FSharpClass(className, properties) ->
-            fSharpClassTreeToProvidedTypeDefinition schemaHashCode (schema.ToJson()) providedTypeData className properties false compileFlags
+            fSharpClassTreeToProvidedTypeDefinition context className properties false
         | _ -> failwith "Root schema must be an object" // TODO: lift this restriction when oneOf-as-root is supported
