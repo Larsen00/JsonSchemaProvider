@@ -7,15 +7,17 @@ module TypeLevelConversion =
     open JsonSchemaProvider
     // open Microsoft.FSharp.Reflection
 
+    type ClassMap = Map<string, ProvidedTypeDefinition>
+
     // This is the getter function. An it produces the type of an allready created instance of the fsharp type. 
     let rec fSharpTypeToCompileTimeType
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
-        | FSharpClass(classId, _) -> classMap[classId]
+        | FSharpClass(keywords, _) -> classMap[keywords.Path]
         | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerStaticType arrayKeywords compileFlags
@@ -28,7 +30,7 @@ module TypeLevelConversion =
             
 
 
-    let rec fSharpTypeToRuntimeType (classMap: Map<Guid, ProvidedTypeDefinition>) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
+    let rec fSharpTypeToRuntimeType (classMap: ClassMap) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
         | FSharpClass _ -> typeof<NullableJsonValue>
@@ -60,7 +62,7 @@ module TypeLevelConversion =
         if compileTimeType.IsValueType then Nullable() else null
 
     let rec fSharpTypeToMethodParameterType
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (optional: bool)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)

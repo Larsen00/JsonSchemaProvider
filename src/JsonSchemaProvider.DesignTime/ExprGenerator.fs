@@ -30,7 +30,7 @@ module ExprGenerator =
 
 
     let rec private generateJsonValToRuntimeTypeConversion
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
@@ -116,7 +116,7 @@ module ExprGenerator =
 
 
     let rec private generateRuntimeTypeToJsonValConversion
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (optional: bool)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
@@ -198,8 +198,9 @@ module ExprGenerator =
 
     // only for class
     let generatePropertyGetter
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
-        ((name, keywords, innertype): PropertyName * JsonObject.SpecificKeywords * FSharpType) 
+        (classMap: ClassMap)
+        (keywords:  JsonObject.SpecificKeywords)
+        ((name, innertype): PropertyName * FSharpType) 
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
         let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap innertype compileFlags
@@ -207,7 +208,7 @@ module ExprGenerator =
         let convertToRuntimeType =
             generateJsonValToRuntimeTypeConversion classMap innertype compileFlags
 
-        if not keywords.Required then
+        if not <| Map.find name keywords.Required then
             fun (args: Expr list) ->
                 // Implements:
                 // <@@
@@ -255,7 +256,7 @@ module ExprGenerator =
         | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
 
     let private generatePropertyCreation
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (name: string)
         (optional: bool)
         (fSharpType: FSharpType)
@@ -304,7 +305,7 @@ module ExprGenerator =
 
     let generateCreateInvokeCode
         (nestedClass: bool)
-        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        (classMap: ClassMap)
         (schemaHashCode: int32)
         (schemaSource: string)
         (fsharptype: FSharpType)
@@ -339,13 +340,13 @@ module ExprGenerator =
             @@>
 
         match fsharptype with
-        | FSharpClass(classID, properties) ->
+        | FSharpClass(keywords, properties) ->
             fun (args: Expr list) ->
                 let elementType = typedefof<(string * JsonValue)[]>
 
                 let elements =[
-                    for (name, keywords, innerType), arg in List.zip properties args ->
-                        generatePropertyCreation classMap name (not keywords.Required) innerType arg compileFlags
+                    for (name, innerType), arg in List.zip properties args ->
+                        generatePropertyCreation classMap name (not <| Map.find name keywords.Required) innerType arg compileFlags
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
@@ -355,6 +356,7 @@ module ExprGenerator =
 
                 wrapAndValidate jsonValExpr
 
+        // Only hitting this branch when the type is at the root of the json Schema // todo missing validation.
         | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
             fun (args: Expr list) -> args[0]
 

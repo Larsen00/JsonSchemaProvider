@@ -1,7 +1,6 @@
 namespace JsonSchemaProvider.Tests
 
 module SchemaConversionTests =
-    open System
     open JsonSchemaProvider.DesignTime.SchemaConversion
     open Expecto
 
@@ -82,37 +81,25 @@ module SchemaConversionTests =
           exclusiveMaximum = None
           multipleOf = None }
 
-    // FSharpClass carries a ClassID generated via Guid.NewGuid(), so a literal expected tree can
-    // never match an actual one by identity. This replaces every ClassID with a fixed placeholder
-    // so tests can assert on tree shape instead.
-    let rec normalizeClassIds (fsharpType: FSharpType) : FSharpType =
-        match fsharpType with
-        | FSharpClass(_, properties) ->
-            FSharpClass(
-                Guid.Empty,
-                properties
-                |> List.map (fun (name, keywords, propertyType) -> name, keywords, normalizeClassIds propertyType)
-            )
-        | FSharpList(inner, keywords) -> FSharpList(normalizeClassIds inner, keywords)
-        | FSharpOneOf types -> FSharpOneOf(List.map normalizeClassIds types)
-        | FSharpBool
-        | FSharpInt _
-        | FSharpDouble
-        | FSharpString -> fsharpType
-
+    // Path is computed via NJsonSchema's own JsonPathUtilities.GetJsonPath(root, node) - a JSON
+    // Pointer identifying this object's own position in the document. Values below were captured
+    // by running the real conversion against these exact schemas (not guessed), so a mismatch here
+    // means Path computation itself has changed, not just that this literal is stale.
     let nestedArrayWithObjectItemsShouldBeParsedCorrectly =
         test "NestedArrayWithObjectItems should be parsed correctly" {
             let actual = parseJsonSchema nestedArrayWithObjectItems
 
             let expected =
                 JsonObject(
+                    { Required = Map.ofList [ "values", false ]; Path = "#" },
                     [ ("values",
-                       { Required = false },
                        JsonArray(
                            JsonArray(
                                JsonObject(
-                                   [ ("propA", { Required = false }, JsonInteger jsonIntegerNoneKeywords)
-                                     ("propB", { Required = false }, JsonString) ]
+                                   { Required = Map.ofList [ "propA", false; "propB", false ]
+                                     Path = "#/properties/values/items/items" },
+                                   [ ("propA", JsonInteger jsonIntegerNoneKeywords)
+                                     ("propB", JsonString) ]
                                ),
                                { MinItems = None }
                            ),
@@ -128,33 +115,32 @@ module SchemaConversionTests =
             let actual =
                 parseJsonSchema nestedObjects
                 |> jsonSchemaTypeToFSharpType
-                |> normalizeClassIds
 
             let expected =
                 FSharpClass(
-                    Guid.Empty,
+                    { Required = Map.ofList [ "header", false; "body", true ]; Path = "#" },
                     [ ("header",
-                       { Required = false },
                        FSharpClass(
-                           Guid.Empty,
-                           [ ("id", { Required = true }, FSharpInt jsonIntegerNoneKeywords)
-                             ("sender", { Required = true }, FSharpString)
-                             ("resend", { Required = false }, FSharpBool)
+                           { Required = Map.ofList [ "id", true; "sender", true; "resend", false; "time", false ]
+                             Path = "#/properties/header" },
+                           [ ("id", FSharpInt jsonIntegerNoneKeywords)
+                             ("sender", FSharpString)
+                             ("resend", FSharpBool)
                              ("time",
-                              { Required = false },
                               FSharpClass(
-                                  Guid.Empty,
-                                  [ ("hour", { Required = true }, FSharpInt jsonIntegerNoneKeywords)
-                                    ("minute", { Required = true }, FSharpInt jsonIntegerNoneKeywords)
-                                    ("second", { Required = true }, FSharpInt jsonIntegerNoneKeywords) ]
+                                  { Required = Map.ofList [ "hour", true; "minute", true; "second", true ]
+                                    Path = "#/properties/header/properties/time" },
+                                  [ ("hour", FSharpInt jsonIntegerNoneKeywords)
+                                    ("minute", FSharpInt jsonIntegerNoneKeywords)
+                                    ("second", FSharpInt jsonIntegerNoneKeywords) ]
                               )) ]
                        ))
                       ("body",
-                       { Required = true },
                        FSharpClass(
-                           Guid.Empty,
-                           [ ("length", { Required = true }, FSharpInt jsonIntegerNoneKeywords)
-                             ("payload", { Required = true }, FSharpString) ]
+                           { Required = Map.ofList [ "length", true; "payload", true ]
+                             Path = "#/properties/body" },
+                           [ ("length", FSharpInt jsonIntegerNoneKeywords)
+                             ("payload", FSharpString) ]
                        )) ]
                 )
 
@@ -166,19 +152,18 @@ module SchemaConversionTests =
             let actual =
                 parseJsonSchema nestedArrayWithObjectItems
                 |> jsonSchemaTypeToFSharpType
-                |> normalizeClassIds
 
             let expected =
                 FSharpClass(
-                    Guid.Empty,
+                    { Required = Map.ofList [ "values", false ]; Path = "#" },
                     [ ("values",
-                       { Required = false },
                        FSharpList(
                            FSharpList(
                                FSharpClass(
-                                   Guid.Empty,
-                                   [ ("propA", { Required = false }, FSharpInt jsonIntegerNoneKeywords)
-                                     ("propB", { Required = false }, FSharpString) ]
+                                   { Required = Map.ofList [ "propA", false; "propB", false ]
+                                     Path = "#/properties/values/items/items" },
+                                   [ ("propA", FSharpInt jsonIntegerNoneKeywords)
+                                     ("propB", FSharpString) ]
                                ),
                                { MinItems = None }
                            ),

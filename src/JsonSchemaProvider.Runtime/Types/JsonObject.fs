@@ -3,5 +3,6 @@ namespace JsonSchemaProvider
 module JsonObject =
 
     type SpecificKeywords = { 
-        Required: bool
+        Required: Map<string, bool>
+        Path: string
     }
