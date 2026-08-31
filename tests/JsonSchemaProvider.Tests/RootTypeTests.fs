@@ -25,11 +25,20 @@ module RootTypeTests =
     let constrainedIntRootSchema =
         """{ "type": "integer", "minimum": 5, "maximum": 10 }"""
 
+    // FSharpString carries no SpecificKeywords at all (unlike FSharpInt) - this schema exists to
+    // confirm primitive-root validation genuinely runs the whole sub-schema through
+    // NJsonSchema's own Validate, not something limited to the keywords SchemaConversion.fs
+    // happens to model at the FSharpType level.
+    [<Literal>]
+    let patternConstrainedStringRootSchema =
+        """{ "type": "string", "pattern": "^[a-z]+$" }"""
+
     type BoolRoot = JsonSchemaProvider<schema=boolRootSchema>
     type IntRoot = JsonSchemaProvider<schema=intRootSchema>
     type NumberRoot = JsonSchemaProvider<schema=numberRootSchema>
     type StringRoot = JsonSchemaProvider<schema=stringRootSchema>
     type ConstrainedIntRoot = JsonSchemaProvider<schema=constrainedIntRootSchema>
+    type PatternConstrainedStringRoot = JsonSchemaProvider<schema=patternConstrainedStringRootSchema>
 
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
@@ -106,6 +115,19 @@ module RootTypeTests =
                 "Parse should reject a root value below minimum"
         }
 
+    let matchingPatternStringRootShouldBeAccepted =
+        test "string root value matching pattern is accepted by Create" {
+            let result = PatternConstrainedStringRoot.Create("hello")
+            Expect.equal result "hello" "PatternConstrainedStringRoot.Create(\"hello\") should be accepted"
+        }
+
+    let nonMatchingPatternStringRootShouldBeRejected =
+        test "string root value not matching pattern is rejected by Create" {
+            Expect.throws
+                (fun () -> PatternConstrainedStringRoot.Create("HELLO") |> ignore)
+                "Create should reject a root value that doesn't match the pattern"
+        }
+
     // FSharpList/FSharpOneOf as the schema root aren't wired up yet (run still `failwith`s for
     // them - see notes/any-type-as-root-refactor.md open item #3). Deliberately no
     // `type X = JsonSchemaProvider<schema=...>` for those here: a design-time failwith aborts
@@ -127,4 +149,6 @@ module RootTypeTests =
               inRangeConstrainedIntRootShouldBeAccepted
               belowMinimumConstrainedIntRootShouldBeRejectedByCreate
               aboveMaximumConstrainedIntRootShouldBeRejectedByCreate
-              belowMinimumConstrainedIntRootShouldBeRejectedByParse ]
+              belowMinimumConstrainedIntRootShouldBeRejectedByParse
+              matchingPatternStringRootShouldBeAccepted
+              nonMatchingPatternStringRootShouldBeRejected ]
