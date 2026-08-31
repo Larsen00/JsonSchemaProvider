@@ -69,20 +69,20 @@ module TypeProvider =
 
         | _ -> failwith "also dont know - createMethodParameters"
 
-                
+
     // The .create method to create in instance of the provided type
     let private createProvidedCreateMethod
         (context: GenerationContext)
         (nestedClass: bool)
         (classMap: Map<Guid, ProvidedTypeDefinition>)
         (fsharptype: FSharpType)
-        (providedTypeDefinition: ProvidedTypeDefinition)
+        (returnType: Type)
         : ProvidedMethod =
 
         ProvidedMethod(
             methodName = "Create",
             parameters = createMethodParameters context classMap fsharptype,
-            returnType = providedTypeDefinition,
+            returnType = returnType,
             invokeCode =
                 generateCreateInvokeCode
                     nestedClass
@@ -93,6 +93,8 @@ module TypeProvider =
                     context.CompileFlags,
             isStatic = true
         )
+
+
 
     let private createProvidedParseMethod
         (context: GenerationContext)
@@ -191,14 +193,20 @@ module TypeProvider =
         | FSharpClass(rootClassId, _) as fsharptype ->
             let classMap = buildClassMap context false typeName fsharptype
             classMap[rootClassId]
-        | (FSharpBool | FSharpInt _ | FSharpDouble | FSharpString) as fsharptype ->
+        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString as fsharptype ->
+
+            // Class map contains nested classes inside the type - since a primitive type dont have nested classes this is empty.
+            let classMap = Map.empty
+
             let providedTypeDefinition = createprovidedTypeDefinition context false typeName
 
-            let createMethod = createProvidedCreateMethod context false Map.empty fsharptype providedTypeDefinition
-            providedTypeDefinition.AddMember(createMethod)
+            let returnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
+
+            let createMethod = createProvidedCreateMethod context false classMap fsharptype returnType
+            providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context providedTypeDefinition
-            providedTypeDefinition.AddMember(parseMethod)
+            providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
         | _ -> failwith "Root schema must be an object or a primitive" // TODO: lift this restriction when list/oneOf root is wired up

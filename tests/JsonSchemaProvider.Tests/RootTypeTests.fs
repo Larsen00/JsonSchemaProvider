@@ -34,7 +34,7 @@ module RootTypeTests =
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
             let result = BoolRoot.Create(true)
-            Expect.equal (result.JsonVal.AsBoolean()) true "BoolRoot.Create(true).JsonVal = true"
+            Expect.equal (result) true "BoolRoot.Create(true).JsonVal = true"
         }
 
     let boolRootShouldBeParsed =
@@ -46,7 +46,7 @@ module RootTypeTests =
     let intRootShouldBeCreated =
         test "integer root Create builds the value" {
             let result = IntRoot.Create(42)
-            Expect.equal (result.JsonVal.AsInteger()) 42 "IntRoot.Create(42).JsonVal = 42"
+            Expect.equal result 42 "IntRoot.Create(42).JsonVal = 42"
         }
 
     let intRootShouldBeParsed =
@@ -58,7 +58,7 @@ module RootTypeTests =
     let numberRootShouldBeCreated =
         test "number root Create builds the value" {
             let result = NumberRoot.Create(3.14)
-            Expect.equal (result.JsonVal.AsFloat()) 3.14 "NumberRoot.Create(3.14).JsonVal = 3.14"
+            Expect.equal result 3.14 "NumberRoot.Create(3.14).JsonVal = 3.14"
         }
 
     let numberRootShouldBeParsed =
@@ -70,7 +70,7 @@ module RootTypeTests =
     let stringRootShouldBeCreated =
         test "string root Create builds the value" {
             let result = StringRoot.Create("hello")
-            Expect.equal (result.JsonVal.AsString()) "hello" "StringRoot.Create(\"hello\").JsonVal = \"hello\""
+            Expect.equal result "hello" "StringRoot.Create(\"hello\").JsonVal = \"hello\""
         }
 
     let stringRootShouldBeParsed =
@@ -82,7 +82,7 @@ module RootTypeTests =
     let inRangeConstrainedIntRootShouldBeAccepted =
         test "in-range integer root value is accepted by Create" {
             let result = ConstrainedIntRoot.Create(7)
-            Expect.equal (result.JsonVal.AsInteger()) 7 "ConstrainedIntRoot.Create(7).JsonVal = 7"
+            Expect.equal result 7 "ConstrainedIntRoot.Create(7).JsonVal = 7"
         }
 
     let belowMinimumConstrainedIntRootShouldBeRejectedByCreate =

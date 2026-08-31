@@ -9,6 +9,8 @@ module ExprGenerator =
     open System
     open ProviderImplementation.ProvidedTypes
     open FSharp.Data.Runtime
+    open FSharp.Quotations.Patterns
+    open FSharp.Quotations.DerivedPatterns
 
     let rec private generateStructualMatchExpr (fsharpType: FSharpType) (jsonValExpr: Expr) =
         match fsharpType with
@@ -284,6 +286,22 @@ module ExprGenerator =
                 ]
             )
 
+
+    // Extracts the MethodInfo behind a two-argument top-level function, e.g.
+    //   methodInfoOf2 <@ fun (a: float) (b: string) -> Number.create a b @>
+    let methodInfoOf2 (expr: Expr<'a -> 'b -> 'c>) =
+        match expr with
+        | Lambdas(_, Call(_, mi, _)) -> mi
+        | _ -> failwith "Expected a quotation of the form <@ fun a b -> SomeModule.someFunction a b @>"
+
+    // Extracts the MethodInfo behind a one-argument top-level function, e.g.
+    //  methodInfoOf <@ fun (a: float) -> Number.create a @>
+    let methodInfoOf1 (expr: Expr<'a -> 'b -> 'c>) =
+        match expr with
+        | Lambdas(_, Call(_, mi, _)) -> mi
+        | _ -> failwith "Expected a quotation of the form <@ fun a b -> SomeModule.someFunction a b @>"
+
+
     let generateCreateInvokeCode
         (nestedClass: bool)
         (classMap: Map<Guid, ProvidedTypeDefinition>)
@@ -292,6 +310,8 @@ module ExprGenerator =
         (fsharptype: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
+
+        
 
         // Wraps a freshly-built JsonValue in a NullableJsonValue, validating it against the
         // schema unless this is a nested (non-root) class 
@@ -336,10 +356,6 @@ module ExprGenerator =
                 wrapAndValidate jsonValExpr
 
         | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
-            fun (args: Expr list) ->
-                let convertToJsonVal = generateRuntimeTypeToJsonValConversion classMap false fsharptype compileFlags
-                let jsonValExpr = Expr.Application(convertToJsonVal, args[0])
-
-                wrapAndValidate jsonValExpr
+            fun (args: Expr list) -> args[0]
 
         | _ -> failwith "hmm idk"
