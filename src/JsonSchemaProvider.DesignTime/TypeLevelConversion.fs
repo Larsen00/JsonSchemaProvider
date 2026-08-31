@@ -9,34 +9,34 @@ module TypeLevelConversion =
 
     // This is the getter function. An it produces the type of an allready created instance of the fsharp type. 
     let rec fSharpTypeToCompileTimeType
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
-        | FSharpClass(name, _) -> classMap[name]
+        | FSharpClass(classId, _) -> classMap[classId]
         | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerStaticType arrayKeywords compileFlags
             
         | FSharpDouble -> typeof<double>
-        | FSharpInt(_) -> typeof<int>
+        | FSharpInt _ -> typeof<int>
         | FSharpString -> typeof<string>
         | FSharpOneOf innerFSharpTypes -> 
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToCompileTimeType classMap t compileFlags) innerFSharpTypes
             
 
 
-    let rec fSharpTypeToRuntimeType (classMap: Map<string, ProvidedTypeDefinition>) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
+    let rec fSharpTypeToRuntimeType (classMap: Map<Guid, ProvidedTypeDefinition>) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
         match fSharpType with
         | FSharpBool -> typeof<bool>
-        | FSharpClass(_) -> typeof<NullableJsonValue>
+        | FSharpClass _ -> typeof<NullableJsonValue>
         | FSharpList(innerFSharpType, arrayKeywords) -> 
             let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerRuntimeType arrayKeywords compileFlags
         | FSharpDouble -> typeof<double>
-        | FSharpInt(_) -> typeof<int>
+        | FSharpInt _ -> typeof<int>
         | FSharpString -> typeof<string>
         | FSharpOneOf innerFSharpTypes -> 
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToRuntimeType classMap t compileFlags) innerFSharpTypes
@@ -60,7 +60,7 @@ module TypeLevelConversion =
         if compileTimeType.IsValueType then Nullable() else null
 
     let rec fSharpTypeToMethodParameterType
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (optional: bool)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)

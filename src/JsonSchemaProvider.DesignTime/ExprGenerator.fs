@@ -28,7 +28,7 @@ module ExprGenerator =
 
 
     let rec private generateJsonValToRuntimeTypeConversion
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
@@ -114,7 +114,7 @@ module ExprGenerator =
 
 
     let rec private generateRuntimeTypeToJsonValConversion
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (optional: bool)
         (fSharpType: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
@@ -194,19 +194,18 @@ module ExprGenerator =
             Expr.Lambda(runtimeObjVar, Expr.IfThenElse(isChoice1, thenBranch, elseBranch))
                      
 
+    // only for class
     let generatePropertyGetter
-        (classMap: Map<string, ProvidedTypeDefinition>)
-        { Name = name
-          Optional = optional
-          FSharpType = fSharpType }
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
+        ((name, keywords, innertype): PropertyName * JsonObject.SpecificKeywords * FSharpType) 
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
-        let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
+        let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap innertype compileFlags
 
         let convertToRuntimeType =
-            generateJsonValToRuntimeTypeConversion classMap fSharpType compileFlags
+            generateJsonValToRuntimeTypeConversion classMap innertype compileFlags
 
-        if optional then
+        if not keywords.Required then
             fun (args: Expr list) ->
                 // Implements:
                 // <@@
@@ -254,7 +253,7 @@ module ExprGenerator =
         | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
 
     let private generatePropertyCreation
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (name: string)
         (optional: bool)
         (fSharpType: FSharpType)
@@ -269,45 +268,36 @@ module ExprGenerator =
             let elseBranch =
                 Expr.NewArray(
                     typeof<string * JsonValue>,
-                    [ Expr.NewTuple(
+                    [ Expr.NewTuple
                           [ Expr.Value(name)
                             Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType compileFlags, arg) ]
-                      ) ]
+                    ]
                 )
 
             Expr.IfThenElse(isNull, thenBranch, elseBranch)
         else
             Expr.NewArray(
                 typeof<string * JsonValue>,
-                [ Expr.NewTuple(
+                [ Expr.NewTuple
                       [ Expr.Value(name)
                         Expr.Application(generateRuntimeTypeToJsonValConversion classMap optional fSharpType compileFlags, arg) ]
-                  ) ]
+                ]
             )
 
     let generateCreateInvokeCode
         (nestedClass: bool)
-        (classMap: Map<string, ProvidedTypeDefinition>)
+        (classMap: Map<Guid, ProvidedTypeDefinition>)
         (schemaHashCode: int32)
         (schemaSource: string)
-        (properties: FSharpProperty list)
+        (fsharptype: FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
-        fun (args: Expr list) ->
-            let elementType = typedefof<(string * JsonValue)[]>
 
-            let elements =
-                [ for ({ Name = name
-                         Optional = optional
-                         FSharpType = fSharpType },
-                       arg) in List.zip properties args ->
-                      generatePropertyCreation classMap name optional fSharpType arg compileFlags ]
-
-            let fields = Expr.NewArray(elementType, elements)
-
+        // Wraps a freshly-built JsonValue in a NullableJsonValue, validating it against the
+        // schema unless this is a nested (non-root) class 
+        let wrapAndValidate (jsonValExpr: Expr) : Expr =
             <@@
-                let record =
-                    NullableJsonValue(JsonValue.Record(Array.concat ((%%fields): (string * JsonValue)[][])))
+                let record = NullableJsonValue((%%jsonValExpr): JsonValue)
 
                 if nestedClass then
                     record
@@ -327,3 +317,29 @@ module ExprGenerator =
 
                         raise (ArgumentException(message, recordSource))
             @@>
+
+        match fsharptype with
+        | FSharpClass(classID, properties) ->
+            fun (args: Expr list) ->
+                let elementType = typedefof<(string * JsonValue)[]>
+
+                let elements =[
+                    for (name, keywords, innerType), arg in List.zip properties args ->
+                        generatePropertyCreation classMap name (not keywords.Required) innerType arg compileFlags
+                    ]
+
+                let fields = Expr.NewArray(elementType, elements)
+
+                let jsonValExpr =
+                    <@@ JsonValue.Record(Array.concat ((%%fields): (string * JsonValue)[][])) @@>
+
+                wrapAndValidate jsonValExpr
+
+        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
+            fun (args: Expr list) ->
+                let convertToJsonVal = generateRuntimeTypeToJsonValConversion classMap false fsharptype compileFlags
+                let jsonValExpr = Expr.Application(convertToJsonVal, args[0])
+
+                wrapAndValidate jsonValExpr
+
+        | _ -> failwith "hmm idk"
