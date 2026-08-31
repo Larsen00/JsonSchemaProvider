@@ -4,6 +4,7 @@ open System.Collections.Concurrent
 open NJsonSchema
 open FSharp.Data
 open System
+open Newtonsoft.Json.Serialization
 
 // Wraps a raw JsonValue so generated properties can return "this or null"
 // (nullable = how optional object/list properties are represented).
@@ -33,6 +34,12 @@ module SchemaCache =
     //  the cached schema if present, else parses it once and caches it.
     let retrieveSchema (hashCode: int) (schemaSource: string) =
         cache.GetOrAdd(hashCode, (fun _ -> parseSchema schemaSource))
+
+
+    let resolveByPath (root: JsonSchema) (path: string) : JsonSchema =
+        let appender = JsonSchemaAppender(root, DefaultTypeNameGenerator())
+        let resolver = JsonReferenceResolver appender
+        resolver.ResolveDocumentReference(root, path, typeof<JsonSchema>, DefaultContractResolver()) :?> JsonSchema
 
 #if !IS_DESIGNTIME
 [<assembly: FSharp.Core.CompilerServices.TypeProviderAssembly("JsonSchemaProvider.DesignTime")>]

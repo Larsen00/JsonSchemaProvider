@@ -312,33 +312,6 @@ module ExprGenerator =
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
 
-        
-
-        // Wraps a freshly-built JsonValue in a NullableJsonValue, validating it against the
-        // schema unless this is a nested (non-root) class 
-        let wrapAndValidate (jsonValExpr: Expr) : Expr =
-            <@@
-                let record = NullableJsonValue((%%jsonValExpr): JsonValue)
-
-                if nestedClass then
-                    record
-                else
-                    let recordSource = record.ToString()
-
-                    let schema = SchemaCache.retrieveSchema schemaHashCode schemaSource
-                    let validationErrors = schema.Validate(recordSource)
-
-                    if Seq.isEmpty validationErrors then
-                        record
-                    else
-                        let message =
-                            validationErrors
-                            |> Seq.map (fun validationError -> validationError.ToString())
-                            |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
-
-                        raise (ArgumentException(message, recordSource))
-            @@>
-
         match fsharptype with
         | FSharpClass(keywords, properties) ->
             fun (args: Expr list) ->
@@ -350,14 +323,70 @@ module ExprGenerator =
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
+                let path = keywords.Path
 
                 let jsonValExpr =
-                    <@@ JsonValue.Record(Array.concat ((%%fields): (string * JsonValue)[][])) @@>
+                    <@@
+                        JsonValue.Record(Array.concat ((%%fields): (string * JsonValue)[][]))
+                    @@>
 
-                wrapAndValidate jsonValExpr
+                <@@
+                    let record = NullableJsonValue((%%jsonValExpr): JsonValue)
+                    let recordSource = record.ToString()
 
-        // Only hitting this branch when the type is at the root of the json Schema // todo missing validation.
+
+                    let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
+
+                    // This allow us to validate a nested class on .create if the path is '#' then we are at the root.
+                    let subschema =
+                        if path = "#" then
+                            rootschema
+                        else
+                            SchemaCache.resolveByPath rootschema path
+
+                    let validationErrors = subschema.Validate recordSource
+
+                    if Seq.isEmpty validationErrors then
+                        record
+                    else
+                        let message =
+                            validationErrors
+                            |> Seq.map (fun validationError -> validationError.ToString())
+                            |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
+
+                        raise (ArgumentException(message, recordSource))
+                 @@>
+
+        // Only hitting this branch when the type is at the root of the json Schema - a primitive
+        // never gets its own Create when nested as a property, so this always validates against
+        // the whole schema directly, no path lookup needed.
         | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
-            fun (args: Expr list) -> args[0]
+            fun (args: Expr list) ->
+                let toJsonVal = generateRuntimeTypeToJsonValConversion classMap false fsharptype compileFlags
+                let jsonValExpr = Expr.Application(toJsonVal, args[0])
+
+                // Evaluates to unit: raises on failure, otherwise falls through. Sequenced with
+                // args[0] below so the overall Expr's type is just whatever args[0] already is -
+                // no need to guess/ascribe which of the four primitive types we're in.
+                let validateExpr =
+                    <@@
+                        let jsonVal = (%%jsonValExpr: JsonValue)
+                        let recordSource = jsonVal.ToString()
+
+                        let schema = SchemaCache.retrieveSchema schemaHashCode schemaSource
+                        let validationErrors = schema.Validate recordSource
+
+                        if Seq.isEmpty validationErrors then
+                            ()
+                        else
+                            let message =
+                                validationErrors
+                                |> Seq.map (fun validationError -> validationError.ToString())
+                                |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
+
+                            raise (ArgumentException(message, recordSource))
+                    @@>
+
+                Expr.Sequential(validateExpr, args[0])
 
         | _ -> failwith "hmm idk"

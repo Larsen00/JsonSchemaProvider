@@ -69,27 +69,15 @@ module JsonSchemaProviderTestsWithConstrains =
                 "Parse should reject age below minimum"
         }
 
-    // Characterizes the current gap discussed in notes/: nested classes' own Create skips
-    // schema.Validate entirely (ExprGenerator.fs's generateCreateInvokeCode only validates when
-    // nestedClass = false). Calling the nested class's Create directly, without ever going
-    // through the root, bypasses enforcement completely today. This test documents that gap as
-    // it exists NOW - it should start failing (in a good way) once the ValidatedTypes fallback
-    // lands and starts checking per-property regardless of nesting.
-    let nestedCreateDoesNotValidateConstraintsYet =
-        test "KNOWN GAP: nested class Create does not enforce constraints when called directly" {
-            let person = NestedAge.personObj.Create(age = 3)
-            Expect.equal person.age 3 "nested Create accepted an out-of-range value without raising"
-        }
-
-    // But the ROOT's Create still catches it, because schema.Validate checks the whole
-    // assembled document against the whole schema in one pass - even though the nested Create
-    // that built `person` didn't check anything itself.
-    let rootCreateCatchesInvalidValueInsideNestedObject =
-        test "root Create rejects an out-of-range value nested inside a sub-object" {
-            let invalidPerson = NestedAge.personObj.Create(age = 3)
+    // Gap closed: generateCreateInvokeCode now resolves each nested class's own sub-schema via
+    // Path (see notes/nested-create-subschema-resolution.md) and validates against it directly,
+    // instead of only validating when nestedClass = false. Calling a nested class's Create
+    // directly, without ever going through the root, is now enforced on its own.
+    let nestedCreateValidatesConstraints =
+        test "nested class Create enforces constraints when called directly" {
             Expect.throws
-                (fun () -> NestedAge.Create(person = invalidPerson) |> ignore)
-                "root Create should reject the whole document when a nested property is invalid"
+                (fun () -> NestedAge.personObj.Create(age = 3) |> ignore)
+                "nested Create should reject age below minimum on its own"
         }
 
     [<Tests>]
@@ -101,5 +89,4 @@ module JsonSchemaProviderTestsWithConstrains =
               belowMinimumShouldBeRejectedByCreate
               aboveMaximumShouldBeRejectedByCreate
               belowMinimumShouldBeRejectedByParse
-              nestedCreateDoesNotValidateConstraintsYet
-              rootCreateCatchesInvalidValueInsideNestedObject ]
+              nestedCreateValidatesConstraints ]
