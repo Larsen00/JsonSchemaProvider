@@ -11,8 +11,7 @@ module TypeProvider =
     open JsonSchemaProvider
     open FSharp.Data
 
-    
-
+    // Many of the functions reuse a lot of the same static data hence a record type to store it.
     type private GenerationContext =
         { Assembly: Assembly
           NamespaceName: string
@@ -21,6 +20,7 @@ module TypeProvider =
           SchemaString: string
           CompileFlags: ProviderConfiguration.CompileFlags }
 
+    // Function that can locate the next fsharpclass inside a type
     let rec private extractNestedClasses (fSharpType: FSharpType)  =
         match fSharpType with
         | FSharpClass(classID, properties) -> [(classID, properties)]
@@ -75,7 +75,6 @@ module TypeProvider =
     // The .create method to create in instance of the provided type
     let private createProvidedCreateMethod
         (context: GenerationContext)
-        (nestedClass: bool)
         (classMap: ClassMap)
         (fsharptype: FSharpType)
         (returnType: Type)
@@ -87,7 +86,6 @@ module TypeProvider =
             returnType = returnType,
             invokeCode =
                 generateCreateInvokeCode
-                    nestedClass
                     classMap
                     context.SchemaHashCode
                     context.SchemaString
@@ -95,7 +93,6 @@ module TypeProvider =
                     context.CompileFlags,
             isStatic = true
         )
-
 
 
     let private createProvidedParseMethod
@@ -156,7 +153,7 @@ module TypeProvider =
             createProvidedProperties context merged fsharptype
             |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
 
-            let createMethod = createProvidedCreateMethod context nestedClass merged fsharptype thisTypeDef
+            let createMethod = createProvidedCreateMethod context merged fsharptype thisTypeDef
             thisTypeDef.AddMember(createMethod)
 
             if not nestedClass then
@@ -205,7 +202,7 @@ module TypeProvider =
 
             let returnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
 
-            let createMethod = createProvidedCreateMethod context false classMap fsharptype returnType
+            let createMethod = createProvidedCreateMethod context classMap fsharptype returnType
             providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context providedTypeDefinition

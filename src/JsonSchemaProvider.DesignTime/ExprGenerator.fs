@@ -304,7 +304,6 @@ module ExprGenerator =
 
 
     let generateCreateInvokeCode
-        (nestedClass: bool)
         (classMap: ClassMap)
         (schemaHashCode: int32)
         (schemaSource: string)
