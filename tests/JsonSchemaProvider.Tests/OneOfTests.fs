@@ -113,12 +113,91 @@ module OneOfTests =
           "required": ["value"]
         }"""
 
+    // ----- Same-kind branches disambiguated by keywords our own AST never models -----
+    // JsonArray.Specific only tracks minItems, and JsonString.Specific has no slot for const or
+    // enum at all - so these branches can only be told apart because branch matching validates
+    // the raw JSON against each branch's own NJsonSchema definition directly (by Path), not
+    // against anything JsonSchemaProvider itself parsed out of the schema. If matching ever fell
+    // back to "does this JSON parse as an array/string" it would always pick the first branch of
+    // matching kind here, regardless of value.
+
+    // Both branches are "array" - only the item schema tells them apart.
+    [<Literal>]
+    let arrayItemTypeOneOfSchema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "oneOf": [
+                {"type": "array", "items": {"type": "string"}},
+                {"type": "array", "items": {"type": "integer"}}
+              ]
+            }
+          },
+          "required": ["value"]
+        }"""
+
+    // maxItems:2 and minItems:3 partition array length with no gap and no overlap - isolates
+    // "does the branch matcher understand array-length keywords" from any item-type distinction.
+    [<Literal>]
+    let arrayLengthOneOfSchema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "oneOf": [
+                {"type": "array", "items": {"type": "integer"}, "maxItems": 2},
+                {"type": "array", "items": {"type": "integer"}, "minItems": 3}
+              ]
+            }
+          },
+          "required": ["value"]
+        }"""
+
+    [<Literal>]
+    let constOneOfSchema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "oneOf": [
+                {"type": "string", "const": "circle"},
+                {"type": "string", "const": "square"}
+              ]
+            }
+          },
+          "required": ["value"]
+        }"""
+
+    [<Literal>]
+    let enumOneOfSchema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "value": {
+              "oneOf": [
+                {"type": "string", "enum": ["red", "green", "blue"]},
+                {"type": "string", "enum": ["circle", "square"]}
+              ]
+            }
+          },
+          "required": ["value"]
+        }"""
+
     type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema>
     type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
     type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
     type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
     type NumberRangeOneOf = JsonSchemaProvider<schema = numberRangeOneOfSchema>
     type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
+    type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
+    type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
+    type ConstOneOf = JsonSchemaProvider<schema = constOneOfSchema>
+    type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
     let parseStringBranchOfTwoWayOneOf =
         test "parse picks string branch of a string|int oneOf" {
@@ -238,6 +317,79 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2 "abc") "value = Choice2Of2 \"abc\""
         }
 
+    // Both branches are arrays of the same kind - only the item schema tells them apart.
+    let arrayItemTypeOneOfPicksStringBranch =
+        test "array|array oneOf: string items pick the string-item branch" {
+            let v = ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}""")
+            Expect.equal v.value (Choice1Of2 [ "a"; "b" ]) "value = Choice1Of2 [\"a\";\"b\"]"
+        }
+
+    let arrayItemTypeOneOfPicksIntBranch =
+        test "array|array oneOf: integer items pick the integer-item branch" {
+            let v = ArrayItemTypeOneOf.Parse("""{"value": [1, 2, 3]}""")
+            Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
+        }
+
+    // An empty array trivially satisfies "items: string" and "items: integer" alike, so it
+    // matches both branches - which violates oneOf's exactly-one-match rule, so the whole
+    // document fails Parse's upfront validation before any branch is ever picked.
+    let arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation =
+        test "array|array oneOf: an empty array matches both branches and fails Parse validation" {
+            Expect.throws
+                (fun () -> ArrayItemTypeOneOf.Parse("""{"value": []}""") |> ignore)
+                "[] satisfies both items:string and items:integer - not exactly one oneOf match"
+        }
+
+    let arrayLengthOneOfPicksShortBranch =
+        test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
+            let v = ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")
+            Expect.equal v.value (Choice1Of2 [ 1; 2 ]) "value = Choice1Of2 [1;2]"
+        }
+
+    let arrayLengthOneOfPicksLongBranch =
+        test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
+            let v = ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")
+            Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
+        }
+
+    let constOneOfPicksCircleBranch =
+        test "string|string oneOf: const \"circle\" picks the circle branch" {
+            let v = ConstOneOf.Parse("""{"value": "circle"}""")
+            Expect.equal v.value (Choice1Of2 "circle") "value = Choice1Of2 \"circle\""
+        }
+
+    let constOneOfPicksSquareBranch =
+        test "string|string oneOf: const \"square\" picks the square branch" {
+            let v = ConstOneOf.Parse("""{"value": "square"}""")
+            Expect.equal v.value (Choice2Of2 "square") "value = Choice2Of2 \"square\""
+        }
+
+    let constOneOfRejectsValueMatchingNeitherConst =
+        test "string|string oneOf: a value matching neither const fails Parse validation" {
+            Expect.throws
+                (fun () -> ConstOneOf.Parse("""{"value": "triangle"}""") |> ignore)
+                "\"triangle\" satisfies neither const \"circle\" nor const \"square\""
+        }
+
+    let enumOneOfPicksColorBranch =
+        test "string|string oneOf: a color enum value picks the color branch" {
+            let v = EnumOneOf.Parse("""{"value": "red"}""")
+            Expect.equal v.value (Choice1Of2 "red") "value = Choice1Of2 \"red\""
+        }
+
+    let enumOneOfPicksShapeBranch =
+        test "string|string oneOf: a shape enum value picks the shape branch" {
+            let v = EnumOneOf.Parse("""{"value": "circle"}""")
+            Expect.equal v.value (Choice2Of2 "circle") "value = Choice2Of2 \"circle\""
+        }
+
+    let enumOneOfRejectsValueInNeitherEnum =
+        test "string|string oneOf: a value in neither enum fails Parse validation" {
+            Expect.throws
+                (fun () -> EnumOneOf.Parse("""{"value": "banana"}""") |> ignore)
+                "\"banana\" is in neither the color nor the shape enum"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -259,4 +411,15 @@ module OneOfTests =
               numberRangeOneOfBoundaryPicksInclusiveBranch
               numberRangeOneOfGapValueFailsWholeDocumentValidation
               stringPatternOneOfPicksDigitsBranch
-              stringPatternOneOfPicksLettersBranch ]
+              stringPatternOneOfPicksLettersBranch
+              arrayItemTypeOneOfPicksStringBranch
+              arrayItemTypeOneOfPicksIntBranch
+              arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation
+              arrayLengthOneOfPicksShortBranch
+              arrayLengthOneOfPicksLongBranch
+              constOneOfPicksCircleBranch
+              constOneOfPicksSquareBranch
+              constOneOfRejectsValueMatchingNeitherConst
+              enumOneOfPicksColorBranch
+              enumOneOfPicksShapeBranch
+              enumOneOfRejectsValueInNeitherEnum ]

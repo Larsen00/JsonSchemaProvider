@@ -15,5 +15,6 @@ module Main =
                   JsonSchemaProviderTestsWithConstrains.tests
                   ArrayTests.tests
                   OneOfTests.tests
+                  OneOfObjectBranchTests.tests
                   RootTypeTests.tests
                   KeywordCoverageTests.tests ])
