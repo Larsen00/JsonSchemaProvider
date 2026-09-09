@@ -18,7 +18,7 @@ module SchemaConversion =
         | JsonNumber of JsonNumber.Keywords
         | JsonString of JsonString.Keywords
         // TODO: None is missing from the specification
-        | JsonOneOf of JsonSchemaType list
+        | JsonOneOf of JsonSchemaType * JsonSchemaType list // Oneof has atleat one element
 
 
     let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
@@ -76,7 +76,7 @@ module SchemaConversion =
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
     and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
-        schema.OneOf |> List.ofSeq |> List.map (parseJsonSchemaStructured rootSchema) |> JsonOneOf
+        schema.OneOf |> List.ofSeq |> List.map (parseJsonSchemaStructured rootSchema) |> fun l ->  JsonOneOf (List.head l, List.tail l)
 
     and parseJsonSchemaStructured (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
 
@@ -101,7 +101,7 @@ module SchemaConversion =
         | FSharpInt of JsonNumber.Keywords
         | FSharpString of JsonString.Keywords
         | FSharpBool of JsonBoolean.Keywords
-        | FSharpOneOf of FSharpType list
+        | FSharpOneOf of FSharpType * FSharpType list
 
     // Conversion from the JsonSchemaType into a the eqalevant FSharpType
     let rec jsonSchemaTypeToFSharpType (jsonSchemaType: JsonSchemaType) : FSharpType =
@@ -119,6 +119,7 @@ module SchemaConversion =
             let innerFSharpType = jsonSchemaTypeToFSharpType  innerType
             FSharpList(innerFSharpType, keywords)
 
-        | JsonOneOf types ->
-            FSharpOneOf <| List.map jsonSchemaTypeToFSharpType types
+        | JsonOneOf (head, tail) ->
+            List.map jsonSchemaTypeToFSharpType (head :: tail)
+            |> fun l -> FSharpOneOf (List.head l, List.tail l)
 
