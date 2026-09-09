@@ -4,10 +4,11 @@ namespace JsonSchemaProvider.Tests
 // not just integer minimum/maximum. The point of every test here is the same as the fix in
 // notes/nested-create-subschema-resolution.md: validation runs via NJsonSchema's own
 // schema.Validate against the real schema text, independent of which keywords
-// SchemaConversion.fs's FSharpType/SpecificKeywords model happens to capture at the type level -
-// so it should enforce keywords the type-level model doesn't represent at all (format, pattern,
-// minLength, exclusiveMinimum, uniqueItems, minProperties, ...) just as correctly as the ones it
-// does (minimum/maximum on FSharpInt).
+// SchemaConversion.fs's FSharpType/Keywords model happens to capture or act on at the type
+// level - so it should enforce keywords the type-level model doesn't represent at all
+// (uniqueItems, minProperties, ...) or captures as inert data only (format/pattern/minLength on
+// FSharpString) just as correctly as the ones it actively acts on (minimum/maximum on FSharpInt,
+// which nothing here enforces at compile time either - see ideas/compile-time-*-constraints.md).
 //
 // Not covered: the "dependencies"/"dependentRequired" keyword. Verified directly against
 // SchemaCache.parseSchema (bypassing the type provider entirely) that neither keyword name

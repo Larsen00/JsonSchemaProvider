@@ -4,8 +4,8 @@ module JsonArrayProvidedType =
     open System
     open JsonSchemaProvider
 
-    let FSharpListType (innerStaticType: Type) (arrayKeywords: JsonArray.SpecificKeywords) (compileFlags: ProviderConfiguration.CompileFlags) =
-        match arrayKeywords with
+    let FSharpListType (innerStaticType: Type) (arrayKeywords: JsonArray.Keywords) (compileFlags: ProviderConfiguration.CompileFlags) =
+        match arrayKeywords.specific with
         | { MinItems = Some minItems } when compileFlags.CompileMinItems ->
 
             // This generates a tuple where the if the minItems is n > 0 then the tuple will be T * T * ... * T * List<T> where T is the innerStaticType and there are n occurrences of T in the tuple.

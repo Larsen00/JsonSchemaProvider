@@ -14,10 +14,10 @@ module ExprGenerator =
 
     let rec private generateStructualMatchExpr (fsharpType: FSharpType) (jsonValExpr: Expr) =
         match fsharpType with
-        | FSharpBool -> <@@ (JsonRefinement.tryBoolean %%jsonValExpr).IsSome @@>
+        | FSharpBool(_) -> <@@ (JsonRefinement.tryBoolean %%jsonValExpr).IsSome @@>
         | FSharpInt(_) -> <@@ (JsonRefinement.tryInteger %%jsonValExpr).IsSome @@>
-        | FSharpDouble -> <@@ (JsonRefinement.tryFloat %%jsonValExpr).IsSome @@>
-        | FSharpString -> <@@ (JsonRefinement.tryString %%jsonValExpr).IsSome @@>
+        | FSharpDouble(_) -> <@@ (JsonRefinement.tryFloat %%jsonValExpr).IsSome @@>
+        | FSharpString(_) -> <@@ (JsonRefinement.tryString %%jsonValExpr).IsSome @@>
         | FSharpClass(_) -> <@@ (JsonRefinement.tryObject %%jsonValExpr).IsSome @@>
         | FSharpList(_, arrayKeywords) -> <@@ (JsonRefinement.tryArray %%jsonValExpr arrayKeywords).IsSome @@> // Todo: also check the content of the array to match the inner type
         | FSharpOneOf [single] -> generateStructualMatchExpr single jsonValExpr
@@ -35,7 +35,7 @@ module ExprGenerator =
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
         match fSharpType with
-        | FSharpBool -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
+        | FSharpBool(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
         | FSharpClass(_) -> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue(jsonVal) @@>
         | FSharpList(innerType, arrayKeywords) -> //TODO: An idea would be to greate a file for the List type that holds this conversion as when we add more keywords it will get more complex 
             // Implements: <@@ fun (jsonVal: JsonValue) -> List.ofArray (Array.map %%generateForInner (jsonVal.AsArray())) @@>
@@ -55,7 +55,7 @@ module ExprGenerator =
             let jsonValAsArray: Expr = 
                 CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
 
-            match arrayKeywords.MinItems, compileFlags.CompileMinItems with
+            match arrayKeywords.specific.MinItems, compileFlags.CompileMinItems with
             | Some minItems, true when minItems > 0 ->
 
                 let mappedArrVar = Var($"mappedArr{Guid.NewGuid()}",innerRuntimeType.MakeArrayType())
@@ -78,9 +78,9 @@ module ExprGenerator =
                 let arrayAsList: Expr = 
                     CommonExprs.callListOfArray mappedArray innerRuntimeType
                 Expr.Lambda(jsonValVar, arrayAsList)
-        | FSharpDouble -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
+        | FSharpDouble(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
         | FSharpInt(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
-        | FSharpString -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
+        | FSharpString(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
         // We can assume that the json value is a valid one, hence we can justify that the first branch of oneOf that matches the json value is the correct one. 
         | FSharpOneOf [single] -> 
             generateJsonValToRuntimeTypeConversion classMap single compileFlags
@@ -122,7 +122,7 @@ module ExprGenerator =
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr =
         match fSharpType with
-        | FSharpBool ->
+        | FSharpBool(_) ->
             if optional then
                 <@@ fun (runtimeObj: Nullable<bool>) -> JsonValue.Boolean(runtimeObj.Value) @@>
             else
@@ -137,7 +137,7 @@ module ExprGenerator =
             let listRuntimeType = fSharpTypeToRuntimeType classMap fSharpType compileFlags
             let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid}", listRuntimeType)
 
-            match arrayKeywords.MinItems, compileFlags.CompileMinItems with
+            match arrayKeywords.specific.MinItems, compileFlags.CompileMinItems with
             | Some minItems, true when minItems > 0 ->
 
                 let elemExprs = [ for i in 0 .. minItems - 1 -> Expr.Application(generateForInner, Expr.TupleGet(Expr.Var runtimeObjVar, i)) ]
@@ -158,7 +158,7 @@ module ExprGenerator =
 
                 let listAsArray = CommonExprs.callArrayOfList mappedList typeof<JsonValue>
                 Expr.Lambda(runtimeObjVar, CommonExprs.newJsonValueArray listAsArray)
-        | FSharpDouble ->
+        | FSharpDouble(_) ->
             if optional then
                 <@@ fun (runtimeObj: Nullable<double>) -> JsonValue.Float(runtimeObj.Value) @@>
             else
@@ -168,7 +168,7 @@ module ExprGenerator =
                 <@@ fun (runtimeObj: Nullable<int>) -> JsonValue.Number(decimal runtimeObj.Value) @@>
             else
                 <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
-        | FSharpString -> <@@ fun (runtimeObj: string) -> JsonValue.String(runtimeObj) @@>
+        | FSharpString(_) -> <@@ fun (runtimeObj: string) -> JsonValue.String(runtimeObj) @@>
 
         | FSharpOneOf [single] -> 
             generateRuntimeTypeToJsonValConversion classMap optional single compileFlags
@@ -199,8 +199,8 @@ module ExprGenerator =
     // only for class
     let generatePropertyGetter
         (classMap: ClassMap)
-        (keywords:  JsonObject.SpecificKeywords)
-        ((name, innertype): PropertyName * FSharpType) 
+        (keywords:  JsonObject.Keywords)
+        ((name, innertype): PropertyName * FSharpType)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Expr list -> Expr =
         let plainPropertyRuntimeType = fSharpTypeToRuntimeType classMap innertype compileFlags
@@ -208,7 +208,7 @@ module ExprGenerator =
         let convertToRuntimeType =
             generateJsonValToRuntimeTypeConversion classMap innertype compileFlags
 
-        if not <| Map.find name keywords.Required then
+        if not <| Map.find name keywords.specific.Required then
             fun (args: Expr list) ->
                 // Implements:
                 // <@@
@@ -250,9 +250,9 @@ module ExprGenerator =
 
     let private generateIsNullCheck (fSharpType: FSharpType) (arg: Expr) : Expr =
         match fSharpType with
-        | FSharpBool -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
+        | FSharpBool(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
         | FSharpInt(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
-        | FSharpDouble -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
+        | FSharpDouble(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
         | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
 
     let private generatePropertyCreation
@@ -318,11 +318,11 @@ module ExprGenerator =
 
                 let elements =[
                     for (name, innerType), arg in List.zip properties args ->
-                        generatePropertyCreation classMap name (not <| Map.find name keywords.Required) innerType arg compileFlags
+                        generatePropertyCreation classMap name (not <| Map.find name keywords.specific.Required) innerType arg compileFlags
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
-                let path = keywords.Path
+                let path = keywords.common.Path
 
                 let jsonValExpr =
                     <@@
@@ -359,7 +359,7 @@ module ExprGenerator =
         // Only hitting this branch when the type is at the root of the json Schema 
         // never gets its own Create when nested as a property, so this always validates against
         // the whole schema directly, no path lookup needed.
-        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString | FSharpList _ ->
+        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ ->
             fun (args: Expr list) ->
                 let toJsonVal = generateRuntimeTypeToJsonValConversion classMap false fsharptype compileFlags
                 let jsonValExpr = Expr.Application(toJsonVal, args[0])

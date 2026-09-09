@@ -16,31 +16,31 @@ module TypeLevelConversion =
         (compileFlags: ProviderConfiguration.CompileFlags)
         : Type =
         match fSharpType with
-        | FSharpBool -> typeof<bool>
-        | FSharpClass(keywords, _) -> classMap[keywords.Path]
+        | FSharpBool _ -> typeof<bool>
+        | FSharpClass(keywords, _) -> classMap[keywords.common.Path]
         | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerStaticType = fSharpTypeToCompileTimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerStaticType arrayKeywords compileFlags
-            
-        | FSharpDouble -> typeof<double>
+
+        | FSharpDouble _ -> typeof<double>
         | FSharpInt _ -> typeof<int>
-        | FSharpString -> typeof<string>
-        | FSharpOneOf innerFSharpTypes -> 
+        | FSharpString _ -> typeof<string>
+        | FSharpOneOf innerFSharpTypes ->
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToCompileTimeType classMap t compileFlags) innerFSharpTypes
             
 
 
     let rec fSharpTypeToRuntimeType (classMap: ClassMap) (fSharpType: FSharpType) (compileFlags: ProviderConfiguration.CompileFlags) : Type =
         match fSharpType with
-        | FSharpBool -> typeof<bool>
+        | FSharpBool _ -> typeof<bool>
         | FSharpClass _ -> typeof<NullableJsonValue>
-        | FSharpList(innerFSharpType, arrayKeywords) -> 
+        | FSharpList(innerFSharpType, arrayKeywords) ->
             let innerRuntimeType = fSharpTypeToRuntimeType classMap innerFSharpType compileFlags
             JsonArrayProvidedType.FSharpListType innerRuntimeType arrayKeywords compileFlags
-        | FSharpDouble -> typeof<double>
+        | FSharpDouble _ -> typeof<double>
         | FSharpInt _ -> typeof<int>
-        | FSharpString -> typeof<string>
-        | FSharpOneOf innerFSharpTypes -> 
+        | FSharpString _ -> typeof<string>
+        | FSharpOneOf innerFSharpTypes ->
             JsonOneOf.FSharpOneOfType <| List.map (fun t -> fSharpTypeToRuntimeType classMap t compileFlags) innerFSharpTypes
 
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =

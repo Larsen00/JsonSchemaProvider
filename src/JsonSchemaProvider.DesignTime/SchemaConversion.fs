@@ -1,4 +1,4 @@
-﻿namespace JsonSchemaProvider.DesignTime
+namespace JsonSchemaProvider.DesignTime
 
 module SchemaConversion =
     open NJsonSchema
@@ -11,59 +11,68 @@ module SchemaConversion =
 
     // type Name = string
     type JsonSchemaType =
-        | JsonObject of JsonObject.SpecificKeywords * List<PropertyName * JsonSchemaType>
-        | JsonArray of JsonSchemaType * JsonArray.SpecificKeywords
-        | JsonBoolean
-        | JsonInteger of JsonInteger.SpecificKeywords
-        | JsonNumber
-        | JsonString
+        | JsonObject of JsonObject.Keywords * List<PropertyName * JsonSchemaType>
+        | JsonArray of JsonSchemaType * JsonArray.Keywords
+        | JsonBoolean of JsonBoolean.Keywords
+        | JsonInteger of JsonNumber.Keywords
+        | JsonNumber of JsonNumber.Keywords
+        | JsonString of JsonString.Keywords
         // TODO: None is missing from the specification
-        | JsonOneOf of JsonSchemaType list 
+        | JsonOneOf of JsonSchemaType list
 
 
-    let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
+    let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
         let isRequired (name: string) =
             schema.RequiredProperties.Contains name
 
-        // Path identifies this object's own position in rootSchema 
-        // We will use is a a unique id in the classMap and also to find the objs sub schema to validate against it.
-        let path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
-
-        
-        Seq.foldBack (fun (KeyValue(name, propertySchema)) (keywords : JsonObject.SpecificKeywords, properties') ->
+        Seq.foldBack (fun (KeyValue(name, propertySchema)) (specific : JsonObject.Specific, properties') ->
 
             let propertyType : JsonSchemaType = parseJsonSchemaStructured rootSchema propertySchema
 
-            { keywords with Required = Map.add name (isRequired name) keywords.Required },
+            { specific with Required = Map.add name (isRequired name) specific.Required },
             (name, propertyType) :: properties'
 
 
-        ) schema.Properties ({ Required = Map.empty; Path = path }, [])
-        |> JsonObject
+        ) schema.Properties ({ Required = Map.empty }, [])
+        |> fun (specific, properties) -> JsonObject({ common = common; specific = specific }, properties)
 
-    and private parseArray (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
-        let keywords : JsonArray.SpecificKeywords = {
+    and private parseArray (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
+        let specific : JsonArray.Specific = {
             // When minItems is omitted, it defaults to 0 according to the JSON Schema specification
             MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
          }
-        JsonArray(parseJsonSchemaStructured rootSchema schema.Item, keywords)
+        JsonArray(parseJsonSchemaStructured rootSchema schema.Item, { common = common; specific = specific })
 
     and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
+        // Path identifies this node's own position in rootSchema. We use it as a unique id in the
+        // classMap and also to find this node's own subschema to validate against it.
+        let common : Common.Keywords = { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema) }
+
+        let m x = x |> Option.ofNullable |> Option.map float
+
+        let numericKeywords () : JsonNumber.Keywords =
+            { common = common
+              specific =
+                { minimum = schema.Minimum |> m
+                  maximum = schema.Maximum |> m
+                  exclusiveMinimum = schema.ExclusiveMinimum |> m
+                  exclusiveMaximum = schema.ExclusiveMaximum |> m
+                  multipleOf = schema.MultipleOf |> m } }
+
         match schema.Type with
-        | JsonObjectType.Array -> parseArray rootSchema schema
-        | JsonObjectType.Boolean -> JsonBoolean
-        | JsonObjectType.Integer ->
-            let m x = x |> Option.ofNullable |> Option.map float
-            JsonInteger {
-                minimum = schema.Minimum |> m
-                maximum = schema.Maximum |> m
-                exclusiveMinimum = schema.ExclusiveMinimum |> m
-                exclusiveMaximum = schema.ExclusiveMaximum |> m
-                multipleOf = schema.MultipleOf |> m
+        | JsonObjectType.Array -> parseArray rootSchema schema common
+        | JsonObjectType.Boolean -> JsonBoolean { common = common }
+        | JsonObjectType.Integer -> JsonInteger(numericKeywords ())
+        | JsonObjectType.Number -> JsonNumber(numericKeywords ())
+        | JsonObjectType.Object -> parseObject rootSchema schema common
+        | JsonObjectType.String ->
+            let specific : JsonString.Specific = {
+                minLength = schema.MinLength |> Option.ofNullable
+                maxLength = schema.MaxLength |> Option.ofNullable
+                pattern = schema.Pattern |> Option.ofObj
+                format = schema.Format |> Option.ofObj
             }
-        | JsonObjectType.Number -> JsonNumber
-        | JsonObjectType.Object -> parseObject rootSchema schema
-        | JsonObjectType.String -> JsonString
+            JsonString { common = common; specific = specific }
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
     and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
@@ -85,23 +94,23 @@ module SchemaConversion =
         parseObjectType schema schema
 
     // Fsharp match types to the JsonProperty and JsonSchemaType types.
-    type FSharpType = 
-        | FSharpClass of JsonObject.SpecificKeywords * List<PropertyName * FSharpType> 
-        | FSharpList of FSharpType * JsonArray.SpecificKeywords
-        | FSharpDouble
-        | FSharpInt of JsonInteger.SpecificKeywords
-        | FSharpString
-        | FSharpBool
+    type FSharpType =
+        | FSharpClass of JsonObject.Keywords * List<PropertyName * FSharpType>
+        | FSharpList of FSharpType * JsonArray.Keywords
+        | FSharpDouble of JsonNumber.Keywords
+        | FSharpInt of JsonNumber.Keywords
+        | FSharpString of JsonString.Keywords
+        | FSharpBool of JsonBoolean.Keywords
         | FSharpOneOf of FSharpType list
 
     // Conversion from the JsonSchemaType into a the eqalevant FSharpType
     let rec jsonSchemaTypeToFSharpType (jsonSchemaType: JsonSchemaType) : FSharpType =
         match jsonSchemaType with
-        | JsonBoolean -> FSharpBool
+        | JsonBoolean keywords -> FSharpBool keywords
         | JsonInteger keywords -> FSharpInt keywords
-        | JsonNumber -> FSharpDouble
-        | JsonString -> FSharpString
-        | JsonObject (keywords, properties) -> 
+        | JsonNumber keywords -> FSharpDouble keywords
+        | JsonString keywords -> FSharpString keywords
+        | JsonObject (keywords, properties) ->
             // Convert the jsonshematype inside the properties into a fsharptype
             let properties' = List.map (fun (name, jsonSchemaType') -> name, jsonSchemaTypeToFSharpType jsonSchemaType') properties
             FSharpClass (keywords, properties')
@@ -109,7 +118,7 @@ module SchemaConversion =
         | JsonArray(innerType, keywords) ->
             let innerFSharpType = jsonSchemaTypeToFSharpType  innerType
             FSharpList(innerFSharpType, keywords)
-            
-        | JsonOneOf types -> 
+
+        | JsonOneOf types ->
             FSharpOneOf <| List.map jsonSchemaTypeToFSharpType types
-            
+

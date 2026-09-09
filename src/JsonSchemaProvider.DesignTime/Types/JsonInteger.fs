@@ -4,11 +4,11 @@ module JsonIntegerProvidedType =
     open System
     open JsonSchemaProvider
 
-    let canBeCompiled (keywords: JsonInteger.SpecificKeywords) =
-        keywords.minimum.IsNone && 
-        keywords.maximum.IsNone &&
-        keywords.exclusiveMaximum.IsNone &&
-        keywords.exclusiveMinimum.IsNone &&
-        keywords.multipleOf.IsNone
+    let canBeCompiled (keywords: JsonNumber.Keywords) =
+        keywords.specific.minimum.IsNone &&
+        keywords.specific.maximum.IsNone &&
+        keywords.specific.exclusiveMaximum.IsNone &&
+        keywords.specific.exclusiveMinimum.IsNone &&
+        keywords.specific.multipleOf.IsNone
 
         

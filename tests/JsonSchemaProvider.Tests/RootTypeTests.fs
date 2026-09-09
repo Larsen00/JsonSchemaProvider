@@ -25,10 +25,10 @@ module RootTypeTests =
     let constrainedIntRootSchema =
         """{ "type": "integer", "minimum": 5, "maximum": 10 }"""
 
-    // FSharpString carries no SpecificKeywords at all (unlike FSharpInt) - this schema exists to
-    // confirm primitive-root validation genuinely runs the whole sub-schema through
-    // NJsonSchema's own Validate, not something limited to the keywords SchemaConversion.fs
-    // happens to model at the FSharpType level.
+    // FSharpString's JsonString.Keywords captures `pattern` as data, but nothing reads it for
+    // enforcement yet - this schema exists to confirm primitive-root validation genuinely runs
+    // the whole sub-schema through NJsonSchema's own Validate, not something limited to whatever
+    // SchemaConversion.fs's FSharpType model happens to act on.
     [<Literal>]
     let patternConstrainedStringRootSchema =
         """{ "type": "string", "pattern": "^[a-z]+$" }"""
