@@ -2,12 +2,25 @@ namespace JsonSchemaProvider.DesignTime
 
 module TypeLevelConversion =
     open System
+    open System.Reflection
     open SchemaConversion
     open ProviderImplementation.ProvidedTypes
     open JsonSchemaProvider
     // open Microsoft.FSharp.Reflection
 
     type ClassMap = Map<string, ProvidedTypeDefinition>
+
+    // Many of the functions in TypeProvider.fs/ExprGenerator.fs reuse the same static data, hence
+    // a record type to bundle it instead of threading each field separately. Lives here (rather
+    // than in TypeProvider.fs, where it used to be) so ExprGenerator.fs - which compiles before
+    // TypeProvider.fs - can see it too.
+    type GenerationContext =
+        { Assembly: Assembly
+          NamespaceName: string
+          RuntimeType: Type
+          SchemaHashCode: int32
+          SchemaString: string
+          CompileFlags: ProviderConfiguration.CompileFlags }
 
     // This is the getter function. An it produces the type of an allready created instance of the fsharp type. 
     let rec fSharpTypeToCompileTimeType

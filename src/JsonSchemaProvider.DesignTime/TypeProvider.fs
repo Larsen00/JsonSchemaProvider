@@ -11,15 +11,6 @@ module TypeProvider =
     open JsonSchemaProvider
     open FSharp.Data
 
-    // Many of the functions reuse a lot of the same static data hence a record type to store it.
-    type private GenerationContext =
-        { Assembly: Assembly
-          NamespaceName: string
-          RuntimeType: Type
-          SchemaHashCode: int32
-          SchemaString: string
-          CompileFlags: ProviderConfiguration.CompileFlags }
-
     // Function that can locate the next fsharpclass inside a type
     let rec private extractNestedClasses (fSharpType: FSharpType)  =
         match fSharpType with
@@ -44,7 +35,7 @@ module TypeProvider =
             ProvidedProperty(
                 propertyName = name,
                 propertyType = optionalOrPlainType (not <| Map.find name keywords.specific.Required) plainPropertyCompileTimeType,
-                getterCode = generatePropertyGetter classMap keywords property context.CompileFlags
+                getterCode = generatePropertyGetter context classMap keywords property
             )
             :: createProvidedProperties context classMap (FSharpClass (keywords, rest))
 
@@ -84,13 +75,7 @@ module TypeProvider =
             methodName = "Create",
             parameters = createMethodParameters context classMap fsharptype,
             returnType = returnType,
-            invokeCode =
-                generateCreateInvokeCode
-                    classMap
-                    context.SchemaHashCode
-                    context.SchemaString
-                    fsharptype
-                    context.CompileFlags,
+            invokeCode = generateCreateInvokeCode context classMap fsharptype,
             isStatic = true
         )
 
