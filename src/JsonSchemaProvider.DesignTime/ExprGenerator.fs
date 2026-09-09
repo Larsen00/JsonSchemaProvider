@@ -356,10 +356,10 @@ module ExprGenerator =
                         raise (ArgumentException(message, recordSource))
                  @@>
 
-        // Only hitting this branch when the type is at the root of the json Schema - a primitive
+        // Only hitting this branch when the type is at the root of the json Schema 
         // never gets its own Create when nested as a property, so this always validates against
         // the whole schema directly, no path lookup needed.
-        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
+        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString | FSharpList _ ->
             fun (args: Expr list) ->
                 let toJsonVal = generateRuntimeTypeToJsonValConversion classMap false fsharptype compileFlags
                 let jsonValExpr = Expr.Application(toJsonVal, args[0])

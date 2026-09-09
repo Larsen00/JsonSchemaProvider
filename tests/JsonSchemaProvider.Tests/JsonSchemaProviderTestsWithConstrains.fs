@@ -195,10 +195,10 @@ module JsonSchemaProviderTestsWithConstrains =
     let arrayItemNestedClassValidatesConstraints =
         test "a class reached through an array item's own Create enforces constraints" {
             Expect.throws
-                (fun () -> ArrayItemConstraints.scoresObj.Create(points = 150) |> ignore)
+                (fun () -> ArrayItemConstraints.scoresItem.Create(points = 150) |> ignore)
                 "array-item nested Create should reject points above maximum"
 
-            let item = ArrayItemConstraints.scoresObj.Create(points = 50)
+            let item = ArrayItemConstraints.scoresItem.Create(points = 50)
             Expect.equal item.points 50 "array-item nested Create should accept points within range"
         }
 

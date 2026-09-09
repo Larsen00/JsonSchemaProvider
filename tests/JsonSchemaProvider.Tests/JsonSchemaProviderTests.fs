@@ -235,7 +235,7 @@ module JsonSchemaProviderTests =
 
     let selectFromNestedArrayWithObjectItemsShouldYieldInputValue =
         let array =
-            NestedArrayWithObjectItems.Create([ [ NestedArrayWithObjectItems.valuesObj.Create(propA = 5) ] ])
+            NestedArrayWithObjectItems.Create([ [ NestedArrayWithObjectItems.valuesItem.Create(propA = 5) ] ])
 
         test "select from nested array with object items should yield input value" {
             Expect.equal

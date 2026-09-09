@@ -66,7 +66,7 @@ module TypeProvider =
             createMethodParameter context classMap innerfsharptype (Map.find name keywords.Required) name
             :: createMethodParameters context classMap (FSharpClass (keywords, rest))
 
-        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString ->
+        | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString | FSharpList _ ->
             [ createMethodParameter context classMap fsharptype true "value" ]
 
         | _ -> failwith "also dont know - createMethodParameters"
@@ -127,23 +127,25 @@ module TypeProvider =
                     @@>
         )
 
-    let private createprovidedTypeDefinition (context: GenerationContext) nestedClass className =
+    let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
         ProvidedTypeDefinition(
             context.Assembly,
             context.NamespaceName,
-            className + (if nestedClass then "Obj" else ""),
+            className + suffix,
             Some context.RuntimeType
         )
 
-    let rec private buildClassMapHelper context (nestedClass: bool) (name: string) (fsharptype: FSharpType) : (String * ProvidedTypeDefinition) list =
+    // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
+    // doubles as the "is this the root" check below - the root is the only caller that passes "".
+    let rec private buildClassMapHelper context (suffix: string) (name: string) (fsharptype: FSharpType) : (String * ProvidedTypeDefinition) list =
         match fsharptype with
         | FSharpClass(keywords, properties) ->
 
-            let thisTypeDef = createprovidedTypeDefinition context nestedClass name
+            let thisTypeDef = createprovidedTypeDefinition context suffix name
 
             let childEntries =
                 properties
-                |> List.collect (fun (propertyName, t) -> buildClassMapHelper context true propertyName t)
+                |> List.collect (fun (propertyName, t) -> buildClassMapHelper context "Obj" propertyName t)
 
             childEntries
             |> List.iter (fun (_, nestedClassProvidedTypeDefinition) -> thisTypeDef.AddMember nestedClassProvidedTypeDefinition)
@@ -156,17 +158,17 @@ module TypeProvider =
             let createMethod = createProvidedCreateMethod context merged fsharptype thisTypeDef
             thisTypeDef.AddMember(createMethod)
 
-            if not nestedClass then
+            if suffix = "" then
                 let parseMethod = createProvidedParseMethod context thisTypeDef
                 thisTypeDef.AddMember(parseMethod)
 
             (keywords.Path, thisTypeDef) :: childEntries
-        | FSharpList(inner, _) -> buildClassMapHelper context nestedClass name inner
-        | FSharpOneOf types -> types |> List.collect (buildClassMapHelper context nestedClass name)
+        | FSharpList(inner, _) -> buildClassMapHelper context "Item" name inner
+        | FSharpOneOf types -> types |> List.collect (buildClassMapHelper context "Case" name)
         | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString -> []
 
-    let private buildClassMap context (nestedClass: bool) (name: string) (fsharptype: FSharpType) : Map<String, ProvidedTypeDefinition> =
-        buildClassMapHelper context nestedClass name fsharptype |> Map.ofList
+    let private buildClassMap context (suffix: string) (name: string) (fsharptype: FSharpType) : Map<String, ProvidedTypeDefinition> =
+        buildClassMapHelper context suffix name fsharptype |> Map.ofList
 
 
     let run
@@ -190,15 +192,15 @@ module TypeProvider =
 
         match parseJsonSchemaStructured schema schema |> jsonSchemaTypeToFSharpType with
         | FSharpClass(keywords, _) as fsharptype ->
-            buildClassMap context false typeName fsharptype
-            |> Map.find keywords.Path 
+            buildClassMap context "" typeName fsharptype
+            |> Map.find keywords.Path
             
         | FSharpBool | FSharpInt _ | FSharpDouble | FSharpString as fsharptype ->
 
             // Class map contains nested classes inside the type - since a primitive type dont have nested classes this is empty.
             let classMap = Map.empty
 
-            let providedTypeDefinition = createprovidedTypeDefinition context false typeName
+            let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
             let returnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
 
@@ -209,4 +211,20 @@ module TypeProvider =
             providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
+        
+        | FSharpList _ as fsharplist ->
+            let classMap = buildClassMap context "" "" fsharplist
+
+            let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
+
+            extractNestedClasses fsharplist
+            |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember classMap[keywords.Path])
+
+            let returnType = fSharpTypeToCompileTimeType classMap fsharplist compileFlags
+
+            let createMethod = createProvidedCreateMethod context classMap fsharplist returnType
+            providedTypeDefinition.AddMember createMethod
+
+            providedTypeDefinition
+
         | _ -> failwith "Root schema must be an object or a primitive" // TODO: lift this restriction when list/oneOf root is wired up

@@ -33,12 +33,43 @@ module RootTypeTests =
     let patternConstrainedStringRootSchema =
         """{ "type": "string", "pattern": "^[a-z]+$" }"""
 
+    [<Literal>]
+    let listRootSchema = """{ "type": "array", "items": { "type": "string" } }"""
+
+    [<Literal>]
+    let listRootMinItems2Schema =
+        """{ "type": "array", "items": { "type": "string" }, "minItems": 2 }"""
+
+    // A more complex root: a list of objects, not just a list of primitives.
+    [<Literal>]
+    let placeListRootSchema =
+        """
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "lat": { "type": "number" },
+              "lng": { "type": "number" }
+            },
+            "required": ["name", "lat", "lng"]
+          }
+        }"""
+
     type BoolRoot = JsonSchemaProvider<schema=boolRootSchema>
     type IntRoot = JsonSchemaProvider<schema=intRootSchema>
     type NumberRoot = JsonSchemaProvider<schema=numberRootSchema>
     type StringRoot = JsonSchemaProvider<schema=stringRootSchema>
     type ConstrainedIntRoot = JsonSchemaProvider<schema=constrainedIntRootSchema>
     type PatternConstrainedStringRoot = JsonSchemaProvider<schema=patternConstrainedStringRootSchema>
+    type ListRoot = JsonSchemaProvider<schema=listRootSchema>
+    type ListRootMinItems2 = JsonSchemaProvider<schema=listRootMinItems2Schema>
+
+    // Compile-time constrained: root value is string * string * string list
+    type ListRootMinItems2Compiled = JsonSchemaProvider<schema=listRootMinItems2Schema, compileMinItems=true>
+
+    type PlaceListRoot = JsonSchemaProvider<schema=placeListRootSchema>
 
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
@@ -128,11 +159,32 @@ module RootTypeTests =
                 "Create should reject a root value that doesn't match the pattern"
         }
 
-    // FSharpList/FSharpOneOf as the schema root aren't wired up yet (run still `failwith`s for
-    // them - see notes/any-type-as-root-refactor.md open item #3). Deliberately no
-    // `type X = JsonSchemaProvider<schema=...>` for those here: a design-time failwith aborts
+    let emptyPlaceListRootShouldBeCreated =
+        test "array-of-objects root Create builds an empty list" {
+            let result = PlaceListRoot.Create([])
+            Expect.equal (List.length result) 0 "PlaceListRoot.Create([]) has no elements"
+        }
+
+    // The array's item class is exposed as PlaceListRoot.Item (suffix "Item" for classes reached
+    // through a list, vs "Obj" for a nested object property) - see TypeProvider.fs's
+    // buildClassMapHelper/extractNestedClasses. At the root there's no property name to prefix the
+    // suffix with (unlike a property-nested list, e.g. valuesItem), so it's just "Item". This is the
+    // case the empty-list test above can't cover: constructing actual elements, not just an empty list.
+    let nonEmptyPlaceListRootShouldBeCreated =
+        test "array-of-objects root Create builds a non-empty list" {
+            let place = PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683)
+            let result = PlaceListRoot.Create([ place ])
+            Expect.equal (List.length result) 1 "one element"
+            Expect.equal result.[0].name "Copenhagen" "name roundtrips"
+            Expect.equal result.[0].lat 55.6761 "lat roundtrips"
+            Expect.equal result.[0].lng 12.5683 "lng roundtrips"
+        }
+
+    // FSharpOneOf as the schema root isn't wired up yet (run still `failwith`s for it - see
+    // notes/any-type-as-root-refactor.md open item #3). Deliberately no
+    // `type X = JsonSchemaProvider<schema=...>` for that here: a design-time failwith aborts
     // compiling this whole file, not just one test, so there's no way to assert that gap from
-    // inside Expecto today. Add cases here once list/oneOf root is implemented.
+    // inside Expecto today. Add a case here once oneOf root is implemented.
 
     [<Tests>]
     let tests =
@@ -151,4 +203,6 @@ module RootTypeTests =
               aboveMaximumConstrainedIntRootShouldBeRejectedByCreate
               belowMinimumConstrainedIntRootShouldBeRejectedByParse
               matchingPatternStringRootShouldBeAccepted
-              nonMatchingPatternStringRootShouldBeRejected ]
+              nonMatchingPatternStringRootShouldBeRejected
+              emptyPlaceListRootShouldBeCreated
+              nonEmptyPlaceListRootShouldBeCreated ]
