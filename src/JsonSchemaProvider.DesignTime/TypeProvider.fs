@@ -16,7 +16,7 @@ module TypeProvider =
         match fSharpType with
         | FSharpClass(classID, properties) -> [(classID, properties)]
         | FSharpList(inner, _) -> extractNestedClasses inner
-        | FSharpOneOf (head, tail) -> head :: tail |> List.collect extractNestedClasses
+        | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
 
     // create providedProperties for classes
@@ -149,7 +149,7 @@ module TypeProvider =
 
             (keywords.common.Path, thisTypeDef) :: childEntries
         | FSharpList(inner, _) -> buildClassMapHelper context "Item" name inner
-        | FSharpOneOf (head, tail) -> head :: tail |> List.collect (buildClassMapHelper context "Case" name)
+        | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect (buildClassMapHelper context "Case" name)
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
 
     let private buildClassMap context (suffix: string) (name: string) (fsharptype: FSharpType) : Map<String, ProvidedTypeDefinition> =

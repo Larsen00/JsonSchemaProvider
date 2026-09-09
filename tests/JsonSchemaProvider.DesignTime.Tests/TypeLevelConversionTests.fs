@@ -32,19 +32,19 @@ module TypeLevelConversionTests =
 
     let oneOfSingleBranchYieldsPlainType =
         test "oneOf with a single branch yields the branch type directly" {
-            let actual = toCompileTimeType (FSharpOneOf (FSharpInt jsonIntegerNoneKeywords, []) )
+            let actual = toCompileTimeType (FSharpOneOf (commonKeywords, FSharpInt jsonIntegerNoneKeywords, []))
             Expect.equal actual typeof<int> "single-branch oneOf should not be wrapped in Choice"
         }
 
     let oneOfTwoBranchesYieldsChoice =
         test "oneOf with two branches yields Choice<T1,T2>" {
-            let actual = toCompileTimeType (FSharpOneOf (FSharpInt jsonIntegerNoneKeywords, [FSharpString jsonStringKeywords ]))
+            let actual = toCompileTimeType (FSharpOneOf (commonKeywords, FSharpInt jsonIntegerNoneKeywords, [FSharpString jsonStringKeywords ]))
             Expect.equal actual typeof<Choice<int, string>> "two-branch oneOf should be Choice<int,string>"
         }
 
     let oneOfThreeBranchesYieldsNestedChoice =
         test "oneOf with three branches yields Choice<T1, Choice<T2,T3>>" {
-            let actual = toCompileTimeType (FSharpOneOf (FSharpInt jsonIntegerNoneKeywords, [FSharpString jsonStringKeywords; FSharpBool jsonBooleanKeywords ]))
+            let actual = toCompileTimeType (FSharpOneOf (commonKeywords, FSharpInt jsonIntegerNoneKeywords, [FSharpString jsonStringKeywords; FSharpBool jsonBooleanKeywords ]))
             Expect.equal actual typeof<Choice<int, Choice<string, bool>>> "three-branch oneOf should nest"
         }
 

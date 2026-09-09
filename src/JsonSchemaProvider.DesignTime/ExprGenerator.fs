@@ -43,27 +43,24 @@ module ExprGenerator =
         <@@ validateJsonSchema path (%%jsonValExpr: JsonValue) schemaHashCode schemaSource |> Result.isOk @@>
         
 
-    let rec private generateStructualMatchExpr (context: GenerationContext) (fsharpType: FSharpType) (jsonValExpr: Expr) =
-
+    // Every case now carries its own Path (including FSharpOneOf, whose Path points at the oneOf
+    // node itself, not any one branch) - so this is just "validate against this node's own
+    // subschema" uniformly, no recursion needed. NJsonSchema's own Validate already implements
+    // oneOf's "exactly one alternative" semantics recursively, so this also handles a nested oneOf
+    // correctly without walking into it by hand.
+    let private generateStructualMatchExpr (context: GenerationContext) (fsharpType: FSharpType) (jsonValExpr: Expr) =
 
         // An applay function that takes in the path to the sub schema and then validated the jsonValExpr agains it.
         let validate = validateJsonSchemaExpr jsonValExpr context.SchemaHashCode context.SchemaString
 
         match fsharpType with
-        | FSharpDouble keywords 
-        | FSharpInt keywords        -> keywords.common.Path |> validate
-        | FSharpBool keywords       -> keywords.common.Path |> validate
-        | FSharpString keywords     -> keywords.common.Path |> validate
-        | FSharpClass (keywords, _) -> keywords.common.Path |> validate
-        | FSharpList(_, keywords)   -> keywords.common.Path |> validate
-
-
-        | FSharpOneOf (head, []) -> 
-            generateStructualMatchExpr context head jsonValExpr
-        | FSharpOneOf (head, second :: tail) ->
-            let headMatchExpr = generateStructualMatchExpr context head jsonValExpr
-            let tailMatchExpr = generateStructualMatchExpr context (FSharpOneOf (second, tail)) jsonValExpr
-            <@@ %%headMatchExpr || %%tailMatchExpr @@>
+        | FSharpDouble keywords
+        | FSharpInt keywords            -> keywords.common.Path |> validate
+        | FSharpBool keywords           -> keywords.common.Path |> validate
+        | FSharpString keywords         -> keywords.common.Path |> validate
+        | FSharpClass (keywords, _)     -> keywords.common.Path |> validate
+        | FSharpList(_, keywords)       -> keywords.common.Path |> validate
+        | FSharpOneOf (keywords, _, _)  -> keywords.Path |> validate
 
     let rec private generateJsonValToRuntimeTypeConversion
         (context: GenerationContext)
@@ -118,13 +115,18 @@ module ExprGenerator =
         | FSharpInt(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
         | FSharpString(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
         // We can assume that the json value is a valid one, hence we can justify that the first branch of oneOf that matches the json value is the correct one. 
-        | FSharpOneOf (head, []) ->
+        | FSharpOneOf (_, head, []) ->
             generateJsonValToRuntimeTypeConversion context classMap head
-        | FSharpOneOf (head, second :: tail) ->
+        | FSharpOneOf (keywords, head, second :: tail) ->
 
             // Frist we generate the conversion for the head and tail of the oneOf type. (The tail being how to unfold the choise type)
+            // keywords on the (second, tail) reconstruction below is inert - it's a synthetic
+            // "rest of the alternatives" value with no schema node of its own, never itself passed
+            // to generateStructualMatchExpr (that only ever runs on `head`, a real branch, at
+            // every level of this recursion) - reusing the outer oneOf's keywords here is just the
+            // simplest way to satisfy the type, not a claim about where "the rest" lives.
             let headConversion = generateJsonValToRuntimeTypeConversion context classMap head
-            let tailConversion = generateJsonValToRuntimeTypeConversion context classMap (FSharpOneOf (second,tail))
+            let tailConversion = generateJsonValToRuntimeTypeConversion context classMap (FSharpOneOf (keywords, second, tail))
 
             // Get the type of the choice ie. something like Choice<_, _>
             let choiceType = fSharpTypeToRuntimeType classMap fSharpType context.CompileFlags
@@ -206,19 +208,19 @@ module ExprGenerator =
                 <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
         | FSharpString(_) -> <@@ fun (runtimeObj: string) -> JsonValue.String(runtimeObj) @@>
 
-        | FSharpOneOf (head, []) ->
+        | FSharpOneOf (_, head, []) ->
             generateRuntimeTypeToJsonValConversion context classMap optional head
 
-        | FSharpOneOf (head, second :: rest) ->
+        | FSharpOneOf (keywords, head, second :: rest) ->
             let headConversion = generateRuntimeTypeToJsonValConversion context classMap false head
-            let restConversion = generateRuntimeTypeToJsonValConversion context classMap false (FSharpOneOf (second, rest))
+            let restConversion = generateRuntimeTypeToJsonValConversion context classMap false (FSharpOneOf (keywords, second, rest))
 
             let choiceType = fSharpTypeToRuntimeType classMap fSharpType context.CompileFlags
             let cases = Reflection.FSharpType.GetUnionCases choiceType
             let choice1 = cases.[0]
 
             let headRuntimeType = fSharpTypeToRuntimeType classMap head context.CompileFlags
-            let tailRuntimeType = fSharpTypeToRuntimeType classMap (FSharpOneOf (second, rest)) context.CompileFlags
+            let tailRuntimeType = fSharpTypeToRuntimeType classMap (FSharpOneOf (keywords, second, rest)) context.CompileFlags
 
             let runtimeObjVar = Var($"runtimeObj{Guid.NewGuid()}", choiceType)
 
