@@ -163,7 +163,7 @@ module JsonSchemaProviderTests =
 
     let createMethodShouldReturnRecord =
         test "create method should return record" {
-            let flat = Flat.Create(X = "x", Z = 1)
+            let flat = Expect.wantOk (Flat.Create(X = "x", Z = 1)) "Create should succeed"
             Expect.equal flat.X (Some("x")) """flat.X = Some("x")"""
             Expect.equal flat.Y None """flat.Y = None"""
             Expect.equal flat.Z (Some(1)) "flat.Z = Some(1)"
@@ -181,7 +181,7 @@ module JsonSchemaProviderTests =
 
     let createMethodFromFileSchemaShouldReturnRecord =
         test "create method from file schema should return record" {
-            let flat = FlatFromFile.Create()
+            let flat = Expect.wantOk (FlatFromFile.Create()) "Create should succeed"
             Expect.equal flat.X None "flat.X = None"
             Expect.equal flat.Y None "flat.Y = None"
             Expect.equal flat.Z None "flat.Z = None"
@@ -189,7 +189,7 @@ module JsonSchemaProviderTests =
 
     let validationErrorShouldBeDetectedByCreate =
         test "validation error should be detected by Create" {
-            Expect.throws (fun _ -> PatternSchema.Create(X = "a1") |> ignore) "Create throws validation exception"
+            Expect.isError (PatternSchema.Create(X = "a1")) "Create should return Error for invalid pattern"
         }
 
     let validationErrorShouldBeDetectedByParse =
@@ -201,41 +201,46 @@ module JsonSchemaProviderTests =
 
     let valueFromNestedObjectsShouldBeCreated =
         test "value from nested objects should be created" {
-            Expect.equal
-                (CityPosition
-                    .Create(
-                        city = "Berlin",
-                        globalPosition = CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954)
-                    )
-                    .globalPosition.lat)
-                52.520007
-                "create and select nested are equal"
+            let globalPosition =
+                Expect.wantOk
+                    (CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954))
+                    "nested Create should succeed"
+
+            let created =
+                Expect.wantOk
+                    (CityPosition.Create(city = "Berlin", globalPosition = globalPosition))
+                    "Create should succeed"
+
+            Expect.equal created.globalPosition.lat 52.520007 "create and select nested are equal"
         }
 
     let selectFromNumberArrayShouldYieldInputValue =
-        let numArray = NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])
+        let numArray = Expect.wantOk (NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])) "Create should succeed"
 
         test "select from number array should yield input value" {
             Expect.equal numArray.values[1] 12.0 "numArray.values[1] = 12.0"
         }
 
     let selectFromIntegerArrayShouldYieldInputValue =
-        let numArray = IntegerArray.Create([ 11; 12; 10; 13 ])
+        let numArray = Expect.wantOk (IntegerArray.Create([ 11; 12; 10; 13 ])) "Create should succeed"
 
         test "select from integer array should yield input value" {
             Expect.equal numArray.values[1] 12 "numArray.values[1] = 12"
         }
 
     let selectFromNestedArrayShouldYieldInputValue =
-        let array = NestedArray.Create([ [ "a"; "b" ] ])
+        let array = Expect.wantOk (NestedArray.Create([ [ "a"; "b" ] ])) "Create should succeed"
 
         test "select from nested array should yield input value" {
             Expect.equal (array.values[0][1]) "b" "nestedArray.values[0][1] = \"b\""
         }
 
     let selectFromNestedArrayWithObjectItemsShouldYieldInputValue =
+        let item =
+            Expect.wantOk (NestedArrayWithObjectItems.valuesItem.Create(propA = 5)) "inner Create should succeed"
+
         let array =
-            NestedArrayWithObjectItems.Create([ [ NestedArrayWithObjectItems.valuesItem.Create(propA = 5) ] ])
+            Expect.wantOk (NestedArrayWithObjectItems.Create([ [ item ] ])) "outer Create should succeed"
 
         test "select from nested array with object items should yield input value" {
             Expect.equal

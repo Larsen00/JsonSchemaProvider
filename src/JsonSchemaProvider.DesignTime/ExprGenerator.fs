@@ -29,18 +29,16 @@ module ExprGenerator =
 
 
         if Seq.isEmpty validationErrors then
-                Ok ()
+                Ok record
             else
-                let message =
                     validationErrors
                     |> Seq.map (fun validationError -> validationError.ToString())
-                    |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
-
-                Error message
-
+                    |> Seq.toList
+                    |> Error
 
     let validateJsonSchemaExpr (jsonValExpr: Expr) schemaHashCode schemaSource path =
         <@@ validateJsonSchema path (%%jsonValExpr: JsonValue) schemaHashCode schemaSource |> Result.isOk @@>
+
         
 
     // Every case now carries its own Path (including FSharpOneOf, whose Path points at the oneOf
@@ -364,39 +362,16 @@ module ExprGenerator =
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
+
+                let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
+
+
                 let path = keywords.common.Path
-
-                let jsonValExpr =
-                    <@@
-                        JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][]))
-                    @@>
-
                 <@@
                     let record = NullableJsonValue(%%jsonValExpr: JsonValue)
-                    let recordSource = record.ToString()
+                    validateJsonSchema  path record  schemaHashCode schemaSource 
+                @@>
 
-
-                    let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
-
-                    // This allow us to validate a nested class on .create if the path is '#' then we are at the root.
-                    let subschema =
-                        if path = "#" then
-                            rootschema
-                        else
-                            SchemaCache.resolveByPath rootschema path
-
-                    let validationErrors = subschema.Validate recordSource
-
-                    if Seq.isEmpty validationErrors then
-                        record
-                    else
-                        let message =
-                            validationErrors
-                            |> Seq.map (fun validationError -> validationError.ToString())
-                            |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
-
-                        raise (ArgumentException(message, recordSource))
-                 @@>
 
         // Only hitting this branch when the type is at the root of the json Schema 
         // never gets its own Create when nested as a property, so this always validates against

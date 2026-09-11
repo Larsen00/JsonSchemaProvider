@@ -140,12 +140,15 @@ module TypeProvider =
             createProvidedProperties context merged fsharptype
             |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
 
-            let createMethod = createProvidedCreateMethod context merged fsharptype thisTypeDef
-            thisTypeDef.AddMember(createMethod)
+            // Wrap the return type using Result if validation fails.
+            let resultType = typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
+            let createMethod = createProvidedCreateMethod context merged fsharptype resultType
+            thisTypeDef.AddMember createMethod
+
 
             if suffix = "" then
                 let parseMethod = createProvidedParseMethod context thisTypeDef
-                thisTypeDef.AddMember(parseMethod)
+                thisTypeDef.AddMember parseMethod
 
             (keywords.common.Path, thisTypeDef) :: childEntries
         | FSharpList(inner, _) -> buildClassMapHelper context "Item" name inner

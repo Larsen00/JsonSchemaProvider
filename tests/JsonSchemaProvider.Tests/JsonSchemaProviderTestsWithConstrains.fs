@@ -118,7 +118,7 @@ module JsonSchemaProviderTestsWithConstrains =
 
     let validRecordShouldBeCreated =
         test "in-range value is accepted by Create" {
-            let record = Age.Create(age = 7)
+            let record = Expect.wantOk (Age.Create(age = 7)) "Create should succeed"
             Expect.equal record.age 7 "record.age = 7"
         }
 
@@ -130,12 +130,12 @@ module JsonSchemaProviderTestsWithConstrains =
 
     let belowMinimumShouldBeRejectedByCreate =
         test "below-minimum value is rejected by root Create" {
-            Expect.throws (fun () -> Age.Create(age = 3) |> ignore) "Create should reject age below minimum"
+            Expect.isError (Age.Create(age = 3)) "Create should reject age below minimum"
         }
 
     let aboveMaximumShouldBeRejectedByCreate =
         test "above-maximum value is rejected by root Create" {
-            Expect.throws (fun () -> Age.Create(age = 20) |> ignore) "Create should reject age above maximum"
+            Expect.isError (Age.Create(age = 20)) "Create should reject age above maximum"
         }
 
     let belowMinimumShouldBeRejectedByParse =
@@ -151,54 +151,55 @@ module JsonSchemaProviderTestsWithConstrains =
     // directly, without ever going through the root, is now enforced on its own.
     let nestedCreateValidatesConstraints =
         test "nested class Create enforces constraints when called directly" {
-            Expect.throws
-                (fun () -> NestedAge.personObj.Create(age = 3) |> ignore)
+            Expect.isError
+                (NestedAge.personObj.Create(age = 3))
                 "nested Create should reject age below minimum on its own"
         }
 
     let nestedCreateAcceptsInRangeValue =
         test "nested class Create accepts an in-range value when called directly" {
-            let person = NestedAge.personObj.Create(age = 7)
+            let person = Expect.wantOk (NestedAge.personObj.Create(age = 7)) "nested Create should succeed"
             Expect.equal person.age 7 "nested Create should accept age within range"
         }
 
     let twoLevelNestedCreateRejectsOutOfRange =
         test "a class nested two levels deep enforces its own constraints when called directly" {
-            Expect.throws
-                (fun () -> TwoLevelNested.personObj.addressObj.Create(zip = 500) |> ignore)
+            Expect.isError
+                (TwoLevelNested.personObj.addressObj.Create(zip = 500))
                 "two-levels-deep nested Create should reject zip below minimum"
         }
 
     let twoLevelNestedCreateAcceptsInRange =
         test "a class nested two levels deep accepts an in-range value" {
-            let address = TwoLevelNested.personObj.addressObj.Create(zip = 5000)
+            let address =
+                Expect.wantOk (TwoLevelNested.personObj.addressObj.Create(zip = 5000)) "nested Create should succeed"
             Expect.equal address.zip 5000 "two-levels-deep nested Create should accept zip within range"
         }
 
     let siblingNestedClassesValidateAgainstTheirOwnConstraints =
         test "two sibling nested classes each validate against their own sub-schema, not each other's" {
-            let smallValue = SiblingConstraints.smallObj.Create(value = 5)
+            let smallValue = Expect.wantOk (SiblingConstraints.smallObj.Create(value = 5)) "small Create should succeed"
             Expect.equal smallValue.value 5 "small.value=5 is within small's own range"
 
-            Expect.throws
-                (fun () -> SiblingConstraints.smallObj.Create(value = 150) |> ignore)
+            Expect.isError
+                (SiblingConstraints.smallObj.Create(value = 150))
                 "small.value=150 is outside small's own range, even though it's within large's"
 
-            let largeValue = SiblingConstraints.largeObj.Create(value = 150)
+            let largeValue = Expect.wantOk (SiblingConstraints.largeObj.Create(value = 150)) "large Create should succeed"
             Expect.equal largeValue.value 150 "large.value=150 is within large's own range"
 
-            Expect.throws
-                (fun () -> SiblingConstraints.largeObj.Create(value = 5) |> ignore)
+            Expect.isError
+                (SiblingConstraints.largeObj.Create(value = 5))
                 "large.value=5 is outside large's own range, even though it's within small's"
         }
 
     let arrayItemNestedClassValidatesConstraints =
         test "a class reached through an array item's own Create enforces constraints" {
-            Expect.throws
-                (fun () -> ArrayItemConstraints.scoresItem.Create(points = 150) |> ignore)
+            Expect.isError
+                (ArrayItemConstraints.scoresItem.Create(points = 150))
                 "array-item nested Create should reject points above maximum"
 
-            let item = ArrayItemConstraints.scoresItem.Create(points = 50)
+            let item = Expect.wantOk (ArrayItemConstraints.scoresItem.Create(points = 50)) "nested Create should succeed"
             Expect.equal item.points 50 "array-item nested Create should accept points within range"
         }
 

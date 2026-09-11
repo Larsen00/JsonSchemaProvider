@@ -213,14 +213,14 @@ module OneOfTests =
 
     let createStringBranchRoundTrips =
         test "create with string branch round-trips through Parse" {
-            let created = StringOrInt.Create(value = Choice1Of2 "abc")
+            let created = Expect.wantOk (StringOrInt.Create(value = Choice1Of2 "abc")) "Create should succeed"
             let reparsed = StringOrInt.Parse(created.ToString())
             Expect.equal reparsed.value (Choice1Of2 "abc") "round-tripped value = Choice1Of2 \"abc\""
         }
 
     let createIntBranchRoundTrips =
         test "create with int branch round-trips through Parse" {
-            let created = StringOrInt.Create(value = Choice2Of2 99)
+            let created = Expect.wantOk (StringOrInt.Create(value = Choice2Of2 99)) "Create should succeed"
             let reparsed = StringOrInt.Parse(created.ToString())
             Expect.equal reparsed.value (Choice2Of2 99) "round-tripped value = Choice2Of2 99"
         }

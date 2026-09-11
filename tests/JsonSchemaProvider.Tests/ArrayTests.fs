@@ -51,7 +51,7 @@ module ArrayTests =
 
     let min2CreateProducesCorrectTuple =
         test "minItems=2 Create produces correct tuple" {
-            let v = StringArrayMin2.Create(tags = ("a", "b", [ "c"; "d" ]))
+            let v = Expect.wantOk (StringArrayMin2.Create(tags = ("a", "b", [ "c"; "d" ]))) "Create should succeed"
             let (h1, h2, rest) = v.tags
             Expect.equal h1 "a" "first element"
             Expect.equal h2 "b" "second element"
@@ -78,7 +78,7 @@ module ArrayTests =
 
     let min1CreateProducesCorrectPair =
         test "minItems=1 Create produces correct pair" {
-            let v = IntArrayMin1.Create(values = (42, [ 1; 2; 3 ]))
+            let v = Expect.wantOk (IntArrayMin1.Create(values = (42, [ 1; 2; 3 ]))) "Create should succeed"
             let (head, rest) = v.values
             Expect.equal head 42 "head"
             Expect.equal rest [ 1; 2; 3 ] "rest"

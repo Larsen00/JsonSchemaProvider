@@ -172,7 +172,10 @@ module RootTypeTests =
     // case the empty-list test above can't cover: constructing actual elements, not just an empty list.
     let nonEmptyPlaceListRootShouldBeCreated =
         test "array-of-objects root Create builds a non-empty list" {
-            let place = PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683)
+            let place =
+                Expect.wantOk
+                    (PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683))
+                    "Item.Create should succeed"
             let result = PlaceListRoot.Create([ place ])
             Expect.equal (List.length result) 1 "one element"
             Expect.equal result.[0].name "Copenhagen" "name roundtrips"

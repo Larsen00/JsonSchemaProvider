@@ -36,34 +36,34 @@ module KeywordCoverageTests =
 
     let exclusiveMinimumBoundaryIsRejected =
         test "exclusiveMinimum rejects the boundary value itself" {
-            Expect.throws
-                (fun () -> ExclusiveRange.Create(value = 0.0) |> ignore)
+            Expect.isError
+                (ExclusiveRange.Create(value = 0.0))
                 "0 should be rejected - exclusiveMinimum excludes the bound"
         }
 
     let exclusiveMaximumBoundaryIsRejected =
         test "exclusiveMaximum rejects the boundary value itself" {
-            Expect.throws
-                (fun () -> ExclusiveRange.Create(value = 10.0) |> ignore)
+            Expect.isError
+                (ExclusiveRange.Create(value = 10.0))
                 "10 should be rejected - exclusiveMaximum excludes the bound"
         }
 
     let insideExclusiveRangeIsAccepted =
         test "a value strictly inside an exclusive range is accepted" {
-            let result = ExclusiveRange.Create(value = 5.0)
+            let result = Expect.wantOk (ExclusiveRange.Create(value = 5.0)) "Create should succeed"
             Expect.equal result.value 5.0 "5 is strictly between the exclusive bounds"
         }
 
     let nonMultipleIsRejected =
         test "multipleOf rejects a non-multiple value" {
-            Expect.throws
-                (fun () -> MultipleOf.Create(value = 7) |> ignore)
+            Expect.isError
+                (MultipleOf.Create(value = 7))
                 "7 is not a multiple of 5"
         }
 
     let multipleIsAccepted =
         test "multipleOf accepts a genuine multiple" {
-            let result = MultipleOf.Create(value = 10)
+            let result = Expect.wantOk (MultipleOf.Create(value = 10)) "Create should succeed"
             Expect.equal result.value 10 "10 is a multiple of 5"
         }
 
@@ -85,30 +85,30 @@ module KeywordCoverageTests =
 
     let tooShortStringIsRejected =
         test "minLength rejects a too-short string" {
-            Expect.throws (fun () -> StringLength.Create(value = "ab") |> ignore) "\"ab\" is below minLength"
+            Expect.isError (StringLength.Create(value = "ab")) "\"ab\" is below minLength"
         }
 
     let tooLongStringIsRejected =
         test "maxLength rejects a too-long string" {
-            Expect.throws (fun () -> StringLength.Create(value = "abcdef") |> ignore) "\"abcdef\" is above maxLength"
+            Expect.isError (StringLength.Create(value = "abcdef")) "\"abcdef\" is above maxLength"
         }
 
     let stringWithinLengthRangeIsAccepted =
         test "a string within [minLength, maxLength] is accepted" {
-            let result = StringLength.Create(value = "abc")
+            let result = Expect.wantOk (StringLength.Create(value = "abc")) "Create should succeed"
             Expect.equal result.value "abc" "\"abc\" is within [3, 5]"
         }
 
     let invalidEmailFormatIsRejected =
         test "format=email rejects a non-email string" {
-            Expect.throws
-                (fun () -> EmailFormat.Create(value = "not-an-email") |> ignore)
+            Expect.isError
+                (EmailFormat.Create(value = "not-an-email"))
                 "\"not-an-email\" does not match the email format"
         }
 
     let validEmailFormatIsAccepted =
         test "format=email accepts a genuine email string" {
-            let result = EmailFormat.Create(value = "a@b.com")
+            let result = Expect.wantOk (EmailFormat.Create(value = "a@b.com")) "Create should succeed"
             Expect.equal result.value "a@b.com" "\"a@b.com\" matches the email format"
         }
 
@@ -146,53 +146,53 @@ module KeywordCoverageTests =
 
     let duplicateItemsAreRejected =
         test "uniqueItems rejects an array with a duplicate" {
-            Expect.throws
-                (fun () -> UniqueItemsArray.Create(values = [ 1; 2; 2 ]) |> ignore)
+            Expect.isError
+                (UniqueItemsArray.Create(values = [ 1; 2; 2 ]))
                 "[1;2;2] has a duplicate"
         }
 
     let allUniqueItemsAreAccepted =
         test "uniqueItems accepts an array with no duplicates" {
-            let result = UniqueItemsArray.Create(values = [ 1; 2; 3 ])
+            let result = Expect.wantOk (UniqueItemsArray.Create(values = [ 1; 2; 3 ])) "Create should succeed"
             Expect.equal result.values [ 1; 2; 3 ] "[1;2;3] has no duplicates"
         }
 
     let tooManyItemsAreRejected =
         test "maxItems rejects an array with too many elements" {
-            Expect.throws
-                (fun () -> MaxItemsArray.Create(values = [ 1; 2; 3 ]) |> ignore)
+            Expect.isError
+                (MaxItemsArray.Create(values = [ 1; 2; 3 ]))
                 "3 elements exceeds maxItems=2"
         }
 
     let withinMaxItemsIsAccepted =
         test "maxItems accepts an array within the limit" {
-            let result = MaxItemsArray.Create(values = [ 1; 2 ])
+            let result = Expect.wantOk (MaxItemsArray.Create(values = [ 1; 2 ])) "Create should succeed"
             Expect.equal result.values [ 1; 2 ] "2 elements is within maxItems=2"
         }
 
     let tooFewItemsAreRejectedAtRuntime =
         test "minItems is enforced at runtime by Create, not just as a compile-time tuple shape" {
-            Expect.throws
-                (fun () -> MinItemsRuntime.Create(tags = [ "a" ]) |> ignore)
+            Expect.isError
+                (MinItemsRuntime.Create(tags = [ "a" ]))
                 "1 element is below minItems=2"
         }
 
     let enoughItemsAreAcceptedAtRuntime =
         test "minItems is satisfied at runtime by Create when there are enough elements" {
-            let result = MinItemsRuntime.Create(tags = [ "a"; "b" ])
+            let result = Expect.wantOk (MinItemsRuntime.Create(tags = [ "a"; "b" ])) "Create should succeed"
             Expect.equal result.tags [ "a"; "b" ] "2 elements satisfies minItems=2"
         }
 
     let arrayWithAnOutOfRangeItemIsRejected =
         test "a constraint on the array's own item schema is enforced against every element" {
-            Expect.throws
-                (fun () -> ArrayItemConstraint.Create(values = [ 1; -1; 3 ]) |> ignore)
+            Expect.isError
+                (ArrayItemConstraint.Create(values = [ 1; -1; 3 ]))
                 "-1 violates the item schema's own minimum, even though the array itself has no length constraint"
         }
 
     let arrayWithAllInRangeItemsIsAccepted =
         test "an array whose every element satisfies the item schema is accepted" {
-            let result = ArrayItemConstraint.Create(values = [ 1; 2; 3 ])
+            let result = Expect.wantOk (ArrayItemConstraint.Create(values = [ 1; 2; 3 ])) "Create should succeed"
             Expect.equal result.values [ 1; 2; 3 ] "every element satisfies the item schema's minimum"
         }
 
@@ -236,27 +236,27 @@ module KeywordCoverageTests =
 
     let tooFewPropertiesAreRejected =
         test "minProperties rejects an object built with too few properties set" {
-            Expect.throws
-                (fun () -> MinPropertiesObject.Create(a = 1) |> ignore)
+            Expect.isError
+                (MinPropertiesObject.Create(a = 1))
                 "only 1 property set is below minProperties=2"
         }
 
     let enoughPropertiesAreAccepted =
         test "minProperties accepts an object with enough properties set" {
-            let result = MinPropertiesObject.Create(a = 1, b = 2)
+            let result = Expect.wantOk (MinPropertiesObject.Create(a = 1, b = 2)) "Create should succeed"
             Expect.equal (result.a, result.b) (Some 1, Some 2) "2 properties set satisfies minProperties=2"
         }
 
     let tooManyPropertiesAreRejected =
         test "maxProperties rejects an object built with too many properties set" {
-            Expect.throws
-                (fun () -> MaxPropertiesObject.Create(a = 1, b = 2, c = 3) |> ignore)
+            Expect.isError
+                (MaxPropertiesObject.Create(a = 1, b = 2, c = 3))
                 "3 properties set exceeds maxProperties=2"
         }
 
     let withinMaxPropertiesIsAccepted =
         test "maxProperties accepts an object within the limit" {
-            let result = MaxPropertiesObject.Create(a = 1, b = 2)
+            let result = Expect.wantOk (MaxPropertiesObject.Create(a = 1, b = 2)) "Create should succeed"
             Expect.equal (result.a, result.b) (Some 1, Some 2) "2 properties set is within maxProperties=2"
         }
 
