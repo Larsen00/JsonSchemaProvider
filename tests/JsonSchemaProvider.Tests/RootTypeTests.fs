@@ -73,8 +73,8 @@ module RootTypeTests =
 
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
-            let result = BoolRoot.Create(true)
-            Expect.equal (result) true "BoolRoot.Create(true).JsonVal = true"
+            let value = Expect.wantOk (BoolRoot.Create(true)) "Create should succeed"
+            Expect.equal value true "BoolRoot.Create(true).JsonVal = true"
         }
 
     let boolRootShouldBeParsed =
@@ -85,8 +85,8 @@ module RootTypeTests =
 
     let intRootShouldBeCreated =
         test "integer root Create builds the value" {
-            let result = IntRoot.Create(42)
-            Expect.equal result 42 "IntRoot.Create(42).JsonVal = 42"
+            let value = Expect.wantOk (IntRoot.Create(42)) "Create should succeed"
+            Expect.equal value 42 "IntRoot.Create(42).JsonVal = 42"
         }
 
     let intRootShouldBeParsed =
@@ -97,8 +97,8 @@ module RootTypeTests =
 
     let numberRootShouldBeCreated =
         test "number root Create builds the value" {
-            let result = NumberRoot.Create(3.14)
-            Expect.equal result 3.14 "NumberRoot.Create(3.14).JsonVal = 3.14"
+            let value = Expect.wantOk (NumberRoot.Create(3.14)) "Create should succeed"
+            Expect.equal value 3.14 "NumberRoot.Create(3.14).JsonVal = 3.14"
         }
 
     let numberRootShouldBeParsed =
@@ -109,8 +109,8 @@ module RootTypeTests =
 
     let stringRootShouldBeCreated =
         test "string root Create builds the value" {
-            let result = StringRoot.Create("hello")
-            Expect.equal result "hello" "StringRoot.Create(\"hello\").JsonVal = \"hello\""
+            let value = Expect.wantOk (StringRoot.Create("hello")) "Create should succeed"
+            Expect.equal value "hello" "StringRoot.Create(\"hello\").JsonVal = \"hello\""
         }
 
     let stringRootShouldBeParsed =
@@ -121,22 +121,18 @@ module RootTypeTests =
 
     let inRangeConstrainedIntRootShouldBeAccepted =
         test "in-range integer root value is accepted by Create" {
-            let result = ConstrainedIntRoot.Create(7)
-            Expect.equal result 7 "ConstrainedIntRoot.Create(7).JsonVal = 7"
+            let value = Expect.wantOk (ConstrainedIntRoot.Create(7)) "Create should succeed"
+            Expect.equal value 7 "ConstrainedIntRoot.Create(7).JsonVal = 7"
         }
 
     let belowMinimumConstrainedIntRootShouldBeRejectedByCreate =
         test "below-minimum integer root value is rejected by Create" {
-            Expect.throws
-                (fun () -> ConstrainedIntRoot.Create(3) |> ignore)
-                "Create should reject a root value below minimum"
+            Expect.isError (ConstrainedIntRoot.Create(3)) "Create should reject a root value below minimum"
         }
 
     let aboveMaximumConstrainedIntRootShouldBeRejectedByCreate =
         test "above-maximum integer root value is rejected by Create" {
-            Expect.throws
-                (fun () -> ConstrainedIntRoot.Create(20) |> ignore)
-                "Create should reject a root value above maximum"
+            Expect.isError (ConstrainedIntRoot.Create(20)) "Create should reject a root value above maximum"
         }
 
     let belowMinimumConstrainedIntRootShouldBeRejectedByParse =
@@ -148,20 +144,20 @@ module RootTypeTests =
 
     let matchingPatternStringRootShouldBeAccepted =
         test "string root value matching pattern is accepted by Create" {
-            let result = PatternConstrainedStringRoot.Create("hello")
-            Expect.equal result "hello" "PatternConstrainedStringRoot.Create(\"hello\") should be accepted"
+            let value = Expect.wantOk (PatternConstrainedStringRoot.Create("hello")) "Create should succeed"
+            Expect.equal value "hello" "PatternConstrainedStringRoot.Create(\"hello\") should be accepted"
         }
 
     let nonMatchingPatternStringRootShouldBeRejected =
         test "string root value not matching pattern is rejected by Create" {
-            Expect.throws
-                (fun () -> PatternConstrainedStringRoot.Create("HELLO") |> ignore)
+            Expect.isError
+                (PatternConstrainedStringRoot.Create("HELLO"))
                 "Create should reject a root value that doesn't match the pattern"
         }
 
     let emptyPlaceListRootShouldBeCreated =
         test "array-of-objects root Create builds an empty list" {
-            let result = PlaceListRoot.Create([])
+            let result = Expect.wantOk (PlaceListRoot.Create([])) "Create should succeed"
             Expect.equal (List.length result) 0 "PlaceListRoot.Create([]) has no elements"
         }
 
@@ -176,7 +172,7 @@ module RootTypeTests =
                 Expect.wantOk
                     (PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683))
                     "Item.Create should succeed"
-            let result = PlaceListRoot.Create([ place ])
+            let result = Expect.wantOk (PlaceListRoot.Create([ place ])) "Create should succeed"
             Expect.equal (List.length result) 1 "one element"
             Expect.equal result.[0].name "Copenhagen" "name roundtrips"
             Expect.equal result.[0].lat 55.6761 "lat roundtrips"

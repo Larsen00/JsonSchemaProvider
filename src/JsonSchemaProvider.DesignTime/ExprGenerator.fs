@@ -14,51 +14,49 @@ module ExprGenerator =
 
 
 
-    let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =
-        let recordSource = record.ToString()
+    // Returns the schema errors for jsonText, empty when it's valid. Shared by validateJsonSchema
+    // and the primitive/list root Create branch below.
+    //
+    // Keep this public: generated Create methods run in the consuming assembly, so they need a
+    // public API here to call back into - a private method would throw MethodAccessException.
+    let collectValidationErrors (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : string list =
         let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
 
         // This allow us to validate a nested class on .create if the path is '#' then we are at the root.
         let subschema =
-            if path = "#" then
-                rootschema
-            else
-                SchemaCache.resolveByPath rootschema path
+            if path = "#" then rootschema
+            else SchemaCache.resolveByPath rootschema path
 
-        let validationErrors = subschema.Validate recordSource
+        subschema.Validate jsonText
+        |> Seq.map (fun validationError -> validationError.ToString())
+        |> Seq.toList
 
-
-        if Seq.isEmpty validationErrors then
-                Ok record
-            else
-                    validationErrors
-                    |> Seq.map (fun validationError -> validationError.ToString())
-                    |> Seq.toList
-                    |> Error
+    let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =
+        match collectValidationErrors path (record.ToString()) schemaHashCode schemaSource with
+        | [] -> Ok record
+        | errors -> Error errors
 
     let validateJsonSchemaExpr (jsonValExpr: Expr) schemaHashCode schemaSource path =
         <@@ validateJsonSchema path (%%jsonValExpr: JsonValue) schemaHashCode schemaSource |> Result.isOk @@>
 
-        
 
-    // Every case now carries its own Path (including FSharpOneOf, whose Path points at the oneOf
-    // node itself, not any one branch) - so this is just "validate against this node's own
-    // subschema" uniformly, no recursion needed. NJsonSchema's own Validate already implements
-    // oneOf's "exactly one alternative" semantics recursively, so this also handles a nested oneOf
-    // correctly without walking into it by hand.
-    let private generateStructualMatchExpr (context: GenerationContext) (fsharpType: FSharpType) (jsonValExpr: Expr) =
-
-        // An applay function that takes in the path to the sub schema and then validated the jsonValExpr agains it.
-        let validate = validateJsonSchemaExpr jsonValExpr context.SchemaHashCode context.SchemaString
-
+    // Every case carries its own Path (FSharpOneOf's points at the oneOf node itself, not any one
+    // branch, and has no `common` wrapper). A root-level node's Path is "#".
+    let private pathOf (fsharpType: FSharpType) : string =
         match fsharpType with
         | FSharpDouble keywords
-        | FSharpInt keywords            -> keywords.common.Path |> validate
-        | FSharpBool keywords           -> keywords.common.Path |> validate
-        | FSharpString keywords         -> keywords.common.Path |> validate
-        | FSharpClass (keywords, _)     -> keywords.common.Path |> validate
-        | FSharpList(_, keywords)       -> keywords.common.Path |> validate
-        | FSharpOneOf (keywords, _, _)  -> keywords.Path |> validate
+        | FSharpInt keywords            -> keywords.common.Path
+        | FSharpBool keywords           -> keywords.common.Path
+        | FSharpString keywords         -> keywords.common.Path
+        | FSharpClass (keywords, _)     -> keywords.common.Path
+        | FSharpList(_, keywords)       -> keywords.common.Path
+        | FSharpOneOf (keywords, _, _)  -> keywords.Path
+
+    // This is just "validate against this node's own subschema" uniformly, no recursion needed.
+    // NJsonSchema's own Validate already implements oneOf's "exactly one alternative" semantics
+    // recursively, so this also handles a nested oneOf correctly without walking into it by hand.
+    let private generateStructualMatchExpr (context: GenerationContext) (fsharpType: FSharpType) (jsonValExpr: Expr) =
+        validateJsonSchemaExpr jsonValExpr context.SchemaHashCode context.SchemaString (pathOf fsharpType)
 
     let rec private generateJsonValToRuntimeTypeConversion
         (context: GenerationContext)
@@ -369,7 +367,7 @@ module ExprGenerator =
                 let path = keywords.common.Path
                 <@@
                     let record = NullableJsonValue(%%jsonValExpr: JsonValue)
-                    validateJsonSchema  path record  schemaHashCode schemaSource 
+                    validateJsonSchema path record schemaHashCode schemaSource
                 @@>
 
 
@@ -380,29 +378,31 @@ module ExprGenerator =
             fun (args: Expr list) ->
                 let toJsonVal = generateRuntimeTypeToJsonValConversion context classMap false fsharptype
                 let jsonValExpr = Expr.Application(toJsonVal, args[0])
+                let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
-                // Evaluates to unit: raises on failure, otherwise falls through. Sequenced with
-                // args[0] below so the overall Expr's type is just whatever args[0] already is -
-                // no need to guess/ascribe which of the four primitive types we're in.
-                let validateExpr =
-                    <@@
-                        let jsonVal = (%%jsonValExpr: JsonValue)
-                        let recordSource = jsonVal.ToString()
+                let path = pathOf fsharptype
+                let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
 
-                        let schema = SchemaCache.retrieveSchema schemaHashCode schemaSource
-                        let validationErrors = schema.Validate recordSource
+                // The success payload is args[0] itself (the caller's bool/int/double/string/list),
+                // not the JsonValue used for validation - those are different types, and which one
+                // args[0] actually is isn't resolved until here, so Result<successType, _> is built
+                // directly with Expr.NewUnionCase, same as the Choice1/Choice2 construction above.
+                let successType = fSharpTypeToRuntimeType classMap fsharptype context.CompileFlags
+                let resultType = typedefof<Result<_, _>>.MakeGenericType(successType, typeof<string list>)
+                let cases = Reflection.FSharpType.GetUnionCases resultType
+                let okCase, errorCase = cases.[0], cases.[1]
 
-                        if Seq.isEmpty validationErrors then
-                            ()
-                        else
-                            let message =
-                                validationErrors
-                                |> Seq.map (fun validationError -> validationError.ToString())
-                                |> fun msgs -> System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
+                let errorsVar = Var($"validationErrors{Guid.NewGuid()}", typeof<string list>)
+                let isEmpty = <@@ List.isEmpty (%%(Expr.Var errorsVar): string list) @@>
 
-                            raise (ArgumentException(message, recordSource))
-                    @@>
-
-                Expr.Sequential(validateExpr, args[0])
+                Expr.Let(
+                    errorsVar,
+                    errorsExpr,
+                    Expr.IfThenElse(
+                        isEmpty,
+                        Expr.NewUnionCase(okCase, [ args[0] ]),
+                        Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                    )
+                )
 
         | _ -> failwith "hmm idk"

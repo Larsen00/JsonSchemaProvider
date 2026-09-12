@@ -190,9 +190,10 @@ module TypeProvider =
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
-            let returnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
+            let innerReturnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
+            let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context classMap fsharptype returnType
+            let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
             providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context providedTypeDefinition
@@ -208,9 +209,10 @@ module TypeProvider =
             extractNestedClasses fsharplist
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember classMap[keywords.common.Path])
 
-            let returnType = fSharpTypeToCompileTimeType classMap fsharplist compileFlags
+            let innerReturnType = fSharpTypeToCompileTimeType classMap fsharplist compileFlags
+            let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context classMap fsharplist returnType
+            let createMethod = createProvidedCreateMethod context classMap fsharplist resultType
             providedTypeDefinition.AddMember createMethod
 
             providedTypeDefinition
