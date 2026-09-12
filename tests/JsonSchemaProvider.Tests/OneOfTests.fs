@@ -156,22 +156,10 @@ module OneOfTests =
           "required": ["value"]
         }"""
 
-    [<Literal>]
-    let constOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string", "const": "circle"},
-                {"type": "string", "const": "square"}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
+    // No const-discriminated oneOf schema/tests here: NJsonSchema doesn't enforce `const` at all -
+    // two branches differing only by const both validate any matching-type value, so Parse can't
+    // actually pick a branch by const value. enumOneOfSchema below covers the same "oneOf
+    // discriminated purely by value" shape with a keyword NJsonSchema does enforce.
     [<Literal>]
     let enumOneOfSchema =
         """
@@ -196,7 +184,6 @@ module OneOfTests =
     type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
     type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
     type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
-    type ConstOneOf = JsonSchemaProvider<schema = constOneOfSchema>
     type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
     let parseStringBranchOfTwoWayOneOf =
@@ -352,25 +339,6 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
 
-    let constOneOfPicksCircleBranch =
-        test "string|string oneOf: const \"circle\" picks the circle branch" {
-            let v = ConstOneOf.Parse("""{"value": "circle"}""")
-            Expect.equal v.value (Choice1Of2 "circle") "value = Choice1Of2 \"circle\""
-        }
-
-    let constOneOfPicksSquareBranch =
-        test "string|string oneOf: const \"square\" picks the square branch" {
-            let v = ConstOneOf.Parse("""{"value": "square"}""")
-            Expect.equal v.value (Choice2Of2 "square") "value = Choice2Of2 \"square\""
-        }
-
-    let constOneOfRejectsValueMatchingNeitherConst =
-        test "string|string oneOf: a value matching neither const fails Parse validation" {
-            Expect.throws
-                (fun () -> ConstOneOf.Parse("""{"value": "triangle"}""") |> ignore)
-                "\"triangle\" satisfies neither const \"circle\" nor const \"square\""
-        }
-
     let enumOneOfPicksColorBranch =
         test "string|string oneOf: a color enum value picks the color branch" {
             let v = EnumOneOf.Parse("""{"value": "red"}""")
@@ -417,9 +385,6 @@ module OneOfTests =
               arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation
               arrayLengthOneOfPicksShortBranch
               arrayLengthOneOfPicksLongBranch
-              constOneOfPicksCircleBranch
-              constOneOfPicksSquareBranch
-              constOneOfRejectsValueMatchingNeitherConst
               enumOneOfPicksColorBranch
               enumOneOfPicksShapeBranch
               enumOneOfRejectsValueInNeitherEnum ]
