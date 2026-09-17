@@ -40,6 +40,8 @@ module SchemaConversion =
         let specific : JsonArray.Specific = {
             // When minItems is omitted, it defaults to 0 according to the JSON Schema specification
             MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
+            // When maxItems is omitted, NJsonSchema defaults it to 0, same as MinItems above
+            MaxItems = if schema.MaxItems > 0 then Some schema.MaxItems else None
          }
         JsonArray(parseJsonSchemaStructured rootSchema schema.Item, { common = common; specific = specific })
 

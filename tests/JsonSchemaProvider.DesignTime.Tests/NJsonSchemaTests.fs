@@ -19,6 +19,20 @@ module NJsonSchemaTests =
             Expect.equal schema.MinItems 0 "Expected default value of 0 for minItems"
         }
 
+    let maxItemsDefaultsToZeroWhenAbsent =
+        test "Omitting maxItems in a JSON schema should result in a default value of 0" {
+            let schema =
+                """
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }"""
+                |> SchemaCache.parseSchema
+            Expect.equal schema.MaxItems 0 "Expected default value of 0 for maxItems"
+        }
+
     // ActualProperties reflects only the last allOf branch, not a union of all branches -
     // contrary to what SPEC_GAPS.md previously assumed.
     let actualPropertiesDoesNotMergePlainAllOfBranches =
@@ -157,6 +171,7 @@ module NJsonSchemaTests =
         testList
             "JsonSchemaProvider.Tests.NJsonSchemaTests"
             [ minItemsDefaultsToZeroWhenAbsent
+              maxItemsDefaultsToZeroWhenAbsent
               actualPropertiesDoesNotMergePlainAllOfBranches
               actualPropertiesDoesNotMergeRefBasedAllOfBranches
               numericLookingStringFailsNumberType

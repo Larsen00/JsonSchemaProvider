@@ -21,7 +21,7 @@ module JsonArray =
 
     type Specific = {
         MinItems: int option
-        // ... other keywords can be added here
+        MaxItems: int option
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
 

@@ -66,23 +66,18 @@ module ExprGenerator =
         match fSharpType with
         | FSharpBool(_) -> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
         | FSharpClass(_) -> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue(jsonVal) @@>
-        | FSharpList(innerType, arrayKeywords) -> //TODO: An idea would be to greate a file for the List type that holds this conversion as when we add more keywords it will get more complex
-            // Implements: <@@ fun (jsonVal: JsonValue) -> List.ofArray (Array.map %%generateForInner (jsonVal.AsArray())) @@>
+        | FSharpList(innerType, arrayKeywords) -> 
+            
             // Recursive call to generateJsonValToRuntimeTypeConversion for the inner type
-            let generateForInner: Expr =
-                generateJsonValToRuntimeTypeConversion context classMap innerType
+            let generateForInner: Expr = generateJsonValToRuntimeTypeConversion context classMap innerType
 
             // Get the runtime type of the inner type
-            let innerRuntimeType: Type =
-                fSharpTypeToRuntimeType classMap innerType context.CompileFlags
+            let innerRuntimeType: Type = fSharpTypeToRuntimeType classMap innerType context.CompileFlags
 
             // Declare a variable to hold the JsonValue parameter
-            let jsonValVar: Var =
-                Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
+            let jsonValVar: Var = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
 
-
-            let jsonValAsArray: Expr =
-                CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
+            let jsonValAsArray: Expr = CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
 
             match arrayKeywords.specific.MinItems, context.CompileFlags.CompileMinItems with
             | Some minItems, true when minItems > 0 ->
