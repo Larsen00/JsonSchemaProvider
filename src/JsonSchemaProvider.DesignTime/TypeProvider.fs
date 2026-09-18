@@ -117,7 +117,7 @@ module TypeProvider =
             context.Assembly,
             context.NamespaceName,
             className + suffix,
-            Some context.RuntimeType
+            Some context.RootBaseType
         )
 
     // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
@@ -165,14 +165,14 @@ module TypeProvider =
         (assembly: Assembly)
         (namespaceName: string)
         (typeName: string)
-        (runtimeType: Type)
+        (rootBaseType: Type)
         (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
 
         let context =
             { Assembly = assembly
               NamespaceName = namespaceName
-              RuntimeType = runtimeType
+              RootBaseType = rootBaseType
               SchemaHashCode = schemaHashCode
               SchemaString = schema.ToJson()
               CompileFlags = compileFlags }

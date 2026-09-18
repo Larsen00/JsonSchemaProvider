@@ -18,7 +18,7 @@ module TypeLevelConversion =
     type GenerationContext =
         { Assembly: Assembly
           NamespaceName: string
-          RuntimeType: Type
+          RootBaseType: Type
           SchemaHashCode: int32
           SchemaString: string
           CompileFlags: ProviderConfiguration.CompileFlags }

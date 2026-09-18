@@ -24,10 +24,10 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
             ProvidedStaticParameter("compileMinItems", typeof<bool>, false)
         ]
 
-    let runtimeType = typeof<NullableJsonValue>
+    let rootBaseType = typeof<NullableJsonValue>
 
     let jsonSchemaType =
-        ProvidedTypeDefinition(thisAssembly, namespaceName, "JsonSchemaProvider", baseType = Some runtimeType)
+        ProvidedTypeDefinition(thisAssembly, namespaceName, "JsonSchemaProvider", baseType = Some rootBaseType)
 
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
@@ -48,7 +48,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
             }
 
             let providedType =
-                TypeProvider.run schema schemaHashCode thisAssembly namespaceName typeName runtimeType compileUsingKeywordFlags
+                TypeProvider.run schema schemaHashCode thisAssembly namespaceName typeName rootBaseType compileUsingKeywordFlags
 
             providedType
         | paramValues -> failwithf "Unexpected parameter values %A." paramValues
