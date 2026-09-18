@@ -99,6 +99,12 @@ module KeywordCoverageTests =
             Expect.equal result.value "abc" "\"abc\" is within [3, 5]"
         }
 
+    let stringAtMaxLengthIsAccepted =
+        test "maxLength accepts a string at the limit" {
+            let result = Expect.wantOk (StringLength.Create(value = "abcde")) "Create should succeed"
+            Expect.equal result.value "abcde" "\"abcde\" is exactly 5 characters, the maxLength limit"
+        }
+
     let invalidEmailFormatIsRejected =
         test "format=email rejects a non-email string" {
             Expect.isError
@@ -301,6 +307,7 @@ module KeywordCoverageTests =
               tooShortStringIsRejected
               tooLongStringIsRejected
               stringWithinLengthRangeIsAccepted
+              stringAtMaxLengthIsAccepted
               invalidEmailFormatIsRejected
               validEmailFormatIsAccepted
               duplicateItemsAreRejected

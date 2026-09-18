@@ -22,6 +22,26 @@ module JsonSchemaProviderTests =
           }
         }"""
 
+    // Isolates generateIsNullCheck's FSharpBool/FSharpDouble branches specifically - flatSchema's
+    // optional Z:integer already exercises the FSharpInt branch (both present and absent), but
+    // nothing else in this suite has an *optional* (non-required) boolean or number property, so
+    // those two branches - each its own separate pattern match arm, not shared code - had no
+    // coverage at all.
+    [<Literal>]
+    let optionalPrimitivesSchema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "flag": {
+              "type": "boolean"
+            },
+            "amount": {
+              "type": "number"
+            }
+          }
+        }"""
+
     [<Literal>]
     let requiredPropertiesSchema =
         """
@@ -144,6 +164,7 @@ module JsonSchemaProviderTests =
         }"""
 
     type Flat = JsonSchemaProvider<schema=flatSchema>
+    type OptionalPrimitives = JsonSchemaProvider<schema=optionalPrimitivesSchema>
     type RequiredProperties = JsonSchemaProvider<schema=requiredPropertiesSchema>
     type FlatFromFile = JsonSchemaProvider<schemaFile=flatSchemaPath>
     type PatternSchema = JsonSchemaProvider<schema=patternSchema>
@@ -167,6 +188,20 @@ module JsonSchemaProviderTests =
             Expect.equal flat.X (Some("x")) """flat.X = Some("x")"""
             Expect.equal flat.Y None """flat.Y = None"""
             Expect.equal flat.Z (Some(1)) "flat.Z = Some(1)"
+        }
+
+    let optionalBoolAndNumberPresentRoundTrip =
+        test "optional boolean and number properties round-trip when present" {
+            let v = Expect.wantOk (OptionalPrimitives.Create(flag = true, amount = 1.5)) "Create should succeed"
+            Expect.equal v.flag (Some true) "flag = Some true"
+            Expect.equal v.amount (Some 1.5) "amount = Some 1.5"
+        }
+
+    let optionalBoolAndNumberAbsentGiveNone =
+        test "optional boolean and number properties give None when absent" {
+            let v = Expect.wantOk (OptionalPrimitives.Create()) "Create should succeed"
+            Expect.equal v.flag None "flag = None"
+            Expect.equal v.amount None "amount = None"
         }
 
     let requiredPropertiesShouldNotBeParsedIntoOption =
@@ -255,6 +290,8 @@ module JsonSchemaProviderTests =
             "JsonSchemaProvider.Tests.JsonSchemaProviderTests"
             [ validRecordShouldBeParsed
               createMethodShouldReturnRecord
+              optionalBoolAndNumberPresentRoundTrip
+              optionalBoolAndNumberAbsentGiveNone
               requiredPropertiesShouldNotBeParsedIntoOption
               createMethodFromFileSchemaShouldReturnRecord
               validationErrorShouldBeDetectedByCreate
