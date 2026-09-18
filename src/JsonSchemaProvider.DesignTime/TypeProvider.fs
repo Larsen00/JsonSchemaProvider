@@ -140,9 +140,15 @@ module TypeProvider =
             createProvidedProperties context merged fsharptype
             |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
 
-            // Wrap the return type using Result if validation fails.
-            let resultType = typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
-            let createMethod = createProvidedCreateMethod context merged fsharptype resultType
+            // Wrap the return type in Result unless this class (and every property's own type) is
+            // FullyCompilable, in which case Create can't fail and returns the class directly.
+            let returnType =
+                if isClassFullyCompilable context merged keywords properties then
+                    thisTypeDef :> Type
+                else
+                    typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
+
+            let createMethod = createProvidedCreateMethod context merged fsharptype returnType
             thisTypeDef.AddMember createMethod
 
 
@@ -190,8 +196,13 @@ module TypeProvider =
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
+            let conversions = convert context classMap fsharptype
             let innerReturnType = (convert context classMap fsharptype).CompileTimeType
-            let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
+            let resultType = 
+                if conversions.FullyCompilable then
+                    innerReturnType
+                else
+                    typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
             let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
             providedTypeDefinition.AddMember createMethod
@@ -209,12 +220,20 @@ module TypeProvider =
             extractNestedClasses fsharplist
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember classMap[keywords.common.Path])
 
-            let innerReturnType = (convert context classMap fsharplist).CompileTimeType
-            let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
+            let conversions = convert context classMap fsharplist
+            let innerReturnType = conversions.CompileTimeType
+
+            
+            let resultType = 
+                if conversions.FullyCompilable then
+                    // When the conversion is fully compilable, we dont need to use the result wrapper as it dont need validation
+                    innerReturnType
+                else
+                    typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
             let createMethod = createProvidedCreateMethod context classMap fsharplist resultType
             providedTypeDefinition.AddMember createMethod
 
             providedTypeDefinition
 
-        | _ -> failwith "Root schema must be an object or a primitive" // TODO: lift this restriction when list/oneOf root is wired up
+        | _ -> failwith "Root schema must be an object or a primitive or list" // TODO: lift this restriction when oneOf root is wired up

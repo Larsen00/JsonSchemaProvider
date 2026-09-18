@@ -28,7 +28,6 @@
     <Compile Include="ProviderConfiguration.fs"/>
     <Compile Include="CommonExprs.fs" />
     <Compile Include="SchemaValidationExprs.fs" />
-    <Compile Include="Types\JsonInteger.fs"/>
     <Compile Include="SchemaConversion.fs" />
     <Compile Include="TypeLevelConversion.fs" />
     <Compile Include="ExprGenerator.fs" />

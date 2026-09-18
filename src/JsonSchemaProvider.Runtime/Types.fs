@@ -8,10 +8,22 @@ namespace JsonSchemaProvider
 //   - `specific`: keywords only that `type` supports (the table JSON Schema itself draws between
 //                 "core"/"metadata" keywords and per-type "validation" keywords)
 module Common =
-    type Keywords = { Path: string }
+    type Keywords = {
+        Path: string
+        // A local promise only: true when this node's own JSON (not its children's) has nothing
+        // stopping it from compiling, assuming every child also turns out compilable
+        CanBeCompiled: bool
+    }
 
 module JsonObject =
-    type Specific = { Required: Map<string, bool> }
+    type Specific = {
+        Required: Map<string, bool>
+        MinProperties: int option
+        MaxProperties: int option
+        HasPatternProperties: bool
+        AllowAdditionalProperties: bool
+        HasAdditionalPropertiesSchema: bool
+    }
     type Keywords = { common: Common.Keywords; specific: Specific }
 
 module JsonArray =
@@ -22,6 +34,9 @@ module JsonArray =
     type Specific = {
         MinItems: int option
         MaxItems: int option
+        UniqueItems: bool
+        AllowAdditionalItems: bool
+        HasAdditionalItemsSchema: bool
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
 

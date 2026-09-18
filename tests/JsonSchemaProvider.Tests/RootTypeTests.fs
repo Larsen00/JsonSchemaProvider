@@ -73,8 +73,8 @@ module RootTypeTests =
 
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
-            let value = Expect.wantOk (BoolRoot.Create(true)) "Create should succeed"
-            Expect.equal value true "BoolRoot.Create(true).JsonVal = true"
+            let value = BoolRoot.Create true
+            Expect.equal  value true "BoolRoot.Create(true).JsonVal = true"
         }
 
     let boolRootShouldBeParsed =
@@ -85,7 +85,7 @@ module RootTypeTests =
 
     let intRootShouldBeCreated =
         test "integer root Create builds the value" {
-            let value = Expect.wantOk (IntRoot.Create(42)) "Create should succeed"
+            let value = IntRoot.Create 42
             Expect.equal value 42 "IntRoot.Create(42).JsonVal = 42"
         }
 
@@ -97,7 +97,7 @@ module RootTypeTests =
 
     let numberRootShouldBeCreated =
         test "number root Create builds the value" {
-            let value = Expect.wantOk (NumberRoot.Create(3.14)) "Create should succeed"
+            let value = NumberRoot.Create 3.14
             Expect.equal value 3.14 "NumberRoot.Create(3.14).JsonVal = 3.14"
         }
 
@@ -109,7 +109,7 @@ module RootTypeTests =
 
     let stringRootShouldBeCreated =
         test "string root Create builds the value" {
-            let value = Expect.wantOk (StringRoot.Create("hello")) "Create should succeed"
+            let value = StringRoot.Create "hello"
             Expect.equal value "hello" "StringRoot.Create(\"hello\").JsonVal = \"hello\""
         }
 
@@ -119,6 +119,9 @@ module RootTypeTests =
             Expect.equal (result.JsonVal.AsString()) "hello" "StringRoot.Parse of a JSON string literal = \"hello\""
         }
 
+    // minimum/maximum are known keywords (JsonNumber.Specific has fields for them) but nothing
+    // compiles a range into the type - int is int regardless - so this node is never
+    // FullyCompilable and Create still returns Result, unlike the unconstrained roots above.
     let inRangeConstrainedIntRootShouldBeAccepted =
         test "in-range integer root value is accepted by Create" {
             let value = Expect.wantOk (ConstrainedIntRoot.Create(7)) "Create should succeed"
@@ -155,9 +158,13 @@ module RootTypeTests =
                 "Create should reject a root value that doesn't match the pattern"
         }
 
+    // Nothing in placeListRootSchema is unmodeled or left uncompiled (name/lat/lng are plain
+    // string/number with no constraints, no additionalProperties/patternProperties, no
+    // minItems/maxItems/uniqueItems on the array) - so the list root itself is FullyCompilable
+    // and Create returns List<Item> directly, not Result.
     let emptyPlaceListRootShouldBeCreated =
         test "array-of-objects root Create builds an empty list" {
-            let result = Expect.wantOk (PlaceListRoot.Create([])) "Create should succeed"
+            let result = PlaceListRoot.Create([])
             Expect.equal (List.length result) 0 "PlaceListRoot.Create([]) has no elements"
         }
 
@@ -166,13 +173,11 @@ module RootTypeTests =
     // buildClassMapHelper/extractNestedClasses. At the root there's no property name to prefix the
     // suffix with (unlike a property-nested list, e.g. valuesItem), so it's just "Item". This is the
     // case the empty-list test above can't cover: constructing actual elements, not just an empty list.
+    //
     let nonEmptyPlaceListRootShouldBeCreated =
         test "array-of-objects root Create builds a non-empty list" {
-            let place =
-                Expect.wantOk
-                    (PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683))
-                    "Item.Create should succeed"
-            let result = Expect.wantOk (PlaceListRoot.Create([ place ])) "Create should succeed"
+            let place = PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683)
+            let result = PlaceListRoot.Create([ place ])
             Expect.equal (List.length result) 1 "one element"
             Expect.equal result.[0].name "Copenhagen" "name roundtrips"
             Expect.equal result.[0].lat 55.6761 "lat roundtrips"

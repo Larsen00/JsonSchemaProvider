@@ -170,13 +170,13 @@ module KeywordCoverageTests =
     // something Expect.isError can observe at runtime - hence no rejection test for it.
     let atMaxItemsIsAccepted =
         test "maxItems accepts an array at the limit" {
-            let result = Expect.wantOk (MaxItemsArray.Create(values = Some(1, Some 2))) "Create should succeed"
+            let result = MaxItemsArray.Create(values = Some(1, Some 2))
             Expect.equal result.values (Some(1, Some 2)) "2 elements is exactly maxItems=2"
         }
 
     let withinMaxItemsIsAccepted =
         test "maxItems accepts an array within the limit" {
-            let result = Expect.wantOk (MaxItemsArray.Create(values = Some(1, None))) "Create should succeed"
+            let result = MaxItemsArray.Create(values = Some(1, None))
             Expect.equal result.values (Some(1, None)) "1 element is within maxItems=2"
         }
 

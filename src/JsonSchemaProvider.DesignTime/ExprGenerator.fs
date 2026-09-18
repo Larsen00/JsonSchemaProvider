@@ -8,8 +8,6 @@ module ExprGenerator =
     open SchemaValidationExprs
     open JsonSchemaProvider
     open System
-    open ProviderImplementation.ProvidedTypes
-    open FSharp.Data.Runtime
     open FSharp.Quotations.Patterns
     open FSharp.Quotations.DerivedPatterns
 
@@ -162,12 +160,14 @@ module ExprGenerator =
 
                 let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
 
-
-                let path = keywords.common.Path
-                <@@
-                    let record = NullableJsonValue(%%jsonValExpr: JsonValue)
-                    validateJsonSchema path record schemaHashCode schemaSource
-                @@>
+                if isClassFullyCompilable context classMap keywords properties then
+                    <@@ NullableJsonValue(%%jsonValExpr: JsonValue) @@>
+                else
+                    let path = keywords.common.Path
+                    <@@
+                        let record = NullableJsonValue(%%jsonValExpr: JsonValue)
+                        validateJsonSchema path record schemaHashCode schemaSource
+                    @@>
 
 
         // Only hitting this branch when the type is at the root of the json Schema
@@ -176,32 +176,36 @@ module ExprGenerator =
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ ->
             fun (args: Expr list) ->
                 let conv = convert context classMap fsharptype
-                let jsonValExpr = Expr.Application(conv.ToJson, args[0])
-                let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
-                let path = pathOf fsharptype
-                let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
+                if conv.FullyCompilable then
+                    args[0]
+                else 
+                    let jsonValExpr = Expr.Application(conv.ToJson, args[0])
+                    let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
-                // The success payload is args[0] itself (the caller's bool/int/double/string/list),
-                // not the JsonValue used for validation - those are different types, and which one
-                // args[0] actually is isn't resolved until here, so Result<successType, _> is built
-                // directly with Expr.NewUnionCase, same as the Choice1/Choice2 construction above.
-                let successType = conv.RuntimeType
-                let resultType = typedefof<Result<_, _>>.MakeGenericType(successType, typeof<string list>)
-                let cases = Reflection.FSharpType.GetUnionCases resultType
-                let okCase, errorCase = cases.[0], cases.[1]
+                    let path = pathOf fsharptype
+                    let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
 
-                let errorsVar = Var($"validationErrors{Guid.NewGuid()}", typeof<string list>)
-                let isEmpty = <@@ List.isEmpty (%%(Expr.Var errorsVar): string list) @@>
+                    // The success payload is args[0] itself (the caller's bool/int/double/string/list),
+                    // not the JsonValue used for validation - those are different types, and which one
+                    // args[0] actually is isn't resolved until here, so Result<successType, _> is built
+                    // directly with Expr.NewUnionCase, same as the Choice1/Choice2 construction above.
+                    let successType = conv.RuntimeType
+                    let resultType = typedefof<Result<_, _>>.MakeGenericType(successType, typeof<string list>)
+                    let cases = Reflection.FSharpType.GetUnionCases resultType
+                    let okCase, errorCase = cases.[0], cases.[1]
 
-                Expr.Let(
-                    errorsVar,
-                    errorsExpr,
-                    Expr.IfThenElse(
-                        isEmpty,
-                        Expr.NewUnionCase(okCase, [ args[0] ]),
-                        Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                    let errorsVar = Var($"validationErrors{Guid.NewGuid()}", typeof<string list>)
+                    let isEmpty = <@@ List.isEmpty (%%(Expr.Var errorsVar): string list) @@>
+
+                    Expr.Let(
+                        errorsVar,
+                        errorsExpr,
+                        Expr.IfThenElse(
+                            isEmpty,
+                            Expr.NewUnionCase(okCase, [ args[0] ]),
+                            Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                        )
                     )
-                )
 
         | _ -> failwith "hmm idk"

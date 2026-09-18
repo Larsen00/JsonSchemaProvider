@@ -81,13 +81,26 @@ module SchemaConversionTests =
     // section. Values below were captured by running the real conversion against these exact
     // schemas (not guessed), so a mismatch here means Path computation itself has changed, not
     // just that this literal is stale.
-    let private commonAt (path: string) : JsonSchemaProvider.Common.Keywords = { Path = path }
+    let private commonAt (path: string) : JsonSchemaProvider.Common.Keywords = { Path = path; CanBeCompiled = true }
 
     let private objKeywords (path: string) (required: Map<string, bool>) : JsonSchemaProvider.JsonObject.Keywords =
-        { common = commonAt path; specific = { Required = required } }
+        { common = commonAt path
+          specific =
+            { Required = required
+              MinProperties = None
+              MaxProperties = None
+              HasPatternProperties = false
+              AllowAdditionalProperties = true
+              HasAdditionalPropertiesSchema = false } }
 
     let private arrKeywords (path: string) : JsonSchemaProvider.JsonArray.Keywords =
-        { common = commonAt path; specific = { MinItems = None; MaxItems = None } }
+        { common = commonAt path
+          specific =
+            { MinItems = None
+              MaxItems = None
+              UniqueItems = false
+              AllowAdditionalItems = true
+              HasAdditionalItemsSchema = false } }
 
     let private intKeywordsAt (path: string) : JsonSchemaProvider.JsonNumber.Keywords =
         { common = commonAt path

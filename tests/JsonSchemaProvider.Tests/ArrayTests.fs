@@ -136,7 +136,7 @@ module ArrayTests =
 
     let min2CreateProducesCorrectTuple =
         test "minItems=2 Create produces correct tuple" {
-            let v = Expect.wantOk (StringArrayMin2.Create(tags = ("a", "b", [ "c"; "d" ]))) "Create should succeed"
+            let v = StringArrayMin2.Create(tags = ("a", "b", [ "c"; "d" ]))
             let (h1, h2, rest) = v.tags
             Expect.equal h1 "a" "first element"
             Expect.equal h2 "b" "second element"
@@ -163,7 +163,7 @@ module ArrayTests =
 
     let min1CreateProducesCorrectPair =
         test "minItems=1 Create produces correct pair" {
-            let v = Expect.wantOk (IntArrayMin1.Create(values = (42, [ 1; 2; 3 ]))) "Create should succeed"
+            let v = IntArrayMin1.Create(values = (42, [ 1; 2; 3 ]))
             let (head, rest) = v.values
             Expect.equal head 42 "head"
             Expect.equal rest [ 1; 2; 3 ] "rest"
@@ -189,7 +189,7 @@ module ArrayTests =
 
     let minMaxCreateAtMinimumGivesNone =
         test "minItems=1, maxItems=2: Create with exactly minItems elements gives None for the rest" {
-            let v = Expect.wantOk (IntArrayMin1Max2.Create(values = (42, None))) "Create should succeed"
+            let v = IntArrayMin1Max2.Create(values = (42, None))
             let (head, rest) = v.values
             Expect.equal head 42 "head"
             Expect.equal rest None "no second element"
@@ -197,7 +197,7 @@ module ArrayTests =
 
     let minMaxCreateAtMaximumGivesSome =
         test "minItems=1, maxItems=2: Create with maxItems elements gives Some for the rest" {
-            let v = Expect.wantOk (IntArrayMin1Max2.Create(values = (42, Some 7))) "Create should succeed"
+            let v = IntArrayMin1Max2.Create(values = (42, Some 7))
             let (head, rest) = v.values
             Expect.equal head 42 "head"
             Expect.equal rest (Some 7) "second element"
@@ -213,19 +213,19 @@ module ArrayTests =
 
     let maxOnlyEmptyArrayGivesNone =
         test "maxItems=2, no minItems: Create with no elements gives None" {
-            let v = Expect.wantOk (IntArrayMax2.Create(values = None)) "Create should succeed"
+            let v = IntArrayMax2.Create(values = None)
             Expect.equal v.values None "empty array with no lower bound"
         }
 
     let maxOnlyOneElementGivesPartialSome =
         test "maxItems=2, no minItems: Create with one element gives Some(head, None)" {
-            let v = Expect.wantOk (IntArrayMax2.Create(values = Some(1, None))) "Create should succeed"
+            let v = IntArrayMax2.Create(values = Some(1, None))
             Expect.equal v.values (Some(1, None)) "one element, nothing after it"
         }
 
     let maxOnlyAtLimitGivesFullSome =
         test "maxItems=2, no minItems: Create at the limit gives Some(head, Some tail)" {
-            let v = Expect.wantOk (IntArrayMax2.Create(values = Some(1, Some 2))) "Create should succeed"
+            let v = IntArrayMax2.Create(values = Some(1, Some 2))
             Expect.equal v.values (Some(1, Some 2)) "both elements present"
         }
 
@@ -239,13 +239,13 @@ module ArrayTests =
 
     let maxOneEmptyArrayGivesNone =
         test "maxItems=1: Create with no elements gives None" {
-            let v = Expect.wantOk (IntArrayMax1.Create(values = None)) "Create should succeed"
+            let v = IntArrayMax1.Create(values = None)
             Expect.equal v.values None "empty array"
         }
 
     let maxOneSingleElementGivesSome =
         test "maxItems=1: Create with one element gives Some" {
-            let v = Expect.wantOk (IntArrayMax1.Create(values = Some 42)) "Create should succeed"
+            let v = IntArrayMax1.Create(values = Some 42)
             Expect.equal v.values (Some 42) "the single element"
         }
 
@@ -259,7 +259,7 @@ module ArrayTests =
 
     let exactWithoutFlagCreateProducesTuple =
         test "minItems=maxItems=2, no flag: Create produces the exact tuple" {
-            let v = Expect.wantOk (IntArrayExact2.Create(values = (1, 2))) "Create should succeed"
+            let v = IntArrayExact2.Create(values = (1, 2))
             Expect.equal v.values (1, 2) "exact 2-tuple"
         }
 
@@ -271,7 +271,7 @@ module ArrayTests =
 
     let exactWithFlagCreateProducesTuple =
         test "minItems=maxItems=2, with compileMinItems: Create produces the same exact tuple" {
-            let v = Expect.wantOk (IntArrayExact2WithFlag.Create(values = (5, 6))) "Create should succeed"
+            let v = IntArrayExact2WithFlag.Create(values = (5, 6))
             Expect.equal v.values (5, 6) "the flag doesn't change the exact-tuple shape"
         }
 

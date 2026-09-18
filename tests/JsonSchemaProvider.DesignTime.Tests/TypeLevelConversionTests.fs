@@ -7,7 +7,7 @@ module TypeLevelConversionTests =
     open JsonSchemaProvider.DesignTime.ProviderConfiguration
 
     
-    let commonKeywords : JsonSchemaProvider.Common.Keywords = { Path = "#" }
+    let commonKeywords : JsonSchemaProvider.Common.Keywords = { Path = "#"; CanBeCompiled = true }
 
     let jsonIntegerNoneKeywords : JsonSchemaProvider.JsonNumber.Keywords =
       { common = commonKeywords
@@ -58,7 +58,12 @@ module TypeLevelConversionTests =
 
     let jsonArrayKeywords (minItems: int option) (maxItems: int option) : JsonSchemaProvider.JsonArray.Keywords =
         { common = commonKeywords
-          specific = { MinItems = minItems; MaxItems = maxItems } }
+          specific =
+            { MinItems = minItems
+              MaxItems = maxItems
+              UniqueItems = false
+              AllowAdditionalItems = true
+              HasAdditionalItemsSchema = false } }
 
     // This can only be tested here, not via ArrayTests.fs: a schema with maxItems < minItems makes
     // buildArrayConversion fail while the type provider is generating types, i.e. it would fail to

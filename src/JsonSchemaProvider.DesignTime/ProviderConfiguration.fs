@@ -21,4 +21,5 @@ module ProviderConfiguration =
         RuntimeType: Type
         ToRuntime: Expr // closed lambda: JsonValue -> RuntimeType
         ToJson: Expr // closed lambda: RuntimeType -> JsonValue
+        FullyCompilable: bool // Determines if the node conversion can be fully compiled and therefore skip validation at runtime
     }

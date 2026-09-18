@@ -59,41 +59,56 @@ module TypeLevelConversion =
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
     let rec convert (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
         match fSharpType with
-        | FSharpBool _ ->
-            { CompileTimeType = typeof<bool>
-              RuntimeType = typeof<bool>
-              ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
-              ToJson = <@@ fun (runtimeObj: bool) -> JsonValue.Boolean(runtimeObj) @@> }
+        | FSharpBool keywords -> { 
+                CompileTimeType = typeof<bool>
+                RuntimeType = typeof<bool>
+                ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
+                ToJson = <@@ fun (runtimeObj: bool) -> JsonValue.Boolean(runtimeObj) @@>
+                FullyCompilable = keywords.common.CanBeCompiled
+            }
 
-        | FSharpInt _ ->
-            { CompileTimeType = typeof<int>
-              RuntimeType = typeof<int>
-              ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
-              ToJson = <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@> }
+        | FSharpInt keywords -> {
+                CompileTimeType = typeof<int>
+                RuntimeType = typeof<int>
+                ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
+                ToJson = <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
+                FullyCompilable = keywords.common.CanBeCompiled
+            }
 
-        | FSharpDouble _ ->
-            { CompileTimeType = typeof<double>
-              RuntimeType = typeof<double>
-              ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
-              ToJson = <@@ fun (runtimeObj: double) -> JsonValue.Float runtimeObj @@> }
+        | FSharpDouble keywords -> {
+                CompileTimeType = typeof<double>
+                RuntimeType = typeof<double>
+                ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
+                ToJson = <@@ fun (runtimeObj: double) -> JsonValue.Float runtimeObj @@>
+                FullyCompilable = keywords.common.CanBeCompiled
+            }
 
-        | FSharpString _ ->
-            { CompileTimeType = typeof<string>
-              RuntimeType = typeof<string>
-              ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
-              ToJson = <@@ fun (runtimeObj: string) -> JsonValue.String runtimeObj @@> }
+        | FSharpString keywords -> {
+                CompileTimeType = typeof<string>
+                RuntimeType = typeof<string>
+                ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
+                ToJson = <@@ fun (runtimeObj: string) -> JsonValue.String runtimeObj @@>
+                FullyCompilable = keywords.common.CanBeCompiled
+            }
 
-        | FSharpClass(keywords, _) ->
-            { CompileTimeType = classMap[keywords.common.Path]
-              RuntimeType = typeof<NullableJsonValue>
-              ToRuntime = <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
-              ToJson = <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@> }
+        | FSharpClass(keywords, properties) ->
+            {
+                CompileTimeType = classMap[keywords.common.Path]
+                RuntimeType = typeof<NullableJsonValue>
+                ToRuntime = <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
+                ToJson = <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
+                FullyCompilable = isClassFullyCompilable context classMap keywords properties
+            }
 
         // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
         | FSharpList(innerType, arrayKeywords) -> buildArrayConversion context classMap innerType arrayKeywords
 
-        // OneOf types are handled by the `buildOneOfConversion` function.
-        | FSharpOneOf (_, head, tail) -> buildOneOfConversion context classMap (head :: tail)
+        // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
+        // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
+        // buildOneOfConversion has no access to - folded in here instead.
+        | FSharpOneOf (keywords, head, tail) ->
+            let conv = buildOneOfConversion context classMap (head :: tail)
+            { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
 
 
     // Performs the recursive conversion for array types based on their inner type and array keywords.
@@ -114,7 +129,18 @@ module TypeLevelConversion =
         // Invalid case: minItems greater than maxItems
         | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
-
+        
+        // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
+        | keys when keys.UniqueItems || not keys.AllowAdditionalItems || keys.HasAdditionalItemsSchema ->
+            let resetKeywords =
+                { arrayKeywords with
+                    specific.MinItems = None
+                    specific.MaxItems = None
+                    specific.UniqueItems = false
+                    specific.AllowAdditionalItems = true
+                    specific.HasAdditionalItemsSchema = false
+                }
+            { buildArrayConversion context classMap innerType resetKeywords with FullyCompilable = false }
         // Exact-size tuple: minItems = maxItems, same shape both directions, nothing optional.
         | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->
 
@@ -145,7 +171,7 @@ module TypeLevelConversion =
                         CommonExprs.newJsonValueArray newArray
                     )
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
 
         // minItems mandatory prefix, tail built by recursing on this same function - the tail
         // may itself land on the exact-tuple, maxItems-bounded, or open-list case below.
@@ -206,7 +232,7 @@ module TypeLevelConversion =
                         )
                     )
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && rest.FullyCompilable }
 
         // maxItems = 1: option<inner>.
         | { MaxItems = Some 1 } ->
@@ -246,10 +272,12 @@ module TypeLevelConversion =
                         Expr.IfThenElse(CommonExprs.getOptionIsSome inner.RuntimeType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray)
                     )
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
 
         // maxItems > 1: option<(inner * tail)>, tail built by recursing on this same function.
         | { MaxItems = Some maxItems } ->
+
+            // im not super sure but i think i might accidental call this function maxitems times -- TODO
             let inner = convert context classMap innerType
 
             // Build the tail conversion by recursively calling this function with MaxItems decreased by 1.
@@ -297,7 +325,7 @@ module TypeLevelConversion =
                         )
                     Expr.IfThenElse(CommonExprs.getOptionIsSome pairType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray))
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
 
         // Default case: unbounded list.
         | _ ->
@@ -336,7 +364,11 @@ module TypeLevelConversion =
                         CommonExprs.newJsonValueArray arrayOfList
                     )
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            // MinItems.IsNone matters here specifically: reaching this default case with MinItems
+            // still Some means compileFlags.CompileMinItems was false, so minItems is a real,
+            // uncompiled constraint - MaxItems needs no equivalent check, since any Some MaxItems
+            // is always caught by one of the tuple/option cases above, unconditionally.
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && inner.FullyCompilable }
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
     and buildOneOfConversion
@@ -370,7 +402,24 @@ module TypeLevelConversion =
                     let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var runtimeObjVar)
                     Expr.IfThenElse(isChoice1, Expr.Application(head.ToJson, headValue), Expr.Application(tail.ToJson, tailValue)))
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable }
+
+    // Whether a class's own Create can skip Result-wrapping: its own JSON carries nothing
+    // unmodeled, and every property's own conversion is itself FullyCompilable. Split out from
+    // convert's FSharpClass case (rather than inlined there) because TypeProvider.fs's
+    // buildClassMapHelper and ExprGenerator.fs's generateCreateInvokeCode both need this same
+    // answer while still building the class's own members - before its own path is registered in
+    // classMap, so calling convert on the class itself (which needs classMap[keywords.common.Path])
+    // isn't an option there. This only touches the properties, never the class's own entry, so it
+    // works from all three call sites.
+    and isClassFullyCompilable
+        (context: GenerationContext)
+        (classMap: ClassMap)
+        (keywords: JsonObject.Keywords)
+        (properties: (PropertyName * FSharpType) list)
+        : bool =
+        keywords.common.CanBeCompiled
+        && properties |> List.forall (fun (_, propertyType) -> (convert context classMap propertyType).FullyCompilable)
 
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then

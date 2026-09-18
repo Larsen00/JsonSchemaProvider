@@ -184,7 +184,7 @@ module JsonSchemaProviderTests =
 
     let createMethodShouldReturnRecord =
         test "create method should return record" {
-            let flat = Expect.wantOk (Flat.Create(X = "x", Z = 1)) "Create should succeed"
+            let flat = Flat.Create(X = "x", Z = 1)
             Expect.equal flat.X (Some("x")) """flat.X = Some("x")"""
             Expect.equal flat.Y None """flat.Y = None"""
             Expect.equal flat.Z (Some(1)) "flat.Z = Some(1)"
@@ -192,14 +192,14 @@ module JsonSchemaProviderTests =
 
     let optionalBoolAndNumberPresentRoundTrip =
         test "optional boolean and number properties round-trip when present" {
-            let v = Expect.wantOk (OptionalPrimitives.Create(flag = true, amount = 1.5)) "Create should succeed"
+            let v = OptionalPrimitives.Create(flag = true, amount = 1.5)
             Expect.equal v.flag (Some true) "flag = Some true"
             Expect.equal v.amount (Some 1.5) "amount = Some 1.5"
         }
 
     let optionalBoolAndNumberAbsentGiveNone =
         test "optional boolean and number properties give None when absent" {
-            let v = Expect.wantOk (OptionalPrimitives.Create()) "Create should succeed"
+            let v = OptionalPrimitives.Create()
             Expect.equal v.flag None "flag = None"
             Expect.equal v.amount None "amount = None"
         }
@@ -216,7 +216,7 @@ module JsonSchemaProviderTests =
 
     let createMethodFromFileSchemaShouldReturnRecord =
         test "create method from file schema should return record" {
-            let flat = Expect.wantOk (FlatFromFile.Create()) "Create should succeed"
+            let flat = FlatFromFile.Create()
             Expect.equal flat.X None "flat.X = None"
             Expect.equal flat.Y None "flat.Y = None"
             Expect.equal flat.Z None "flat.Z = None"
@@ -236,46 +236,37 @@ module JsonSchemaProviderTests =
 
     let valueFromNestedObjectsShouldBeCreated =
         test "value from nested objects should be created" {
-            let globalPosition =
-                Expect.wantOk
-                    (CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954))
-                    "nested Create should succeed"
+            let globalPosition = CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954)
 
-            let created =
-                Expect.wantOk
-                    (CityPosition.Create(city = "Berlin", globalPosition = globalPosition))
-                    "Create should succeed"
+            let created = CityPosition.Create(city = "Berlin", globalPosition = globalPosition)
 
             Expect.equal created.globalPosition.lat 52.520007 "create and select nested are equal"
         }
 
     let selectFromNumberArrayShouldYieldInputValue =
-        let numArray = Expect.wantOk (NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])) "Create should succeed"
+        let numArray = NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])
 
         test "select from number array should yield input value" {
             Expect.equal numArray.values[1] 12.0 "numArray.values[1] = 12.0"
         }
 
     let selectFromIntegerArrayShouldYieldInputValue =
-        let numArray = Expect.wantOk (IntegerArray.Create([ 11; 12; 10; 13 ])) "Create should succeed"
+        let numArray = IntegerArray.Create([ 11; 12; 10; 13 ])
 
         test "select from integer array should yield input value" {
             Expect.equal numArray.values[1] 12 "numArray.values[1] = 12"
         }
 
     let selectFromNestedArrayShouldYieldInputValue =
-        let array = Expect.wantOk (NestedArray.Create([ [ "a"; "b" ] ])) "Create should succeed"
+        let array = NestedArray.Create([ [ "a"; "b" ] ])
 
         test "select from nested array should yield input value" {
             Expect.equal (array.values[0][1]) "b" "nestedArray.values[0][1] = \"b\""
         }
 
     let selectFromNestedArrayWithObjectItemsShouldYieldInputValue =
-        let item =
-            Expect.wantOk (NestedArrayWithObjectItems.valuesItem.Create(propA = 5)) "inner Create should succeed"
-
-        let array =
-            Expect.wantOk (NestedArrayWithObjectItems.Create([ [ item ] ])) "outer Create should succeed"
+        let item = NestedArrayWithObjectItems.valuesItem.Create(propA = 5)
+        let array = NestedArrayWithObjectItems.Create([ [ item ] ])
 
         test "select from nested array with object items should yield input value" {
             Expect.equal
