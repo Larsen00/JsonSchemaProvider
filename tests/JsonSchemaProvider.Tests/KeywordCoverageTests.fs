@@ -157,17 +157,21 @@ module KeywordCoverageTests =
             Expect.equal result.values [ 1; 2; 3 ] "[1;2;3] has no duplicates"
         }
 
-    let tooManyItemsAreRejected =
-        test "maxItems rejects an array with too many elements" {
-            Expect.isError
-                (MaxItemsArray.Create(values = [ 1; 2; 3 ]))
-                "3 elements exceeds maxItems=2"
+    // Unlike minItems (see MinItemsRuntime below, which has no compileMinItems flag and so stays
+    // a plain list, only checked by Create at runtime), maxItems always compiles to a precise
+    // Option<int * Option<int>> type here - there's no plain-list escape hatch for it. A 3rd
+    // element has nowhere to go in that type, so "too many items" is a compile error, not
+    // something Expect.isError can observe at runtime - hence no rejection test for it.
+    let atMaxItemsIsAccepted =
+        test "maxItems accepts an array at the limit" {
+            let result = Expect.wantOk (MaxItemsArray.Create(values = Some(1, Some 2))) "Create should succeed"
+            Expect.equal result.values (Some(1, Some 2)) "2 elements is exactly maxItems=2"
         }
 
     let withinMaxItemsIsAccepted =
         test "maxItems accepts an array within the limit" {
-            let result = Expect.wantOk (MaxItemsArray.Create(values = [ 1; 2 ])) "Create should succeed"
-            Expect.equal result.values [ 1; 2 ] "2 elements is within maxItems=2"
+            let result = Expect.wantOk (MaxItemsArray.Create(values = Some(1, None))) "Create should succeed"
+            Expect.equal result.values (Some(1, None)) "1 element is within maxItems=2"
         }
 
     let tooFewItemsAreRejectedAtRuntime =
@@ -301,7 +305,7 @@ module KeywordCoverageTests =
               validEmailFormatIsAccepted
               duplicateItemsAreRejected
               allUniqueItemsAreAccepted
-              tooManyItemsAreRejected
+              atMaxItemsIsAccepted
               withinMaxItemsIsAccepted
               tooFewItemsAreRejectedAtRuntime
               enoughItemsAreAcceptedAtRuntime

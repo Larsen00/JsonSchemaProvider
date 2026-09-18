@@ -27,8 +27,16 @@ module TypeLevelConversionTests =
 
     let noFlags = { CompileMinItems = false }
 
+    let private dummyContext : GenerationContext =
+        { Assembly = System.Reflection.Assembly.GetExecutingAssembly()
+          NamespaceName = "Test"
+          RuntimeType = typeof<obj>
+          SchemaHashCode = 0
+          SchemaString = "{}"
+          CompileFlags = noFlags }
+
     let toCompileTimeType (fSharpType: FSharpType) =
-        fSharpTypeToCompileTimeType Map.empty fSharpType noFlags
+        (convert dummyContext Map.empty fSharpType).CompileTimeType
 
     let oneOfSingleBranchYieldsPlainType =
         test "oneOf with a single branch yields the branch type directly" {
@@ -48,6 +56,20 @@ module TypeLevelConversionTests =
             Expect.equal actual typeof<Choice<int, Choice<string, bool>>> "three-branch oneOf should nest"
         }
 
+    let jsonArrayKeywords (minItems: int option) (maxItems: int option) : JsonSchemaProvider.JsonArray.Keywords =
+        { common = commonKeywords
+          specific = { MinItems = minItems; MaxItems = maxItems } }
+
+    // This can only be tested here, not via ArrayTests.fs: a schema with maxItems < minItems makes
+    // buildArrayConversion fail while the type provider is generating types, i.e. it would fail to
+    // *compile* a `type Bad = JsonSchemaProvider<schema=...>` declaration rather than raise
+    // something Expect.throws could wrap around a running Create/Parse call.
+    let maxItemsLessThanMinItemsThrows =
+        test "buildArrayConversion rejects a schema where maxItems < minItems" {
+            let arrayType = FSharpList(FSharpInt jsonIntegerNoneKeywords, jsonArrayKeywords (Some 3) (Some 2))
+            Expect.throws (fun () -> toCompileTimeType arrayType |> ignore) "maxItems < minItems should fail fast, not silently produce a type"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -55,4 +77,5 @@ module TypeLevelConversionTests =
             [ oneOfSingleBranchYieldsPlainType
               oneOfTwoBranchesYieldsChoice
               oneOfThreeBranchesYieldsNestedChoice
+              maxItemsLessThanMinItemsThrows
               ]

@@ -55,7 +55,7 @@ module OneOfTests =
 
     // Structurally the same alternatives as stringOrIntOrBoolSchema, just grouped as
     // string | (int | bool) instead of string | int | bool - exercises recursion into
-    // a nested FSharpOneOf inside generateStructualMatchExpr's head position.
+    // a nested FSharpOneOf inside JsonOneOf.buildConversion's head position.
     [<Literal>]
     let nestedOneOfSchema =
         """
@@ -329,8 +329,10 @@ module OneOfTests =
 
     let arrayLengthOneOfPicksShortBranch =
         test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
+            // maxItems:2 (no compileMinItems flag needed - maxItems is always precise) compiles
+            // to Option<int * Option<int>>, not a plain list - see ArrayTests.fs/KeywordCoverageTests.fs.
             let v = ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")
-            Expect.equal v.value (Choice1Of2 [ 1; 2 ]) "value = Choice1Of2 [1;2]"
+            Expect.equal v.value (Choice1Of2(Some(1, Some 2))) "value = Choice1Of2 (Some (1, Some 2))"
         }
 
     let arrayLengthOneOfPicksLongBranch =
