@@ -26,12 +26,11 @@
     <Compile Include="..\JsonSchemaProvider.Runtime\ChoiceAccessors.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\JsonSchemaProvider.Runtime.fs" />
     <Compile Include="ProviderConfiguration.fs"/>
-    <Compile Include="Types\JsonArray.fs"/>
+    <Compile Include="CommonExprs.fs" />
+    <Compile Include="SchemaValidationExprs.fs" />
     <Compile Include="Types\JsonInteger.fs"/>
-    <Compile Include="Subschemas\JsonOneOf.fs"/>
     <Compile Include="SchemaConversion.fs" />
     <Compile Include="TypeLevelConversion.fs" />
-    <Compile Include="CommonExprs.fs" />
     <Compile Include="ExprGenerator.fs" />
     <Compile Include="TypeProvider.fs" />
     <Compile Include="JsonSchemaProviderImpl.fs" />

@@ -30,7 +30,7 @@ module TypeProvider =
         | FSharpClass (_, []) -> []
         | FSharpClass (keywords, (name, fsharptype as property :: rest)) -> 
 
-            let plainPropertyCompileTimeType = fSharpTypeToCompileTimeType classMap fsharptype context.CompileFlags
+            let plainPropertyCompileTimeType = (convert context classMap fsharptype).CompileTimeType
 
             ProvidedProperty(
                 propertyName = name,
@@ -43,7 +43,7 @@ module TypeProvider =
 
 
     let private createMethodParameter (context: GenerationContext) (classMap: ClassMap) (fsharptype: FSharpType) isRequired parameterName =
-        let parameterType = fSharpTypeToMethodParameterType classMap (not isRequired) fsharptype context.CompileFlags
+        let parameterType = fSharpTypeToMethodParameterType context classMap (not isRequired) fsharptype
 
         if isRequired then
             ProvidedParameter(parameterName, parameterType)
@@ -190,7 +190,7 @@ module TypeProvider =
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
-            let innerReturnType = fSharpTypeToCompileTimeType classMap fsharptype compileFlags
+            let innerReturnType = (convert context classMap fsharptype).CompileTimeType
             let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
             let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
@@ -209,7 +209,7 @@ module TypeProvider =
             extractNestedClasses fsharplist
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember classMap[keywords.common.Path])
 
-            let innerReturnType = fSharpTypeToCompileTimeType classMap fsharplist compileFlags
+            let innerReturnType = (convert context classMap fsharplist).CompileTimeType
             let resultType = typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
             let createMethod = createProvidedCreateMethod context classMap fsharplist resultType

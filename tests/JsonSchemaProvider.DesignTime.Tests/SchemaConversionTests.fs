@@ -87,7 +87,7 @@ module SchemaConversionTests =
         { common = commonAt path; specific = { Required = required } }
 
     let private arrKeywords (path: string) : JsonSchemaProvider.JsonArray.Keywords =
-        { common = commonAt path; specific = { MinItems = None } }
+        { common = commonAt path; specific = { MinItems = None; MaxItems = None } }
 
     let private intKeywordsAt (path: string) : JsonSchemaProvider.JsonNumber.Keywords =
         { common = commonAt path
