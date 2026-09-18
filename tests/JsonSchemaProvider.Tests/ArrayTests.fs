@@ -85,6 +85,25 @@ module ArrayTests =
           "required": ["values"]
         }"""
 
+    // minItems = maxItems: buildArrayConversion's exact-tuple case has no `when
+    // compileFlags.CompileMinItems` guard - it's checked before that branch and fires purely off
+    // n = n2, so this schema should compile to the same tuple with or without the flag.
+    [<Literal>]
+    let intArrayExact2Schema =
+        """
+        {
+          "type": "object",
+          "properties": {
+            "values": {
+              "type": "array",
+              "items": {"type": "integer"},
+              "minItems": 2,
+              "maxItems": 2
+            }
+          },
+          "required": ["values"]
+        }"""
+
     // Same schema as stringArrayMin2Schema but without the flag — plain list, constraint ignored at type level.
     type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema>
 
@@ -102,6 +121,12 @@ module ArrayTests =
 
     // Compile-time constrained: values : int option
     type IntArrayMax1 = JsonSchemaProvider<schema = intArrayMax1Schema>
+
+    // Compile-time constrained: values : int * int - no flag passed at all.
+    type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema>
+
+    // Same schema, with the flag - should produce the identical int * int shape.
+    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema, compileMinItems = true>
 
     let withoutFlagMinItemsSchemaYieldsPlainList =
         test "minItems schema without compileMinItems flag yields plain list" {
@@ -230,6 +255,32 @@ module ArrayTests =
             Expect.equal v.values (Some 7) "the single element"
         }
 
+    // ---- minItems = maxItems: values : int * int, with and without compileMinItems ----
+
+    let exactWithoutFlagCreateProducesTuple =
+        test "minItems=maxItems=2, no flag: Create produces the exact tuple" {
+            let v = Expect.wantOk (IntArrayExact2.Create(values = (1, 2))) "Create should succeed"
+            Expect.equal v.values (1, 2) "exact 2-tuple"
+        }
+
+    let exactWithoutFlagParseProducesTuple =
+        test "minItems=maxItems=2, no flag: Parse produces the exact tuple" {
+            let v = IntArrayExact2.Parse("""{"values": [3, 4]}""")
+            Expect.equal v.values (3, 4) "exact 2-tuple"
+        }
+
+    let exactWithFlagCreateProducesTuple =
+        test "minItems=maxItems=2, with compileMinItems: Create produces the same exact tuple" {
+            let v = Expect.wantOk (IntArrayExact2WithFlag.Create(values = (5, 6))) "Create should succeed"
+            Expect.equal v.values (5, 6) "the flag doesn't change the exact-tuple shape"
+        }
+
+    let exactWithFlagParseProducesTuple =
+        test "minItems=maxItems=2, with compileMinItems: Parse produces the same exact tuple" {
+            let v = IntArrayExact2WithFlag.Parse("""{"values": [7, 8]}""")
+            Expect.equal v.values (7, 8) "the flag doesn't change the exact-tuple shape"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -250,4 +301,8 @@ module ArrayTests =
               maxOnlyParseAtLimit
               maxOneEmptyArrayGivesNone
               maxOneSingleElementGivesSome
-              maxOneParseSingleElement ]
+              maxOneParseSingleElement
+              exactWithoutFlagCreateProducesTuple
+              exactWithoutFlagParseProducesTuple
+              exactWithFlagCreateProducesTuple
+              exactWithFlagParseProducesTuple ]
