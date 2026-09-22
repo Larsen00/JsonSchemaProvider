@@ -29,7 +29,7 @@
     <Compile Include="CommonExprs.fs" />
     <Compile Include="SchemaValidationExprs.fs" />
     <Compile Include="SchemaConversion.fs" />
-    <Compile Include="TypeLevelConversion.fs" />
+    <Compile Include="NodeConversions.fs" />
     <Compile Include="ExprGenerator.fs" />
     <Compile Include="TypeProvider.fs" />
     <Compile Include="JsonSchemaProviderImpl.fs" />

@@ -1,9 +1,9 @@
 namespace JsonSchemaProvider.Tests
 
-module TypeLevelConversionTests =
+module NodeConversionsTests =
     open Expecto
     open JsonSchemaProvider.DesignTime.SchemaConversion
-    open JsonSchemaProvider.DesignTime.TypeLevelConversion
+    open JsonSchemaProvider.DesignTime.NodeConversions
     open JsonSchemaProvider.DesignTime.ProviderConfiguration
 
     
@@ -78,7 +78,7 @@ module TypeLevelConversionTests =
     [<Tests>]
     let tests =
         testList
-            "JsonSchemaProvider.Tests.TypeLevelConversionTests"
+            "JsonSchemaProvider.Tests.NodeConversionsTests"
             [ oneOfSingleBranchYieldsPlainType
               oneOfTwoBranchesYieldsChoice
               oneOfThreeBranchesYieldsNestedChoice

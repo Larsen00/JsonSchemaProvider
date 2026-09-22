@@ -29,7 +29,7 @@ module SchemaConversion =
 
     // Keywords allowed without disqualifying a node from CanBeCompiled: structural ones, plus -
     // for arrays only - minItems/maxItems/uniqueItems/additionalItems, whose compilability is
-    // combination-dependent and decided in TypeLevelConversion.fs instead. Every other type's
+    // combination-dependent and decided in NodeConversions.fs instead. Every other type's
     // validation keywords (minimum, pattern, minProperties, ...) are never compiled at all, so
     // their mere presence disqualifies right here.
     let private knownKeywordsFor (schemaType: JsonObjectType) : Set<string> =

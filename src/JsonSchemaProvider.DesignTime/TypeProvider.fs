@@ -4,7 +4,7 @@ module TypeProvider =
     open System
     open System.Reflection
     open SchemaConversion
-    open TypeLevelConversion
+    open NodeConversions
     open ExprGenerator
     open ProviderImplementation.ProvidedTypes
     open NJsonSchema

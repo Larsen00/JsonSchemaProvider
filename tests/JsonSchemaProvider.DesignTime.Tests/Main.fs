@@ -11,4 +11,4 @@ module Main =
             args
             (testList
                 "JsonSchemaProvider.DesignTime.Tests"
-                [ SchemaConversionTests.tests; TypeLevelConversionTests.tests; NJsonSchemaTests.tests ])
+                [ SchemaConversionTests.tests; NodeConversionsTests.tests; NJsonSchemaTests.tests ])

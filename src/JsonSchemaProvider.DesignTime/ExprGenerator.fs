@@ -4,7 +4,7 @@ module ExprGenerator =
     open FSharp.Quotations
     open FSharp.Data
     open SchemaConversion
-    open TypeLevelConversion
+    open NodeConversions
     open SchemaValidationExprs
     open JsonSchemaProvider
     open System

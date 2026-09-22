@@ -6,7 +6,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="SchemaConversionTests.fs" />
-    <Compile Include="TypeLevelConversionTests.fs" />
+    <Compile Include="NodeConversionsTests.fs" />
     <Compile Include="NJsonSchemaTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

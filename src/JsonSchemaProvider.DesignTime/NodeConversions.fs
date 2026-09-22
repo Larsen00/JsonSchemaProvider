@@ -1,6 +1,6 @@
 namespace JsonSchemaProvider.DesignTime
 
-module TypeLevelConversion =
+module NodeConversions =
     open System
     open System.Reflection
     open FSharp.Quotations
