@@ -8,6 +8,7 @@ module NodeConversions =
     open SchemaConversion
     open ProviderImplementation.ProvidedTypes
     open JsonSchemaProvider
+    open System.Collections.Concurrent
 
     type ClassMap = Map<string, ProvidedTypeDefinition>
 
@@ -21,7 +22,10 @@ module NodeConversions =
           RootBaseType: Type
           SchemaHashCode: int32
           SchemaString: string
-          CompileFlags: ProviderConfiguration.CompileFlags }
+          CompileFlags: ProviderConfiguration.CompileFlags
+
+          // Mutable cache for node conversions to avoid recomputation
+          ConversionCache: ConcurrentDictionary<string, ProviderConfiguration.NodeConversion> }
 
     // Every type carries its own Path
     // A root-level node's Path is "#".
@@ -51,13 +55,24 @@ module NodeConversions =
     let private hasAtLeastOneElement (jsonArrVar: Var) : Expr =
         <@@ (%%(Expr.Var jsonArrVar): JsonValue[]).Length > 0 @@>
 
+
+    // Wrapper function to "conversion" that uses a cache to avoid recomputation
+    let rec convert (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion = 
+        
+        context.ConversionCache.GetOrAdd( 
+            pathOf fSharpType,
+            fun _ -> conversion context classMap fSharpType
+        )
+        
+
     // Builds everything there is to know about turning one FSharpType node into F#: its
     // compile-time type, its runtime/erased type, and the two conversion functions between
     // JsonValue and that runtime type
     //
     // Its done like this because otherwise we needed four separate functions that all needed
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
-    let rec convert (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
+    and conversion (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
+        
         match fSharpType with
         | FSharpBool keywords -> { 
                 CompileTimeType = typeof<bool>
@@ -109,7 +124,9 @@ module NodeConversions =
         | FSharpOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context classMap (head :: tail)
             { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
+        
 
+    
 
     // Performs the recursive conversion for array types based on their inner type and array keywords.
     //

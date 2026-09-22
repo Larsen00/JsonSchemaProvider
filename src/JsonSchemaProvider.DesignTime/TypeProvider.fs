@@ -10,6 +10,7 @@ module TypeProvider =
     open NJsonSchema
     open JsonSchemaProvider
     open FSharp.Data
+    open System.Collections.Concurrent
 
     // Function that can locate the next fsharpclass inside a type
     let rec private extractNestedClasses (fSharpType: FSharpType)  =
@@ -177,14 +178,17 @@ module TypeProvider =
         (compileFlags: ProviderConfiguration.CompileFlags)
         : ProvidedTypeDefinition =
 
-        let context =
-            { Assembly = assembly
-              NamespaceName = namespaceName
-              RootBaseType = rootBaseType
-              SchemaHashCode = schemaHashCode
-              SchemaString = schema.ToJson()
-              CompileFlags = compileFlags }
+        let context ={ 
+            Assembly = assembly
+            NamespaceName = namespaceName
+            RootBaseType = rootBaseType
+            SchemaHashCode = schemaHashCode
+            SchemaString = schema.ToJson()
+            CompileFlags = compileFlags 
 
+            // An empty conversion cache to store function calls to convert
+            ConversionCache = ConcurrentDictionary()
+        }
 
         match parseJsonSchemaStructured schema schema |> jsonSchemaTypeToFSharpType with
         | FSharpClass(keywords, _) as fsharptype ->
