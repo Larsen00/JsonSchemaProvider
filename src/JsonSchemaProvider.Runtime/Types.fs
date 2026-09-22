@@ -27,10 +27,6 @@ module JsonObject =
     type Keywords = { common: Common.Keywords; specific: Specific }
 
 module JsonArray =
-    open System
-    open FSharp.Data
-    open JsonSchemaProvider.Validation
-
     type Specific = {
         MinItems: int option
         MaxItems: int option
@@ -39,25 +35,6 @@ module JsonArray =
         HasAdditionalItemsSchema: bool
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
-
-    // Runtime validation functions for arrays based on JSON Schema type specific keywords.
-    let validateMinItems (arr: Array) (arrayKeywords: Keywords) =
-        match arrayKeywords.specific.MinItems with
-        | Some minItems when arr.Length < minItems ->
-                let msg = sprintf "Array has %d items, but minimum is %d" arr.Length minItems
-                false, [msg]
-        | _ -> true, []
-
-    let dummyValidation (arr: Array) (arrayKeywords: Keywords) =
-        // Placeholder for other validations
-        true, []
-
-    let validateJsonValue (arr: JsonValue array) (arrayKeywords: Keywords) =
-        let validations = [
-            validateMinItems arr arrayKeywords
-            dummyValidation arr arrayKeywords
-        ]
-        validations |> validate |> WasValid
 
 module JsonNumber =
     // Shared by both "integer" and "number" - the numeric range/multipleOf keywords apply the
