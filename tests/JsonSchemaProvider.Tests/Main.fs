@@ -17,4 +17,5 @@ module Main =
                   OneOfTests.tests
                   OneOfObjectBranchTests.tests
                   RootTypeTests.tests
-                  KeywordCoverageTests.tests ])
+                  KeywordCoverageTests.tests
+                  SkipRuntimeValidationTests.tests ])

@@ -144,7 +144,7 @@ module TypeProvider =
             // Wrap the return type in Result unless this class (and every property's own type) is
             // FullyCompilable, in which case Create can't fail and returns the class directly.
             let returnType =
-                if isClassFullyCompilable context merged keywords properties then
+                if context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context merged keywords properties then
                     thisTypeDef :> Type
                 else
                     typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
@@ -205,7 +205,7 @@ module TypeProvider =
             let conversions = convert context classMap fsharptype
             let innerReturnType = conversions.CompileTimeType
             let resultType = 
-                if conversions.FullyCompilable then
+                if context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
                     innerReturnType
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
@@ -231,7 +231,7 @@ module TypeProvider =
 
             
             let resultType = 
-                if conversions.FullyCompilable then
+                if  context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
                     // When the conversion is fully compilable, we dont need to use the result wrapper as it dont need validation
                     innerReturnType
                 else

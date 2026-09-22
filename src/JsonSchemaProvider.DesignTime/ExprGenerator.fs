@@ -160,7 +160,7 @@ module ExprGenerator =
 
                 let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
 
-                if isClassFullyCompilable context classMap keywords properties then
+                if  context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context classMap keywords properties then
                     <@@ NullableJsonValue(%%jsonValExpr: JsonValue) @@>
                 else
                     let path = keywords.common.Path
@@ -175,11 +175,11 @@ module ExprGenerator =
         // the whole schema directly, no path lookup needed.
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ ->
             fun (args: Expr list) ->
-                let conv = convert context classMap fsharptype
-
-                if conv.FullyCompilable then
+                
+                if  context.CompileFlags.SkipRuntimeValidation || (convert context classMap fsharptype).FullyCompilable then
                     args[0]
                 else 
+                    let conv = convert context classMap fsharptype
                     let jsonValExpr = Expr.Application(conv.ToJson, args[0])
                     let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
@@ -208,4 +208,4 @@ module ExprGenerator =
                         )
                     )
 
-        | _ -> failwith "hmm idk"
+        | _ -> failwith "missing oneof"
