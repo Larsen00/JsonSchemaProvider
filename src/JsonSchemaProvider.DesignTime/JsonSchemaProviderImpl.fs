@@ -21,7 +21,8 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
     let staticParams = [ 
             ProvidedStaticParameter("schema", typeof<string>, "")
             ProvidedStaticParameter("schemaFile", typeof<string>, "")
-            ProvidedStaticParameter("compileMinItems", typeof<bool>, false)
+            ProvidedStaticParameter("skipRuntimeValidation", typeof<bool>, false)
+            ProvidedStaticParameter("ignoreSpecificKeywords", typeof<bool>, false)
         ]
 
     let rootBaseType = typeof<NullableJsonValue>
@@ -31,7 +32,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
 
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
-        | [| :? string as schemaSource; :? string as schemaFile; :? bool as compileMinItems |] ->
+        | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as ignoreSpecificKeywords |] ->
             if schemaSource = "" && schemaFile = "" || schemaSource <> "" && schemaFile <> "" then
                 failwith "Only one of schema or schemaFile must be set."
 
@@ -44,7 +45,8 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
             let schema = SchemaCache.parseSchema schemaString
             let schemaHashCode = schemaString.GetHashCode()
             let compileUsingKeywordFlags : ProviderConfiguration.CompileFlags = { 
-                CompileMinItems = compileMinItems 
+                SkipRuntimeValidation = skipRuntimeValidation
+                IgnoreSpecificKeywords = ignoreSpecificKeywords
             }
 
             let providedType =

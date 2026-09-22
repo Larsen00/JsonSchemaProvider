@@ -141,7 +141,7 @@ module KeywordCoverageTests =
         """
         { "type": "object", "properties": { "tags": { "type": "array", "items": { "type": "string" }, "minItems": 2 } }, "required": ["tags"] }"""
 
-    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema>
+    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema, ignoreSpecificKeywords=true>
 
     [<Literal>]
     let arrayItemConstraintSchema =

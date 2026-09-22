@@ -138,26 +138,63 @@ module NodeConversions =
         (innerType: FSharpType)
         (arrayKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
+        
+        // Default conversion for F# list arrays based on their inner type.
+        let defaultArrayConversion: ProviderConfiguration.NodeConversion =
+            // Extract the inner type conversion
+            let inner = convert context classMap innerType
 
-        let compileFlags = context.CompileFlags
+            // The compile-time and runtime types for the list based on the inner type conversion
+            let compileTimeType = typedefof<_ list>.MakeGenericType inner.CompileTimeType
+            let runtimeType     = typedefof<_ list>.MakeGenericType inner.RuntimeType
+
+            let toRuntime =
+                CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (
+                    fun jsonValVar ->
+
+                        // Calls asArray on the JSON value to get it as an array
+                        let asArray = CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
+
+                        // Maps each element of the JSON array to its runtime representation using the inner type conversion
+                        let mapped = CommonExprs.callArrayMap inner.ToRuntime asArray typeof<JsonValue> inner.RuntimeType
+
+                        // Turns the array in to a list
+                        CommonExprs.callListOfArray mapped inner.RuntimeType
+                    )
+
+            let toJson =
+                CommonExprs.freshLambda "runtimeObj" runtimeType (
+                    fun runtimeObjVar ->
+
+                        // map each element of the list back to a JSON value
+                        let mappedBack = CommonExprs.callListMap inner.ToJson (Expr.Var runtimeObjVar) inner.RuntimeType typeof<JsonValue>
+
+                        // convert the list of JSON values back into a JSON array
+                        let arrayOfList = CommonExprs.callArrayOfList mappedBack typeof<JsonValue>
+
+                        // create a new JSON array from the array of JSON values (Reverse of asArray)
+                        CommonExprs.newJsonValueArray arrayOfList
+                    )
+
+            // MinItems.IsNone matters here specifically: reaching this default case with MinItems
+            // still Some means compileFlags.CompileMinItems was false, so minItems is a real,
+            // uncompiled constraint - MaxItems needs no equivalent check, since any Some MaxItems
+            // is always caught by one of the tuple/option cases above, unconditionally.
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && inner.FullyCompilable }
+
+
 
         match arrayKeywords.specific with
 
         // Invalid case: minItems greater than maxItems
         | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
-        
+
         // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
-        | keys when keys.UniqueItems || not keys.AllowAdditionalItems || keys.HasAdditionalItemsSchema ->
-            let resetKeywords =
-                { arrayKeywords with
-                    specific.MinItems = None
-                    specific.MaxItems = None
-                    specific.UniqueItems = false
-                    specific.AllowAdditionalItems = true
-                    specific.HasAdditionalItemsSchema = false
-                }
-            { buildArrayConversion context classMap innerType resetKeywords with FullyCompilable = false }
+        // If IgnoreSpecificKeywords is set, we need to fallback to runtime validation regardless of other keyword combinations.
+        | keys when context.CompileFlags.IgnoreSpecificKeywords || keys.UniqueItems || not keys.AllowAdditionalItems || keys.   HasAdditionalItemsSchema -> 
+            { defaultArrayConversion with FullyCompilable = false }
+        
         // Exact-size tuple: minItems = maxItems, same shape both directions, nothing optional.
         | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->
 
@@ -192,7 +229,7 @@ module NodeConversions =
 
         // minItems mandatory prefix, tail built by recursing on this same function - the tail
         // may itself land on the exact-tuple, maxItems-bounded, or open-list case below.
-        | { MinItems = Some minItems; MaxItems = maxItems } when compileFlags.CompileMinItems ->
+        | { MinItems = Some minItems; MaxItems = maxItems } ->
             let inner = convert context classMap innerType
 
             // Create keywords for the tailing list. 
@@ -345,47 +382,8 @@ module NodeConversions =
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
 
         // Default case: unbounded list.
-        | _ ->
-            // Extract the inner type conversion
-            let inner = convert context classMap innerType
+        | _ -> defaultArrayConversion
 
-            // The compile-time and runtime types for the list based on the inner type conversion
-            let compileTimeType = typedefof<_ list>.MakeGenericType inner.CompileTimeType
-            let runtimeType     = typedefof<_ list>.MakeGenericType inner.RuntimeType
-
-            let toRuntime =
-                CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (
-                    fun jsonValVar ->
-
-                        // Calls asArray on the JSON value to get it as an array
-                        let asArray = CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
-                        
-                        // Maps each element of the JSON array to its runtime representation using the inner type conversion
-                        let mapped = CommonExprs.callArrayMap inner.ToRuntime asArray typeof<JsonValue> inner.RuntimeType
-
-                        // Turns the array in to a list
-                        CommonExprs.callListOfArray mapped inner.RuntimeType
-                    )
-
-            let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (
-                    fun runtimeObjVar ->
-
-                        // map each element of the list back to a JSON value
-                        let mappedBack = CommonExprs.callListMap inner.ToJson (Expr.Var runtimeObjVar) inner.RuntimeType typeof<JsonValue>
-                        
-                        // convert the list of JSON values back into a JSON array
-                        let arrayOfList = CommonExprs.callArrayOfList mappedBack typeof<JsonValue>
-
-                        // create a new JSON array from the array of JSON values (Reverse of asArray)
-                        CommonExprs.newJsonValueArray arrayOfList
-                    )
-
-            // MinItems.IsNone matters here specifically: reaching this default case with MinItems
-            // still Some means compileFlags.CompileMinItems was false, so minItems is a real,
-            // uncompiled constraint - MaxItems needs no equivalent check, since any Some MaxItems
-            // is always caught by one of the tuple/option cases above, unconditionally.
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && inner.FullyCompilable }
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
     and buildOneOfConversion

@@ -329,16 +329,14 @@ module OneOfTests =
 
     let arrayLengthOneOfPicksShortBranch =
         test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
-            // maxItems:2 (no compileMinItems flag needed - maxItems is always precise) compiles
-            // to Option<int * Option<int>>, not a plain list - see ArrayTests.fs/KeywordCoverageTests.fs.
             let v = ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")
             Expect.equal v.value (Choice1Of2(Some(1, Some 2))) "value = Choice1Of2 (Some (1, Some 2))"
         }
 
     let arrayLengthOneOfPicksLongBranch =
         test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
-            let v = ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")
-            Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
+            let v = ArrayLengthOneOf.Parse """{"value": [1, 2, 3]}"""
+            Expect.equal v.value (Choice2Of2 (1, 2, 3, [])) "value = Choice2Of2 [1;2;3]"
         }
 
     let enumOneOfPicksColorBranch =

@@ -4,8 +4,13 @@ module ProviderConfiguration =
     open System
     open FSharp.Quotations
 
+
     type CompileFlags = {
-        CompileMinItems: bool
+        // If true, runtime validation of JSON values will be skipped. - Note is might be unsafe to use and could lead to runtime errors (use with caution)
+        // SkipRuntimeValidation: bool
+
+        // If true, specific keywords in the JSON schema will be ignored during processing. It will fallback to runtime validation for those keywords.
+        IgnoreSpecificKeywords: bool
     }
 
     // Everything there is to know about turning one JSON-schema-derived node into F#: its

@@ -105,16 +105,16 @@ module ArrayTests =
         }"""
 
     // Same schema as stringArrayMin2Schema but without the flag — plain list, constraint ignored at type level.
-    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema>
+    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema, ignoreSpecificKeywords = true>
 
     // Compile-time constrained: tags : string * string * string list
-    type StringArrayMin2 = JsonSchemaProvider<schema = stringArrayMin2Schema, compileMinItems = true>
+    type StringArrayMin2 = JsonSchemaProvider<schema = stringArrayMin2Schema>
 
     // Compile-time constrained: values : int * int list
-    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema, compileMinItems = true>
+    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema>
 
     // Compile-time constrained: values : int * int option
-    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema, compileMinItems = true>
+    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema>
 
     // Compile-time constrained: values : option<int * int option>
     type IntArrayMax2 = JsonSchemaProvider<schema = intArrayMax2Schema>
@@ -126,7 +126,7 @@ module ArrayTests =
     type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema>
 
     // Same schema, with the flag - should produce the identical int * int shape.
-    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema, compileMinItems = true>
+    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema>
 
     let withoutFlagMinItemsSchemaYieldsPlainList =
         test "minItems schema without compileMinItems flag yields plain list" {

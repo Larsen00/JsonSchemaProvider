@@ -67,7 +67,7 @@ module RootTypeTests =
     type ListRootMinItems2 = JsonSchemaProvider<schema=listRootMinItems2Schema>
 
     // Compile-time constrained: root value is string * string * string list
-    type ListRootMinItems2Compiled = JsonSchemaProvider<schema=listRootMinItems2Schema, compileMinItems=true>
+    type ListRootMinItems2Compiled = JsonSchemaProvider<schema=listRootMinItems2Schema, ignoreSpecificKeywords = true>
 
     type PlaceListRoot = JsonSchemaProvider<schema=placeListRootSchema>
 
