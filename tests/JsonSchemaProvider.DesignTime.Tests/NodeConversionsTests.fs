@@ -12,15 +12,15 @@ module NodeConversionsTests =
     let jsonIntegerNoneKeywords : JsonSchemaProvider.JsonNumber.Keywords =
       { common = commonKeywords
         specific =
-          { minimum = None
-            maximum = None
-            exclusiveMinimum = None
-            exclusiveMaximum = None
-            multipleOf = None } }
+          { Minimum = None
+            Maximum = None
+            ExclusiveMinimum = None
+            ExclusiveMaximum = None
+            MultipleOf = None } }
 
     let jsonStringKeywords : JsonSchemaProvider.JsonString.Keywords =
       { common = commonKeywords
-        specific = { minLength = None; maxLength = None; pattern = None; format = None } }
+        specific = { MinLength = None; MaxLength = None; Pattern = None; Format = None } }
 
     let jsonBooleanKeywords : JsonSchemaProvider.JsonBoolean.Keywords = { common = commonKeywords }
 

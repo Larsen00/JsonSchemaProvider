@@ -65,20 +65,20 @@ module JsonNumber =
     // FSharpType cases built from this) still track that distinction themselves; it's not a
     // keyword, so it doesn't live here.
     type Specific = {
-        minimum: float option
-        maximum: float option
-        exclusiveMinimum: float option
-        exclusiveMaximum: float option
-        multipleOf: float option
+        Minimum: float option
+        Maximum: float option
+        ExclusiveMinimum: float option
+        ExclusiveMaximum: float option
+        MultipleOf: float option
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
 
 module JsonString =
     type Specific = {
-        minLength: int option
-        maxLength: int option
-        pattern: string option
-        format: string option
+        MinLength: int option
+        MaxLength: int option
+        Pattern: string option
+        Format: string option
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
 

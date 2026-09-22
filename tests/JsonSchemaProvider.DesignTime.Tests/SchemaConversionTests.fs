@@ -105,15 +105,15 @@ module SchemaConversionTests =
     let private intKeywordsAt (path: string) : JsonSchemaProvider.JsonNumber.Keywords =
         { common = commonAt path
           specific =
-            { minimum = None
-              maximum = None
-              exclusiveMinimum = None
-              exclusiveMaximum = None
-              multipleOf = None } }
+            { Minimum = None
+              Maximum = None
+              ExclusiveMinimum = None
+              ExclusiveMaximum = None
+              MultipleOf = None } }
 
     let private stringKeywordsAt (path: string) : JsonSchemaProvider.JsonString.Keywords =
         { common = commonAt path
-          specific = { minLength = None; maxLength = None; pattern = None; format = None } }
+          specific = { MinLength = None; MaxLength = None; Pattern = None; Format = None } }
 
     let private boolKeywordsAt (path: string) : JsonSchemaProvider.JsonBoolean.Keywords =
         { common = commonAt path }

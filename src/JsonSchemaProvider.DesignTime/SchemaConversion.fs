@@ -106,11 +106,11 @@ module SchemaConversion =
         let numericKeywords () : JsonNumber.Keywords =
             { common = common
               specific =
-                { minimum = schema.Minimum |> m
-                  maximum = schema.Maximum |> m
-                  exclusiveMinimum = schema.ExclusiveMinimum |> m
-                  exclusiveMaximum = schema.ExclusiveMaximum |> m
-                  multipleOf = schema.MultipleOf |> m } }
+                { Minimum = schema.Minimum |> m
+                  Maximum = schema.Maximum |> m
+                  ExclusiveMinimum = schema.ExclusiveMinimum |> m
+                  ExclusiveMaximum = schema.ExclusiveMaximum |> m
+                  MultipleOf = schema.MultipleOf |> m } }
 
         match schema.Type with
         | JsonObjectType.Array -> parseArray rootSchema schema common
@@ -120,10 +120,10 @@ module SchemaConversion =
         | JsonObjectType.Object -> parseObject rootSchema schema common
         | JsonObjectType.String ->
             let specific : JsonString.Specific = {
-                minLength = schema.MinLength |> Option.ofNullable
-                maxLength = schema.MaxLength |> Option.ofNullable
-                pattern = schema.Pattern |> Option.ofObj
-                format = schema.Format |> Option.ofObj
+                MinLength = schema.MinLength |> Option.ofNullable
+                MaxLength = schema.MaxLength |> Option.ofNullable
+                Pattern = schema.Pattern |> Option.ofObj
+                Format = schema.Format |> Option.ofObj
             }
             JsonString { common = common; specific = specific }
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type

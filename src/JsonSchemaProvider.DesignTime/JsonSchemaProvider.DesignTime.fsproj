@@ -20,7 +20,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\JsonSchemaProvider.Runtime\validation.fs" />
+    <Compile Include="..\JsonSchemaProvider.Runtime\Validation.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\Types.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\JsonRefinement.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\ChoiceAccessors.fs" />
