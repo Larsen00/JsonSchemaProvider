@@ -62,9 +62,6 @@ module JsonSchemaProviderTests =
         }"""
 
     [<Literal>]
-    let flatSchemaPath = __SOURCE_DIRECTORY__ + "/FlatSchema.json"
-
-    [<Literal>]
     let patternSchema =
         """
         {
@@ -166,7 +163,6 @@ module JsonSchemaProviderTests =
     type Flat = JsonSchemaProvider<schema=flatSchema>
     type OptionalPrimitives = JsonSchemaProvider<schema=optionalPrimitivesSchema>
     type RequiredProperties = JsonSchemaProvider<schema=requiredPropertiesSchema>
-    type FlatFromFile = JsonSchemaProvider<schemaFile=flatSchemaPath>
     type PatternSchema = JsonSchemaProvider<schema=patternSchema>
     type CityPosition = JsonSchemaProvider<schema=cityPosition>
     type NumberArray = JsonSchemaProvider<schema=numberArray>
@@ -212,14 +208,6 @@ module JsonSchemaProviderTests =
             Expect.equal requiredProperties.X "x" """requiredProperties.X = "x" """
             Expect.equal requiredProperties.Y "y" """requiredProperties.Y = "y" """
             Expect.equal requiredProperties.Z 1 "flat.Z = 1"
-        }
-
-    let createMethodFromFileSchemaShouldReturnRecord =
-        test "create method from file schema should return record" {
-            let flat = FlatFromFile.Create()
-            Expect.equal flat.X None "flat.X = None"
-            Expect.equal flat.Y None "flat.Y = None"
-            Expect.equal flat.Z None "flat.Z = None"
         }
 
     let validationErrorShouldBeDetectedByCreate =
@@ -284,7 +272,6 @@ module JsonSchemaProviderTests =
               optionalBoolAndNumberPresentRoundTrip
               optionalBoolAndNumberAbsentGiveNone
               requiredPropertiesShouldNotBeParsedIntoOption
-              createMethodFromFileSchemaShouldReturnRecord
               validationErrorShouldBeDetectedByCreate
               validationErrorShouldBeDetectedByParse
               valueFromNestedObjectsShouldBeCreated

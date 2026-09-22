@@ -13,6 +13,7 @@
     <Compile Include="OneOfObjectBranchTests.fs" />
     <Compile Include="RootTypeTests.fs" />
     <Compile Include="KeywordCoverageTests.fs" />
+    <Compile Include="SchemaFileTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

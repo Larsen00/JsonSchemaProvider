@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "X": {
+      "type": "string"
+    },
+    "Y": {
+      "type": "string"
+    },
+    "Z": {
+      "type": "integer"
+    }
+  },
+  "required": ["X", "Y", "Z"]
+}
