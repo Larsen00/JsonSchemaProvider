@@ -197,7 +197,7 @@ module TypeProvider =
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
             let conversions = convert context classMap fsharptype
-            let innerReturnType = (convert context classMap fsharptype).CompileTimeType
+            let innerReturnType = conversions.CompileTimeType
             let resultType = 
                 if conversions.FullyCompilable then
                     innerReturnType
