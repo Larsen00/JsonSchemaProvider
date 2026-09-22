@@ -149,7 +149,7 @@ module SchemaConversion =
 
     let parseJsonSchema (input: string) : JsonSchemaType =
         let schema = SchemaCache.parseSchema input
-        parseObjectType schema schema
+        parseJsonSchemaStructured schema schema
 
     // Fsharp match types to the JsonProperty and JsonSchemaType types.
     type FSharpType =

@@ -39,6 +39,16 @@ module SchemaConversionTests =
         }"""
 
     [<Literal>]
+    let rootOneOf =
+        """
+        {
+          "oneOf": [
+            { "type": "integer" },
+            { "type": "string" }
+          ]
+        }"""
+
+    [<Literal>]
     let nestedObjects =
         """
         {
@@ -142,6 +152,26 @@ module SchemaConversionTests =
             Expect.equal actual expected ""
         }
 
+    // parseJsonSchema used to skip straight to parseObjectType, which has no case for a root
+    // schema whose only keyword is "oneOf" (JsonObjectType.None) - only parseJsonSchemaStructured
+    // (what TypeProvider.fs actually calls) checked for that. This test exercises the same public
+    // entry point tests use (parseJsonSchema) now that it delegates to parseJsonSchemaStructured,
+    // so a root-level oneOf parses the same way here as it would in the real provider - even
+    // though the provider itself still rejects a root oneOf downstream (see TypeProvider.fs).
+    let rootOneOfShouldBeParsedCorrectly =
+        test "root-level oneOf should be parsed correctly" {
+            let actual = parseJsonSchema rootOneOf
+
+            let expected =
+                JsonOneOf(
+                    commonAt "#",
+                    JsonInteger(intKeywordsAt "#/oneOf/0"),
+                    [ JsonString(stringKeywordsAt "#/oneOf/1") ]
+                )
+
+            Expect.equal actual expected ""
+        }
+
     let nestedObjectsShouldBeClassTreeWithFourClasses =
         test "NestedObjects should be class tree with four classes" {
             let actual =
@@ -212,4 +242,5 @@ module SchemaConversionTests =
             "JsonSchemaProvider.Tests.SchemaConversionTests"
             [ nestedArrayWithObjectItemsShouldBeParsedCorrectly
               nestedArrayWithObjectItemsShouldBeClassTreeWithTwoClasses
-              nestedObjectsShouldBeClassTreeWithFourClasses ]
+              nestedObjectsShouldBeClassTreeWithFourClasses
+              rootOneOfShouldBeParsedCorrectly ]
