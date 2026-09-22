@@ -25,12 +25,6 @@ module SchemaCache =
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
-    // Parses and stores a schema in the cache up front.
-    let cacheSchema (schemaSource: string) =
-        let hashCode = schemaSource.GetHashCode()
-        let schema = parseSchema schemaSource
-        cache[hashCode] = schema
-
     //  the cached schema if present, else parses it once and caches it.
     let retrieveSchema (hashCode: int) (schemaSource: string) =
         cache.GetOrAdd(hashCode, (fun _ -> parseSchema schemaSource))
