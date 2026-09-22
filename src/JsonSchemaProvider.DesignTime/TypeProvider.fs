@@ -158,7 +158,9 @@ module TypeProvider =
 
             (keywords.common.Path, thisTypeDef) :: childEntries
         | FSharpList(inner, _) -> buildClassMapHelper context "Item" name inner
+        // #region oneof-case-naming
         | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect (buildClassMapHelper context "Case" name)
+        // #endregion
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
 
     let private buildClassMap context (suffix: string) (name: string) (fsharptype: FSharpType) : Map<String, ProvidedTypeDefinition> =
