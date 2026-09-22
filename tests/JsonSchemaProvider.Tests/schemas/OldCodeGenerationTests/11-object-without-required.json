@@ -1,0 +1,7 @@
+{
+  "type": "object",
+  "properties": {
+    "first_name": { "type": "number" },
+    "last_name": { "type": "integer" }
+  }
+}

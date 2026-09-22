@@ -1,0 +1,6 @@
+{
+  "$defs": {
+    "address": { "type": "string" }
+  },
+  "$ref": "#/$defs/address"
+}

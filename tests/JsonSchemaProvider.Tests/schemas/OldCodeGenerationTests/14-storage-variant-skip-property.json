@@ -1,0 +1,7 @@
+{
+  "type": "object",
+  "properties": {
+    "teamId": { "type": "string" },
+    "bundleId": { "type": "string", "$codegen": { "skip": true } }
+  }
+}

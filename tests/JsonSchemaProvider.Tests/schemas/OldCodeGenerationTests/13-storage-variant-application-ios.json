@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "required": ["bundleId"],
+  "properties": {
+    "teamId": {
+      "type": "string",
+      "$comment": "https://support.subsplash.com/en/articles/8841517-finding-your-apple-developer-team-id-and-team-name"
+    },
+    "bundleId": { "type": "string" }
+  }
+}
