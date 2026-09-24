@@ -173,7 +173,7 @@ module ExprGenerator =
         // Only hitting this branch when the type is at the root of the json Schema
         // never gets its own Create when nested as a property, so this always validates against
         // the whole schema directly, no path lookup needed.
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ ->
+        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ | FSharpOneOf _ ->
             fun (args: Expr list) ->
                 
                 if  context.CompileFlags.SkipRuntimeValidation || (convert context classMap fsharptype).FullyCompilable then
@@ -207,5 +207,3 @@ module ExprGenerator =
                             Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
                         )
                     )
-
-        | _ -> failwith "missing oneof"

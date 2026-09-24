@@ -71,6 +71,67 @@ module RootTypeTests =
 
     type PlaceListRoot = JsonSchemaProvider<schema=placeListRootSchema>
 
+    // string and integer are both FullyCompilable with no constraints, so this oneOf node itself
+    // is FullyCompilable too - Create returns the bare Choice<string, int> directly, not Result.
+    [<Literal>]
+    let stringOrIntRootSchema =
+        """{ "oneOf": [{ "type": "string" }, { "type": "integer" }] }"""
+
+    // 3-way oneOf root - exercises the nested Choice<T1, Choice<T2, T3>> shape at the root.
+    [<Literal>]
+    let stringOrIntOrBoolRootSchema =
+        """{ "oneOf": [{ "type": "string" }, { "type": "integer" }, { "type": "boolean" }] }"""
+
+    // One branch is an object - exercises buildClassMapHelper/extractNestedClasses generating a
+    // nested class ("Case", same suffix rule as any other oneOf branch) directly off a root that
+    // is itself FSharpOneOf, not reached through a property this time.
+    [<Literal>]
+    let placeOrIdRootSchema =
+        """
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": { "name": { "type": "string" } },
+              "required": ["name"]
+            },
+            { "type": "integer" }
+          ]
+        }"""
+
+    // One branch is an array - exercises the FSharpList-inside-FSharpOneOf-root combination.
+    [<Literal>]
+    let stringOrIntArrayRootSchema =
+        """{ "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "integer" } }] }"""
+
+    // minimum:5 makes the integer branch not FullyCompilable, so the oneOf node itself isn't
+    // either - Create returns Result<Choice<int,string>, string list> here, unlike the schemas
+    // above. A value satisfying neither branch (e.g. 3: fails minimum, isn't a string at all)
+    // fails oneOf's "exactly one branch matches" rule and comes back as Error.
+    [<Literal>]
+    let constrainedIntOrStringRootSchema =
+        """{ "oneOf": [{ "type": "integer", "minimum": 5 }, { "type": "string" }] }"""
+
+    // A oneOf root whose second branch is itself a oneOf - string | (int | bool), same shape as
+    // OneOfTests.fs's nestedOneOfSchema but with no wrapping object/property, so this is the
+    // literal FSharpOneOf(_, _, [FSharpOneOf _]) root shape.
+    [<Literal>]
+    let nestedOneOfRootSchema =
+        """
+        {
+          "oneOf": [
+            { "type": "string" },
+            { "oneOf": [{ "type": "integer" }, { "type": "boolean" }] }
+          ]
+        }"""
+
+    type StringOrIntRoot = JsonSchemaProvider<schema=stringOrIntRootSchema>
+    type StringOrIntOrBoolRoot = JsonSchemaProvider<schema=stringOrIntOrBoolRootSchema>
+    type PlaceOrIdRoot = JsonSchemaProvider<schema=placeOrIdRootSchema>
+    type StringOrIntArrayRoot = JsonSchemaProvider<schema=stringOrIntArrayRootSchema>
+    type ConstrainedIntOrStringRoot = JsonSchemaProvider<schema=constrainedIntOrStringRootSchema>
+    type NestedOneOfRoot = JsonSchemaProvider<schema=nestedOneOfRootSchema>
+
     let boolRootShouldBeCreated =
         test "boolean root Create builds the value" {
             let value = BoolRoot.Create true
@@ -184,11 +245,103 @@ module RootTypeTests =
             Expect.equal result.[0].lng 12.5683 "lng roundtrips"
         }
 
-    // FSharpOneOf as the schema root isn't wired up yet (run still `failwith`s for it - see
-    // notes/any-type-as-root-refactor.md open item #3). Deliberately no
-    // `type X = JsonSchemaProvider<schema=...>` for that here: a design-time failwith aborts
-    // compiling this whole file, not just one test, so there's no way to assert that gap from
-    // inside Expecto today. Add a case here once oneOf root is implemented.
+    let stringOrIntRootShouldBeCreatedFromStringBranch =
+        test "oneOf root Create builds the value from the string branch" {
+            let value = StringOrIntRoot.Create(value = Choice1Of2 "hello")
+            Expect.equal value (Choice1Of2 "hello") "StringOrIntRoot.Create(Choice1Of2 \"hello\")"
+        }
+
+    let stringOrIntRootShouldBeCreatedFromIntBranch =
+        test "oneOf root Create builds the value from the int branch" {
+            let value = StringOrIntRoot.Create(value = Choice2Of2 42)
+            Expect.equal value (Choice2Of2 42) "StringOrIntRoot.Create(Choice2Of2 42)"
+        }
+
+    let threeWayOneOfRootShouldBeCreatedFromStringBranch =
+        test "3-way oneOf root Create builds the value from the string branch" {
+            let value = StringOrIntOrBoolRoot.Create(value = Choice1Of2 "x")
+            Expect.equal value (Choice1Of2 "x") "StringOrIntOrBoolRoot.Create(Choice1Of2 \"x\")"
+        }
+
+    let threeWayOneOfRootShouldBeCreatedFromIntBranch =
+        test "3-way oneOf root Create builds the value from the int branch" {
+            let value = StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice1Of2 7))
+            Expect.equal value (Choice2Of2(Choice1Of2 7)) "StringOrIntOrBoolRoot.Create(Choice2Of2(Choice1Of2 7))"
+        }
+
+    let threeWayOneOfRootShouldBeCreatedFromBoolBranch =
+        test "3-way oneOf root Create builds the value from the bool branch" {
+            let value = StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice2Of2 true))
+            Expect.equal value (Choice2Of2(Choice2Of2 true)) "StringOrIntOrBoolRoot.Create(Choice2Of2(Choice2Of2 true))"
+        }
+
+    // The object branch's generated class is named "Case" (empty root name + "Case" suffix, same
+    // rule as PlaceListRoot.Item above) and is FullyCompilable (an unconstrained string property),
+    // so PlaceOrIdRoot.Case.Create returns the class directly, not Result.
+    let oneOfRootWithObjectBranchShouldBeCreatedFromObjectBranch =
+        test "oneOf root with an object branch Create builds the value from the object branch" {
+            let place = PlaceOrIdRoot.Case.Create(name = "Copenhagen")
+            let value = PlaceOrIdRoot.Create(value = Choice1Of2 place)
+            match value with
+            | Choice1Of2 case -> Expect.equal case.name "Copenhagen" "name roundtrips"
+            | Choice2Of2 _ -> failtest "expected the object branch (Choice1Of2)"
+        }
+
+    let oneOfRootWithObjectBranchShouldBeCreatedFromIntBranch =
+        test "oneOf root with an object branch Create builds the value from the int branch" {
+            let value = PlaceOrIdRoot.Create(value = Choice2Of2 5)
+            Expect.equal value (Choice2Of2 5) "PlaceOrIdRoot.Create(Choice2Of2 5)"
+        }
+
+    let oneOfRootWithArrayBranchShouldBeCreatedFromStringBranch =
+        test "oneOf root with an array branch Create builds the value from the string branch" {
+            let value = StringOrIntArrayRoot.Create(value = Choice1Of2 "hi")
+            Expect.equal value (Choice1Of2 "hi") "StringOrIntArrayRoot.Create(Choice1Of2 \"hi\")"
+        }
+
+    let oneOfRootWithArrayBranchShouldBeCreatedFromArrayBranch =
+        test "oneOf root with an array branch Create builds the value from the array branch" {
+            let value = StringOrIntArrayRoot.Create(value = Choice2Of2 [ 1; 2; 3 ])
+            Expect.equal value (Choice2Of2 [ 1; 2; 3 ]) "StringOrIntArrayRoot.Create(Choice2Of2 [1;2;3])"
+        }
+
+    let constrainedOneOfRootShouldAcceptInRangeIntBranch =
+        test "constrained oneOf root Create accepts an in-range int branch value" {
+            let value = Expect.wantOk (ConstrainedIntOrStringRoot.Create(value = Choice1Of2 7)) "Create should succeed"
+            Expect.equal value (Choice1Of2 7) "ConstrainedIntOrStringRoot.Create(Choice1Of2 7)"
+        }
+
+    let constrainedOneOfRootShouldAcceptStringBranch =
+        test "constrained oneOf root Create accepts the string branch" {
+            let value =
+                Expect.wantOk (ConstrainedIntOrStringRoot.Create(value = Choice2Of2 "hello")) "Create should succeed"
+            Expect.equal value (Choice2Of2 "hello") "ConstrainedIntOrStringRoot.Create(Choice2Of2 \"hello\")"
+        }
+
+    let constrainedOneOfRootShouldRejectBelowMinimumIntBranch =
+        test "constrained oneOf root Create rejects a below-minimum int branch value" {
+            Expect.isError
+                (ConstrainedIntOrStringRoot.Create(value = Choice1Of2 3))
+                "3 satisfies neither the minimum:5 int branch nor the string branch"
+        }
+
+    let nestedOneOfRootShouldBeCreatedFromOuterStringBranch =
+        test "nested oneOf root Create builds the value from the outer string branch" {
+            let value = NestedOneOfRoot.Create(value = Choice1Of2 "s")
+            Expect.equal value (Choice1Of2 "s") "NestedOneOfRoot.Create(Choice1Of2 \"s\")"
+        }
+
+    let nestedOneOfRootShouldBeCreatedFromInnerIntBranch =
+        test "nested oneOf root Create builds the value from the inner int branch" {
+            let value = NestedOneOfRoot.Create(value = Choice2Of2(Choice1Of2 3))
+            Expect.equal value (Choice2Of2(Choice1Of2 3)) "NestedOneOfRoot.Create(Choice2Of2(Choice1Of2 3))"
+        }
+
+    let nestedOneOfRootShouldBeCreatedFromInnerBoolBranch =
+        test "nested oneOf root Create builds the value from the inner bool branch" {
+            let value = NestedOneOfRoot.Create(value = Choice2Of2(Choice2Of2 false))
+            Expect.equal value (Choice2Of2(Choice2Of2 false)) "NestedOneOfRoot.Create(Choice2Of2(Choice2Of2 false))"
+        }
 
     [<Tests>]
     let tests =
@@ -209,4 +362,19 @@ module RootTypeTests =
               matchingPatternStringRootShouldBeAccepted
               nonMatchingPatternStringRootShouldBeRejected
               emptyPlaceListRootShouldBeCreated
-              nonEmptyPlaceListRootShouldBeCreated ]
+              nonEmptyPlaceListRootShouldBeCreated
+              stringOrIntRootShouldBeCreatedFromStringBranch
+              stringOrIntRootShouldBeCreatedFromIntBranch
+              threeWayOneOfRootShouldBeCreatedFromStringBranch
+              threeWayOneOfRootShouldBeCreatedFromIntBranch
+              threeWayOneOfRootShouldBeCreatedFromBoolBranch
+              oneOfRootWithObjectBranchShouldBeCreatedFromObjectBranch
+              oneOfRootWithObjectBranchShouldBeCreatedFromIntBranch
+              oneOfRootWithArrayBranchShouldBeCreatedFromStringBranch
+              oneOfRootWithArrayBranchShouldBeCreatedFromArrayBranch
+              constrainedOneOfRootShouldAcceptInRangeIntBranch
+              constrainedOneOfRootShouldAcceptStringBranch
+              constrainedOneOfRootShouldRejectBelowMinimumIntBranch
+              nestedOneOfRootShouldBeCreatedFromOuterStringBranch
+              nestedOneOfRootShouldBeCreatedFromInnerIntBranch
+              nestedOneOfRootShouldBeCreatedFromInnerBoolBranch ]

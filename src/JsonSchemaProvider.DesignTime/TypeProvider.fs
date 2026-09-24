@@ -58,10 +58,8 @@ module TypeProvider =
             createMethodParameter context classMap innerfsharptype (Map.find name keywords.specific.Required) name
             :: createMethodParameters context classMap (FSharpClass (keywords, rest))
 
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ ->
+        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ | FSharpOneOf _ ->
             [ createMethodParameter context classMap fsharptype true "value" ]
-
-        | _ -> failwith "also dont know - createMethodParameters"
 
 
     // The .create method to create in instance of the provided type
@@ -218,28 +216,26 @@ module TypeProvider =
 
             providedTypeDefinition
         
-        | FSharpList _ as fsharplist ->
-            let classMap = buildClassMap context "" "" fsharplist
+        | FSharpList _ | FSharpOneOf _ as fsharptype ->
+            let classMap = buildClassMap context "" "" fsharptype
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
-            extractNestedClasses fsharplist
+            extractNestedClasses fsharptype
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember classMap[keywords.common.Path])
 
-            let conversions = convert context classMap fsharplist
+            let conversions = convert context classMap fsharptype
             let innerReturnType = conversions.CompileTimeType
 
-            
-            let resultType = 
+
+            let resultType =
                 if  context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
                     // When the conversion is fully compilable, we dont need to use the result wrapper as it dont need validation
                     innerReturnType
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context classMap fsharplist resultType
+            let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
             providedTypeDefinition.AddMember createMethod
 
             providedTypeDefinition
-
-        | _ -> failwith "Root schema must be an object or a primitive or list" // TODO: lift this restriction when oneOf root is wired up
