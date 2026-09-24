@@ -96,7 +96,7 @@ module SchemaConversion =
 
     and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
         // Path identifies this node's own position in rootSchema. We use it as a unique id in the
-        // classMap and also to find this node's own subschema to validate against it.
+        // typeMap and also to find this node's own subschema to validate against it.
         let common : Common.Keywords =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
               CanBeCompiled = canBeCompiled schema }

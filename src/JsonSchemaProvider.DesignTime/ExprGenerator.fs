@@ -28,11 +28,11 @@ module ExprGenerator =
     // only for class
     let generatePropertyGetter
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (keywords:  JsonObject.Keywords)
         ((name, innertype): PropertyName * FSharpType)
         : Expr list -> Expr =
-        let conv = convert context classMap innertype
+        let conv = convert context typeMap innertype
         let plainPropertyRuntimeType = conv.RuntimeType
         let convertToRuntimeType = conv.ToRuntime
 
@@ -85,13 +85,13 @@ module ExprGenerator =
 
     let private generatePropertyCreation
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (name: string)
         (optional: bool)
         (fSharpType: FSharpType)
         (arg: Expr)
         =
-        let conv = convert context classMap fSharpType
+        let conv = convert context typeMap fSharpType
         let toJson = wrapOptionalToJson conv optional
 
         if optional then
@@ -176,7 +176,7 @@ module ExprGenerator =
 
     let generateCreateInvokeCode
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (fsharptype: FSharpType)
         : Expr list -> Expr =
 
@@ -193,14 +193,14 @@ module ExprGenerator =
 
                 let elements =[
                     for (name, innerType), arg in List.zip properties args ->
-                        generatePropertyCreation context classMap name (not <| Map.find name keywords.specific.Required) innerType arg
+                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) innerType arg
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
 
                 let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
 
-                if  context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context classMap keywords properties then
+                if  context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context typeMap keywords properties then
                     <@@ NullableJsonValue(%%jsonValExpr: JsonValue) @@>
                 else
                     let path = keywords.common.Path
@@ -216,10 +216,10 @@ module ExprGenerator =
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ | FSharpOneOf _ ->
             fun (args: Expr list) ->
                 
-                if  context.CompileFlags.SkipRuntimeValidation || (convert context classMap fsharptype).FullyCompilable then
+                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap fsharptype).FullyCompilable then
                     args[0]
                 else 
-                    let conv = convert context classMap fsharptype
+                    let conv = convert context typeMap fsharptype
                     let jsonValExpr = Expr.Application(conv.ToJson, args[0])
                     let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
