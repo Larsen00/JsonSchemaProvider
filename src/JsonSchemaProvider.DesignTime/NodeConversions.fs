@@ -9,6 +9,7 @@ module NodeConversions =
     open ProviderImplementation.ProvidedTypes
     open JsonSchemaProvider
     open System.Collections.Concurrent
+    open ArrayShape
 
     type ClassMap = Map<string, ProvidedTypeDefinition>
 
@@ -184,19 +185,19 @@ module NodeConversions =
 
 
 
-        match arrayKeywords.specific with
+        match classifyArrayShape context.CompileFlags innerType arrayKeywords with
 
         // Invalid case: minItems greater than maxItems
-        | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
+        | InvalidBounds _ ->
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
 
         // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
         // If IgnoreSpecificKeywords is set, we need to fallback to runtime validation regardless of other keyword combinations.
-        | keys when context.CompileFlags.IgnoreSpecificKeywords || keys.UniqueItems || not keys.AllowAdditionalItems || keys.   HasAdditionalItemsSchema -> 
+        | UnsupportedKeywords _ ->
             { defaultArrayConversion with FullyCompilable = false }
-        
+
         // Exact-size tuple: minItems = maxItems, same shape both directions, nothing optional.
-        | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->
+        | ExactLength(_, _, n) ->
 
             // Convert the inner type for the exact-size tuple case.
             let inner = convert context classMap innerType
@@ -229,7 +230,7 @@ module NodeConversions =
 
         // minItems mandatory prefix, tail built by recursing on this same function - the tail
         // may itself land on the exact-tuple, maxItems-bounded, or open-list case below.
-        | { MinItems = Some minItems; MaxItems = maxItems } ->
+        | MinItemsPrefix(_, _, minItems, maxItems) ->
             let inner = convert context classMap innerType
 
             // Create keywords for the tailing list. 
@@ -289,7 +290,7 @@ module NodeConversions =
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && rest.FullyCompilable }
 
         // maxItems = 1: option<inner>.
-        | { MaxItems = Some 1 } ->
+        | MaxItemsSingle _ ->
             // Extract the inner type
             let inner = convert context classMap innerType
 
@@ -329,7 +330,7 @@ module NodeConversions =
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
 
         // maxItems > 1: option<(inner * tail)>, tail built by recursing on this same function.
-        | { MaxItems = Some maxItems } ->
+        | MaxItemsChain(_, _, maxItems) ->
 
             // im not super sure but i think i might accidental call this function maxitems times -- TODO
             let inner = convert context classMap innerType
@@ -382,7 +383,7 @@ module NodeConversions =
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
 
         // Default case: unbounded list.
-        | _ -> defaultArrayConversion
+        | Unbounded _ -> defaultArrayConversion
 
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
