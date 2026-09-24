@@ -11,7 +11,7 @@ module NodeConversions =
     open System.Collections.Concurrent
     open ArrayShape
 
-    type ClassMap = Map<string, ProvidedTypeDefinition>
+    type TypeMap = Map<string, ProvidedTypeDefinition>
 
     // Many of the functions in TypeProvider.fs/ExprGenerator.fs reuse the same static data, hence
     // a record type to bundle it instead of threading each field separately. Lives here (rather
@@ -58,11 +58,11 @@ module NodeConversions =
 
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
-    let rec convert (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion = 
+    let rec convert (context: GenerationContext) (typeMap: TypeMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion = 
         
         context.ConversionCache.GetOrAdd( 
             pathOf fSharpType,
-            fun _ -> conversion context classMap fSharpType
+            fun _ -> conversion context typeMap fSharpType
         )
         
 
@@ -72,7 +72,7 @@ module NodeConversions =
     //
     // Its done like this because otherwise we needed four separate functions that all needed
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
-    and conversion (context: GenerationContext) (classMap: ClassMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
+    and conversion (context: GenerationContext) (typeMap: TypeMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
         
         match fSharpType with
         | FSharpBool keywords -> { 
@@ -109,21 +109,21 @@ module NodeConversions =
 
         | FSharpClass(keywords, properties) ->
             {
-                CompileTimeType = classMap[keywords.common.Path]
+                CompileTimeType = typeMap[keywords.common.Path]
                 RuntimeType = typeof<NullableJsonValue>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
                 ToJson = <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
-                FullyCompilable = isClassFullyCompilable context classMap keywords properties
+                FullyCompilable = isClassFullyCompilable context typeMap keywords properties
             }
 
         // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
-        | FSharpList(innerType, arrayKeywords) -> buildArrayConversion context classMap innerType arrayKeywords
+        | FSharpList(innerType, arrayKeywords) -> buildArrayConversion context typeMap innerType arrayKeywords
 
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
         // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
         // buildOneOfConversion has no access to - folded in here instead.
         | FSharpOneOf (keywords, head, tail) ->
-            let conv = buildOneOfConversion context classMap (head :: tail)
+            let conv = buildOneOfConversion context typeMap (head :: tail)
             { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
         
 
@@ -135,7 +135,7 @@ module NodeConversions =
     // SchemaConversion.fs.
     and buildArrayConversion
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (innerType: FSharpType)
         (arrayKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
@@ -143,7 +143,7 @@ module NodeConversions =
         // Default conversion for F# list arrays based on their inner type.
         let defaultArrayConversion: ProviderConfiguration.NodeConversion =
             // Extract the inner type conversion
-            let inner = convert context classMap innerType
+            let inner = convert context typeMap innerType
 
             // The compile-time and runtime types for the list based on the inner type conversion
             let compileTimeType = typedefof<_ list>.MakeGenericType inner.CompileTimeType
@@ -200,7 +200,7 @@ module NodeConversions =
         | ExactLength(_, _, n) ->
 
             // Convert the inner type for the exact-size tuple case.
-            let inner = convert context classMap innerType
+            let inner = convert context typeMap innerType
 
             // Create the compile-time and runtime tuple types for the exact-size array.
             let compileTimeType = Array.create n inner.CompileTimeType |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
@@ -231,7 +231,7 @@ module NodeConversions =
         // minItems mandatory prefix, tail built by recursing on this same function - the tail
         // may itself land on the exact-tuple, maxItems-bounded, or open-list case below.
         | MinItemsPrefix(_, _, minItems, maxItems) ->
-            let inner = convert context classMap innerType
+            let inner = convert context typeMap innerType
 
             // Create keywords for the tailing list. 
             let restKeywords =
@@ -240,7 +240,7 @@ module NodeConversions =
                     specific.MaxItems = maxItems |> Option.map (fun m -> m - minItems) }
 
             // Build the conversion for the tailing list.
-            let rest = buildArrayConversion context classMap innerType restKeywords
+            let rest = buildArrayConversion context typeMap innerType restKeywords
             
             // The compile-time and runtime types is a tuple with the fist minItems elements followed by the rest of the array as a tuple element.
             let compileTimeType =
@@ -292,7 +292,7 @@ module NodeConversions =
         // maxItems = 1: option<inner>.
         | MaxItemsSingle _ ->
             // Extract the inner type
-            let inner = convert context classMap innerType
+            let inner = convert context typeMap innerType
 
             // Define the compile-time and runtime types for the option<inner> conversion.
             let compileTimeType = typedefof<option<_>>.MakeGenericType [| inner.CompileTimeType |]
@@ -333,11 +333,11 @@ module NodeConversions =
         | MaxItemsChain(_, _, maxItems) ->
 
             // im not super sure but i think i might accidental call this function maxitems times -- TODO
-            let inner = convert context classMap innerType
+            let inner = convert context typeMap innerType
 
             // Build the tail conversion by recursively calling this function with MaxItems decreased by 1.
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
-            let tail = buildArrayConversion context classMap innerType tailKeywords
+            let tail = buildArrayConversion context typeMap innerType tailKeywords
 
             // Build the compile-time and runtime types for the option containing the pair of head and tail.
             let compileTimePairType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.CompileTimeType; tail.CompileTimeType |]
@@ -389,15 +389,15 @@ module NodeConversions =
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
     and buildOneOfConversion
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (branchFSharpTypes: FSharpType list)
         : ProviderConfiguration.NodeConversion =
         match branchFSharpTypes with
         | [] -> failwith "OneOf must have at least one type"
-        | [ single ] -> convert context classMap single
+        | [ single ] -> convert context typeMap single
         | headType :: restTypes ->
-            let head = convert context classMap headType
-            let tail = buildOneOfConversion context classMap restTypes
+            let head = convert context typeMap headType
+            let tail = buildOneOfConversion context typeMap restTypes
             let compileTimeType = ProvidedTypeBuilder.MakeGenericType(typedefof<Choice<_, _>>, [ head.CompileTimeType; tail.CompileTimeType ])
             let runtimeType = ProvidedTypeBuilder.MakeGenericType(typedefof<Choice<_, _>>, [ head.RuntimeType; tail.RuntimeType ])
             let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases runtimeType
@@ -423,19 +423,19 @@ module NodeConversions =
     // Whether a class's own Create can skip Result-wrapping: its own JSON carries nothing
     // unmodeled, and every property's own conversion is itself FullyCompilable. Split out from
     // convert's FSharpClass case (rather than inlined there) because TypeProvider.fs's
-    // buildClassMapHelper and ExprGenerator.fs's generateCreateInvokeCode both need this same
+    // buildTypeMapHelper and ExprGenerator.fs's generateCreateInvokeCode both need this same
     // answer while still building the class's own members - before its own path is registered in
-    // classMap, so calling convert on the class itself (which needs classMap[keywords.common.Path])
+    // typeMap, so calling convert on the class itself (which needs typeMap[keywords.common.Path])
     // isn't an option there. This only touches the properties, never the class's own entry, so it
     // works from all three call sites.
     and isClassFullyCompilable
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (keywords: JsonObject.Keywords)
         (properties: (PropertyName * FSharpType) list)
         : bool =
         keywords.common.CanBeCompiled
-        && properties |> List.forall (fun (_, propertyType) -> (convert context classMap propertyType).FullyCompilable)
+        && properties |> List.forall (fun (_, propertyType) -> (convert context typeMap propertyType).FullyCompilable)
 
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then
@@ -457,9 +457,9 @@ module NodeConversions =
 
     let fSharpTypeToMethodParameterType
         (context: GenerationContext)
-        (classMap: ClassMap)
+        (typeMap: TypeMap)
         (optional: bool)
         (fSharpType: FSharpType)
         : Type =
-        let compileTimeType = (convert context classMap fSharpType).CompileTimeType
+        let compileTimeType = (convert context typeMap fSharpType).CompileTimeType
         nullableOrPlainType optional compileTimeType
