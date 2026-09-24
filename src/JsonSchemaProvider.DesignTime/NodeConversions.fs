@@ -196,98 +196,45 @@ module NodeConversions =
         | UnsupportedKeywords _ ->
             { defaultArrayConversion with FullyCompilable = false }
 
-        // Exact-size tuple: minItems = maxItems, same shape both directions, nothing optional.
-        | ExactLength(_, _, n) ->
-
-            // Convert the inner type for the exact-size tuple case.
+        // Exact-size, exactly one element left: same base case as MaxItemsSingle - just the element itself
+        | ExactLength(_, _, 1) ->
             let inner = convert context typeMap innerType
 
-            // Create the compile-time and runtime tuple types for the exact-size array.
-            let compileTimeType = Array.create n inner.CompileTimeType |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
-            let runtimeType     = Array.create n inner.RuntimeType     |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
-
             let toRuntime =
-                withJsonArrayLambda (
-                    fun jsonArrVar ->
-                        // iterate over the elements of the JSON array and convert each to the runtime type
-                        [ for i in 0 .. n - 1 -> 
-                            Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet i (Expr.Var jsonArrVar) typeof<JsonValue>) ]
-                        // create a tuple from the converted elements
-                        |> Expr.NewTuple
-                    )
+                withJsonArrayLambda (fun jsonArrVar ->
+                    Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>))
 
             let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (
-                    fun runtimeObjVar ->
-                        // iterate over the elements of the runtime tuple and convert each to JSON
-                        let x = [ for i in 0 .. n - 1 -> Expr.Application(inner.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, i)) ]
-                        // create a JSON array from the converted elements
-                        let newArray = Expr.NewArray(typeof<JsonValue>, x)
-                        CommonExprs.newJsonValueArray newArray
-                    )
+                CommonExprs.freshLambda "runtimeObj" inner.RuntimeType (fun runtimeObjVar ->
+                    CommonExprs.newJsonValueArray (
+                        Expr.NewArray(typeof<JsonValue>, [ Expr.Application(inner.ToJson, Expr.Var runtimeObjVar) ])
+                    ))
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+            { CompileTimeType = inner.CompileTimeType
+              RuntimeType = inner.RuntimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
 
-        // minItems mandatory prefix, tail built by recursing on this same function - the tail
-        // may itself land on the exact-tuple, maxItems-bounded, or open-list case below.
+        // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
+        // same exact-length shape with n - 1
+        | ExactLength(_, _, n) ->
+            let inner = convert context typeMap innerType
+            let tailKeywords =
+                { arrayKeywords with
+                    specific.MinItems = Some(n - 1)
+                    specific.MaxItems = Some(n - 1) }
+            buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
+
+        // minItems mandatory prefix: (Head, Tail) where Tail recurses with minItems decremented
+        // by one (dropping to None once exhausted) and maxItems decremented by one
         | MinItemsPrefix(_, _, minItems, maxItems) ->
             let inner = convert context typeMap innerType
-
-            // Create keywords for the tailing list. 
-            let restKeywords =
+            let tailKeywords =
                 { arrayKeywords with
-                    specific.MinItems = None
-                    specific.MaxItems = maxItems |> Option.map (fun m -> m - minItems) }
-
-            // Build the conversion for the tailing list.
-            let rest = buildArrayConversion context typeMap innerType restKeywords
-            
-            // The compile-time and runtime types is a tuple with the fist minItems elements followed by the rest of the array as a tuple element.
-            let compileTimeType =
-                Array.append (Array.create minItems inner.CompileTimeType) [| rest.CompileTimeType |]
-                |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
-            let runtimeType =
-                Array.append (Array.create minItems inner.RuntimeType) [| rest.RuntimeType |]
-                |> Microsoft.FSharp.Reflection.FSharpType.MakeTupleType
-
-
-            let toRuntime =
-                withJsonArrayLambda (
-                    fun jsonArrVar ->
-                        let elems =
-                            // Convert the first minItems elements of the JSON array to the corresponding runtime types.
-                            [ for i in 0 .. minItems - 1 ->
-                                Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet i (Expr.Var jsonArrVar) typeof<JsonValue>) ]
-                        
-                        // Takes the remaining elements and turns them into a JSON array 
-                        let restJsonValue =
-                            CommonExprs.newJsonValueArray (CommonExprs.callArraySkip minItems (Expr.Var jsonArrVar) typeof<JsonValue>)
-
-                        // Convert the remaining elements of the JSON array to the corresponding runtime type using the rest conversion.
-                        let tail = Expr.Application(rest.ToRuntime, restJsonValue) 
-                        
-                        // Construct a tuple with the first minItems elements followed by the converted rest of the array. Ie. at this pont we dont know/care what the rest type actually is.
-                        Expr.NewTuple(elems @ [ tail ])
-                    )
-
-            let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (
-                    fun runtimeObjVar ->
-                        let elemsBack =
-                            // Convert the first minItems elements of the runtime tuple to JSON values.
-                            [ for i in 0 .. minItems - 1 -> Expr.Application(inner.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, i)) ]
-                        
-                        // Convert the remaining elements of the runtime tuple to JSON values.
-                        let restBack = Expr.Application(rest.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, minItems))
-                        CommonExprs.newJsonValueArray (
-                            CommonExprs.callArrayAppend
-                                (Expr.NewArray(typeof<JsonValue>, elemsBack))
-                                (CommonExprs.callJsonValueAsArray restBack)
-                                typeof<JsonValue>
-                        )
-                    )
-
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && rest.FullyCompilable }
+                    specific.MinItems = if minItems > 1 then Some(minItems - 1) else None
+                    specific.MaxItems = maxItems |> Option.map (fun m -> m - 1) }
+            buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
 
         // maxItems = 1: option<inner>.
         | MaxItemsSingle _ ->
@@ -384,6 +331,48 @@ module NodeConversions =
 
         // Default case: unbounded list.
         | Unbounded _ -> defaultArrayConversion
+
+    // Shared by ExactLength (n > 1) and MinItemsPrefix: peels one head off the array and
+    // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
+    // Splitting a value of this shape into head/tail is then just F#'s own tuple destructuring -
+    // no runtime logic needed beyond building the pair itself.
+    and private buildHeadTailConversion
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (innerType: FSharpType)
+        (arrayKeywords: JsonArray.Keywords)
+        (inner: ProviderConfiguration.NodeConversion)
+        (tailKeywords: JsonArray.Keywords)
+        : ProviderConfiguration.NodeConversion =
+
+        let tail = buildArrayConversion context typeMap innerType tailKeywords
+
+        let compileTimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.CompileTimeType; tail.CompileTimeType |]
+        let runtimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.RuntimeType; tail.RuntimeType |]
+
+        let toRuntime =
+            withJsonArrayLambda (fun jsonArrVar ->
+                let headRuntime = Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>)
+                let tailJsonValue = CommonExprs.newJsonValueArray (CommonExprs.callArraySkip 1 (Expr.Var jsonArrVar) typeof<JsonValue>)
+                let tailRuntime = Expr.Application(tail.ToRuntime, tailJsonValue)
+                Expr.NewTuple [ headRuntime; tailRuntime ])
+
+        let toJson =
+            CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
+                let headBack = Expr.Application(inner.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 0))
+                let tailBack = Expr.Application(tail.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 1))
+                CommonExprs.newJsonValueArray (
+                    CommonExprs.callArrayAppend
+                        (Expr.NewArray(typeof<JsonValue>, [ headBack ]))
+                        (CommonExprs.callJsonValueAsArray tailBack)
+                        typeof<JsonValue>
+                ))
+
+        { CompileTimeType = compileTimeType
+          RuntimeType = runtimeType
+          ToRuntime = toRuntime
+          ToJson = toJson
+          FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
 
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>

@@ -184,7 +184,7 @@ module OneOfTests =
     let arrayLengthOneOfPicksLongBranch =
         test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
             let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(1, 2, 3, [])) "value = Choice2Of2 [1;2;3]"
+            Expect.equal v.value (Choice2Of2(1, (2, (3, [])))) "value = Choice2Of2 [1;2;3]"
         }
 
     // No const-discriminated schema: NJsonSchema doesn't enforce `const` at all. enum is the

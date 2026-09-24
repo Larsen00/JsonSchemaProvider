@@ -1,0 +1,23 @@
+
+
+type ArrayShape =
+
+    | InvalidBounds -> dont have it
+    | UnsupportedKeywords -> this is a list so has ::
+    | MaxItemsSingle -> 
+        
+    | ExactLength -> 
+        // the type should properly change to a nested pair 
+        // (1, (2, (3, 4)))
+        // type Exact<'H, 'T> = 'H * Exact<'T>
+        // length of 4 would be represented as Exact<1, Exact<2, Exact<3, _>>>
+        match x with
+        | 
+        | h, tail -> _
+
+    | MinItemsPrefix of FSharpType * JsonArray.Keywords * minItems: int * maxItems: int option
+
+
+    | MaxItemsChain of FSharpType * JsonArray.Keywords * maxItems: int
+
+    | Unbounded of FSharpType * JsonArray.Keywords

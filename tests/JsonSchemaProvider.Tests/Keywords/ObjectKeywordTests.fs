@@ -202,7 +202,7 @@ module ObjectKeywordTests =
 
     let min2CreateProducesCorrectTuple =
         test "object property: minItems=2 Create produces correct tuple" {
-            let (h1, h2, rest) = (StringArrayMin2.Create(tags = ("a", "b", [ "c"; "d" ]))).tags
+            let (h1, (h2, rest)) = (StringArrayMin2.Create(tags = ("a", ("b", [ "c"; "d" ])))).tags
             Expect.equal h1 "a" "first element"
             Expect.equal h2 "b" "second element"
             Expect.equal rest [ "c"; "d" ] "rest"
@@ -211,7 +211,7 @@ module ObjectKeywordTests =
     let min2ParseProducesCorrectTuple =
         test "object property: minItems=2 Parse produces correct tuple" {
             let v = Expect.wantOk (StringArrayMin2.Parse("""{"tags": ["x", "y", "z"]}""")) "Parse should succeed"
-            let (h1, h2, rest) = v.tags
+            let (h1, (h2, rest)) = v.tags
             Expect.equal h1 "x" "first element"
             Expect.equal h2 "y" "second element"
             Expect.equal rest [ "z" ] "rest"
@@ -220,7 +220,7 @@ module ObjectKeywordTests =
     let min2ExactlyMinimumGivesEmptyRest =
         test "object property: minItems=2 with exactly 2 elements gives empty rest" {
             let v = Expect.wantOk (StringArrayMin2.Parse("""{"tags": ["a", "b"]}""")) "Parse should succeed"
-            let (_, _, rest) = v.tags
+            let (_, (_, rest)) = v.tags
             Expect.equal rest [] "rest is empty"
         }
 

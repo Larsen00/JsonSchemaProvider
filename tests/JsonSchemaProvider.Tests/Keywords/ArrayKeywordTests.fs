@@ -22,7 +22,7 @@ module ArrayKeywordTests =
 
     let min2CreateProducesCorrectTuple =
         test "minItems=2 Create produces correct tuple" {
-            let (h1, h2, rest) = StringArrayMin2.Create(("a", "b", [ "c"; "d" ]))
+            let (h1, (h2, rest)) = StringArrayMin2.Create(("a", ("b", [ "c"; "d" ])))
             Expect.equal h1 "a" "first element"
             Expect.equal h2 "b" "second element"
             Expect.equal rest [ "c"; "d" ] "rest"
@@ -31,7 +31,7 @@ module ArrayKeywordTests =
     let min2ParseProducesCorrectTuple =
         test "minItems=2 Parse produces correct tuple" {
             let v = Expect.wantOk (StringArrayMin2.Parse("""["x", "y", "z"]""")) "Parse should succeed"
-            let (h1, h2, rest) = v
+            let (h1, (h2, rest)) = v
             Expect.equal h1 "x" "first element"
             Expect.equal h2 "y" "second element"
             Expect.equal rest [ "z" ] "rest"
@@ -40,7 +40,7 @@ module ArrayKeywordTests =
     let min2ExactlyMinimumGivesEmptyRest =
         test "minItems=2 with exactly 2 elements gives empty rest" {
             let v = Expect.wantOk (StringArrayMin2.Parse("""["a", "b"]""")) "Parse should succeed"
-            let (_, _, rest) = v
+            let (_, (_, rest)) = v
             Expect.equal rest [] "rest is empty"
         }
 
