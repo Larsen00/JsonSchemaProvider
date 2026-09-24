@@ -159,9 +159,12 @@ module NodeConversionsTests =
             let innerType = FSharpInt (intKeywordsAt "#/items")
 
             // Compute the inner type once up front, exactly as buildArrayConversion's first
-            // recursion level will, then let the 3-element tuple case recurse over the same node.
+            // recursion level will, then let the minItems-prefix case recurse over the same node.
+            // minItems alone (no maxItems) - not minItems = maxItems, which hits the exact-tuple
+            // case instead, a different, non-recursive arm that wouldn't exercise the recursion
+            // this test is actually about.
             let innerDirect = convert context Map.empty innerType
-            let arrayType = FSharpList(innerType, jsonArrayKeywordsAt "#" (Some 3) (Some 3))
+            let arrayType = FSharpList(innerType, jsonArrayKeywordsAt "#" (Some 3) None)
             convert context Map.empty arrayType |> ignore
 
             let innerAfterArrayConversion = convert context Map.empty innerType
