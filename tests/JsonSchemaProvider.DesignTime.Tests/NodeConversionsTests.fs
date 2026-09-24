@@ -105,7 +105,7 @@ module NodeConversionsTests =
     let jsonArrayKeywords (minItems: int option) (maxItems: int option) : JsonSchemaProvider.JsonArray.Keywords =
         jsonArrayKeywordsAt "#" minItems maxItems
 
-    // This can only be tested here, not via ArrayTests.fs: a schema with maxItems < minItems makes
+    // This can only be tested here, not via Keywords/ArrayKeywordTests.fs: a schema with maxItems < minItems makes
     // buildArrayConversion fail while the type provider is generating types, i.e. it would fail to
     // *compile* a `type Bad = JsonSchemaProvider<schema=...>` declaration rather than raise
     // something Expect.throws could wrap around a running Create/Parse call.

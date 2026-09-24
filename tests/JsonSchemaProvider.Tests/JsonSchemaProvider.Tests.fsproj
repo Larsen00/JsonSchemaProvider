@@ -6,16 +6,20 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="Debug.fsx" />
-    <Compile Include="JsonSchemaProviderTests.fs" />
-    <Compile Include="JsonSchemaProviderTestsWithConstrains.fs" />
-    <Compile Include="ArrayTests.fs" />
-    <Compile Include="OneOfTests.fs" />
-    <Compile Include="OneOfObjectBranchTests.fs" />
-    <Compile Include="RootTypeTests.fs" />
-    <Compile Include="KeywordCoverageTests.fs" />
-    <Compile Include="SkipRuntimeValidationTests.fs" />
-    <Compile Include="SchemaFileTests.fs" />
-    <Compile Include="OldCodeGenerationTests.fs" />
+    <!-- Keywords/: black-box coverage of JSON Schema keyword families, one file per family. -->
+    <Compile Include="Keywords/NumberKeywordTests.fs" />
+    <Compile Include="Keywords/StringKeywordTests.fs" />
+    <Compile Include="Keywords/ArrayKeywordTests.fs" />
+    <Compile Include="Keywords/ObjectKeywordTests.fs" />
+    <Compile Include="Keywords/OneOfTests.fs" />
+    <Compile Include="Keywords/OneOfObjectBranchTests.fs" />
+    <!-- Mechanisms/: provider plumbing, not a single keyword (static params, flags, Path resolution). -->
+    <Compile Include="Mechanisms/RootTypeTests.fs" />
+    <Compile Include="Mechanisms/SchemaFileTests.fs" />
+    <Compile Include="Mechanisms/SkipRuntimeValidationTests.fs" />
+    <Compile Include="Mechanisms/NestedValidationTests.fs" />
+    <!-- Compatibility/: parity against an external tool's own fixture schemas, not our own design. -->
+    <Compile Include="Compatibility/OldCodeGenerationTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

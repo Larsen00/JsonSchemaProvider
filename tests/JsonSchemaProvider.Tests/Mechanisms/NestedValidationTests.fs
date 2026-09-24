@@ -1,6 +1,12 @@
 namespace JsonSchemaProvider.Tests
 
-module JsonSchemaProviderTestsWithConstrains =
+// Covers the Path-based sub-schema resolution mechanism (see
+// notes/nested-create-subschema-resolution.md): every generated nested class resolves and
+// validates against its own sub-schema by Path, not just when reached through the root's
+// Create. minimum/maximum is only the vehicle here - the point of every test in this file is
+// the resolution mechanism (nesting depth, siblings, array items), not integer range coverage
+// itself (see NumberKeywordTests for that).
+module NestedValidationTests =
     open Expecto
     open JsonSchemaProvider
 
@@ -206,7 +212,7 @@ module JsonSchemaProviderTestsWithConstrains =
     [<Tests>]
     let tests =
         testList
-            "JsonSchemaProvider.Tests.JsonSchemaProviderTestsWithConstrains"
+            "JsonSchemaProvider.Tests.NestedValidationTests"
             [ validRecordShouldBeCreated
               validRecordShouldBeParsed
               belowMinimumShouldBeRejectedByCreate

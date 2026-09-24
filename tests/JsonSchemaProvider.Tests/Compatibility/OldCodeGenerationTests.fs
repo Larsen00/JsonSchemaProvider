@@ -15,57 +15,57 @@ module OldCodeGenerationTests =
     open JsonSchemaProvider
 
     [<Literal>]
-    let booleanPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/01-boolean.json"
+    let booleanPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/01-boolean.json"
 
     [<Literal>]
-    let stringPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/02-string.json"
+    let stringPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/02-string.json"
 
     [<Literal>]
     let stringConstPath =
-        __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/03-string-const.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/03-string-const.json"
 
     [<Literal>]
     let stringEnumPath =
-        __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/04-string-enum.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/04-string-enum.json"
 
     [<Literal>]
-    let integerPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/05-integer.json"
+    let integerPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/05-integer.json"
 
     [<Literal>]
-    let numberPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/06-number.json"
+    let numberPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/06-number.json"
 
     [<Literal>]
-    let nullPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/07-null.json"
+    let nullPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/07-null.json"
 
     [<Literal>]
     let stringArrayPath =
-        __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/08-string-array.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/08-string-array.json"
 
     [<Literal>]
-    let refPath = __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/09-ref.json"
+    let refPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/09-ref.json"
 
     [<Literal>]
     let objectWithRequiredPath =
-        __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/10-object-with-required.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/10-object-with-required.json"
 
     [<Literal>]
     let objectWithoutRequiredPath =
-        __SOURCE_DIRECTORY__ + "/schemas/OldCodeGenerationTests/11-object-without-required.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/11-object-without-required.json"
 
     [<Literal>]
     let objectWithCodegenMetadataPath =
         __SOURCE_DIRECTORY__
-        + "/schemas/OldCodeGenerationTests/12-object-with-codegen-metadata.json"
+        + "/../schemas/OldCodeGenerationTests/12-object-with-codegen-metadata.json"
 
     [<Literal>]
     let storageVariantApplicationIOSPath =
         __SOURCE_DIRECTORY__
-        + "/schemas/OldCodeGenerationTests/13-storage-variant-application-ios.json"
+        + "/../schemas/OldCodeGenerationTests/13-storage-variant-application-ios.json"
 
     [<Literal>]
     let storageVariantSkipPropertyPath =
         __SOURCE_DIRECTORY__
-        + "/schemas/OldCodeGenerationTests/14-storage-variant-skip-property.json"
+        + "/../schemas/OldCodeGenerationTests/14-storage-variant-skip-property.json"
 
     type Boolean = JsonSchemaProvider<schemaFile=booleanPath>
     type String = JsonSchemaProvider<schemaFile=stringPath>

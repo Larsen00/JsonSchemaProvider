@@ -1,4 +1,4 @@
-﻿namespace JsonSchemaProvider.Tests
+namespace JsonSchemaProvider.Tests
 
 module Main =
     open JsonSchemaProvider.Tests
@@ -11,11 +11,14 @@ module Main =
             args
             (testList
                 "JsonSchemaProvider.Tests"
-                [ JsonSchemaProviderTests.tests
-                  JsonSchemaProviderTestsWithConstrains.tests
-                  ArrayTests.tests
+                [ NumberKeywordTests.tests
+                  StringKeywordTests.tests
+                  ArrayKeywordTests.tests
+                  ObjectKeywordTests.tests
                   OneOfTests.tests
                   OneOfObjectBranchTests.tests
                   RootTypeTests.tests
-                  KeywordCoverageTests.tests
-                  SkipRuntimeValidationTests.tests ])
+                  SchemaFileTests.tests
+                  SkipRuntimeValidationTests.tests
+                  NestedValidationTests.tests
+                  OldCodeGenerationTests.tests ])

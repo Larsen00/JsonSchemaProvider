@@ -7,7 +7,7 @@
 #r "nuget: Expecto"
 
 // If you only need quick provider debugging, avoid loading test source:
-// #load "JsonSchemaProviderTests.fs"
+// #load "Keywords/ObjectKeywordTests.fs"
 
 open JsonSchemaProvider
 

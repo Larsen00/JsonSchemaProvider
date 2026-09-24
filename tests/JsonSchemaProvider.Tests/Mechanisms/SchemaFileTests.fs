@@ -9,15 +9,15 @@ module SchemaFileTests =
     open JsonSchemaProvider
 
     [<Literal>]
-    let flatSchemaPath = __SOURCE_DIRECTORY__ + "/schemas/FlatSchema.json"
+    let flatSchemaPath = __SOURCE_DIRECTORY__ + "/../schemas/FlatSchema.json"
 
     [<Literal>]
     let requiredPropertiesSchemaPath =
-        __SOURCE_DIRECTORY__ + "/schemas/RequiredPropertiesSchema.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/RequiredPropertiesSchema.json"
 
     [<Literal>]
     let stringListRootSchemaPath =
-        __SOURCE_DIRECTORY__ + "/schemas/StringListRootSchema.json"
+        __SOURCE_DIRECTORY__ + "/../schemas/StringListRootSchema.json"
 
     type FlatFromFile = JsonSchemaProvider<schemaFile=flatSchemaPath>
     type RequiredPropertiesFromFile = JsonSchemaProvider<schemaFile=requiredPropertiesSchemaPath>
