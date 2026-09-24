@@ -6,185 +6,8 @@ module OneOfTests =
 
     [<Literal>]
     let stringOrIntSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string"},
-                {"type": "integer"}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    [<Literal>]
-    let stringOrIntOrBoolSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string"},
-                {"type": "integer"},
-                {"type": "boolean"}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    [<Literal>]
-    let stringOrIntArraySchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string"},
-                {"type": "array", "items": {"type": "integer"}}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    // Structurally the same alternatives as stringOrIntOrBoolSchema, just grouped as
-    // string | (int | bool) instead of string | int | bool - exercises recursion into
-    // a nested FSharpOneOf inside JsonOneOf.buildConversion's head position.
-    [<Literal>]
-    let nestedOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string"},
-                {
-                  "oneOf": [
-                    {"type": "integer"},
-                    {"type": "boolean"}
-                  ]
-                }
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    // Branches below are only tellable apart by validating each branch's own constraints, not by
-    // JSON kind alone - the old shape-only check (tryInteger/tryFloat/tryString, kind-only) always
-    // picked the first branch of matching *kind* regardless of these constraints, so these are
-    // the cases that specifically exercise the switch to real per-branch NJsonSchema validation.
-    [<Literal>]
-    let numberRangeOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "number", "maximum": 0},
-                {"type": "number", "minimum": 0.1}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    [<Literal>]
-    let stringPatternOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string", "pattern": "^[0-9]+$"},
-                {"type": "string", "pattern": "^[a-z]+$"}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    // ----- Same-kind branches disambiguated by keywords our own AST never models -----
-    // JsonArray.Specific only tracks minItems, and JsonString.Specific has no slot for const or
-    // enum at all - so these branches can only be told apart because branch matching validates
-    // the raw JSON against each branch's own NJsonSchema definition directly (by Path), not
-    // against anything JsonSchemaProvider itself parsed out of the schema. If matching ever fell
-    // back to "does this JSON parse as an array/string" it would always pick the first branch of
-    // matching kind here, regardless of value.
-
-    // Both branches are "array" - only the item schema tells them apart.
-    [<Literal>]
-    let arrayItemTypeOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "array", "items": {"type": "string"}},
-                {"type": "array", "items": {"type": "integer"}}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    // maxItems:2 and minItems:3 partition array length with no gap and no overlap - isolates
-    // "does the branch matcher understand array-length keywords" from any item-type distinction.
-    [<Literal>]
-    let arrayLengthOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "array", "items": {"type": "integer"}, "maxItems": 2},
-                {"type": "array", "items": {"type": "integer"}, "minItems": 3}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
-    // No const-discriminated oneOf schema/tests here: NJsonSchema doesn't enforce `const` at all -
-    // two branches differing only by const both validate any matching-type value, so Parse can't
-    // actually pick a branch by const value. enumOneOfSchema below covers the same "oneOf
-    // discriminated purely by value" shape with a keyword NJsonSchema does enforce.
-    [<Literal>]
-    let enumOneOfSchema =
-        """
-        {
-          "type": "object",
-          "properties": {
-            "value": {
-              "oneOf": [
-                {"type": "string", "enum": ["red", "green", "blue"]},
-                {"type": "string", "enum": ["circle", "square"]}
-              ]
-            }
-          },
-          "required": ["value"]
-        }"""
-
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "integer"}] } }, "required": ["value"] }"""
     type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema>
-    type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
-    type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
-    type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
-    type NumberRangeOneOf = JsonSchemaProvider<schema = numberRangeOneOfSchema>
-    type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
-    type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
-    type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
-    type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
     let parseStringBranchOfTwoWayOneOf =
         test "parse picks string branch of a string|int oneOf" {
@@ -212,6 +35,11 @@ module OneOfTests =
             Expect.equal reparsed.value (Choice2Of2 99) "round-tripped value = Choice2Of2 99"
         }
 
+    [<Literal>]
+    let stringOrIntOrBoolSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "integer"}, {"type": "boolean"}] } }, "required": ["value"] }"""
+    type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
+
     let parseStringBranchOfThreeWayOneOf =
         test "parse picks string branch of a string|int|bool oneOf" {
             let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": "x"}""")) "Parse should succeed"
@@ -230,6 +58,11 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2(Choice2Of2 true)) "value = Choice2Of2(Choice2Of2 true)"
         }
 
+    [<Literal>]
+    let stringOrIntArraySchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}}] } }, "required": ["value"] }"""
+    type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
+
     let parseStringBranchOfStringOrArrayOneOf =
         test "parse picks string branch of a string|array oneOf" {
             let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": "hi"}""")) "Parse should succeed"
@@ -241,6 +74,12 @@ module OneOfTests =
             let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
+
+    // string | (int | bool) instead of a flat 3-way oneOf - exercises a nested FSharpOneOf.
+    [<Literal>]
+    let nestedOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"oneOf": [{"type": "integer"}, {"type": "boolean"}]}] } }, "required": ["value"] }"""
+    type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
 
     let nestedOneOfMatchesOuterAlternative =
         test "nested oneOf: outer string alternative matches" {
@@ -260,8 +99,13 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2(Choice2Of2 false)) "value = Choice2Of2(Choice2Of2 false)"
         }
 
-    // Old shape-only check (tryFloat, kind-only) would always report Choice1Of2 here, regardless
-    // of value, since both branches are the same JSON kind (number).
+    // Same JSON kind (number) on both branches - only per-branch validation, not shape alone, can
+    // disambiguate these.
+    [<Literal>]
+    let numberRangeOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "number", "maximum": 0}, {"type": "number", "minimum": 0.1}] } }, "required": ["value"] }"""
+    type NumberRangeOneOf = JsonSchemaProvider<schema = numberRangeOneOfSchema>
+
     let numberRangeOneOfPicksNonPositiveBranch =
         test "number|number oneOf: value <= 0 picks the maximum-0 branch" {
             let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": -5.5}""")) "Parse should succeed"
@@ -277,21 +121,19 @@ module OneOfTests =
     let numberRangeOneOfBoundaryPicksInclusiveBranch =
         test "number|number oneOf: the maximum-0 boundary itself picks the inclusive branch" {
             let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": 0}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 0.0) "0 satisfies maximum: 0 (inclusive) but not minimum: 0.1"
+            Expect.equal v.value (Choice1Of2 0.0) "0 satisfies maximum: 0 but not minimum: 0.1"
         }
 
-    // 0.05 satisfies neither branch (maximum: 0 nor minimum: 0.1) - not a disambiguation case at
-    // all, just confirms the whole document is validated (and rejected) before any oneOf branch
-    // selection runs, per Parse's upfront schema.Validate call.
     let numberRangeOneOfGapValueFailsWholeDocumentValidation =
         test "number|number oneOf: a value matching neither branch fails Parse validation" {
-            Expect.isError
-                (NumberRangeOneOf.Parse("""{"value": 0.05}"""))
-                "0.05 satisfies neither maximum: 0 nor minimum: 0.1"
+            Expect.isError (NumberRangeOneOf.Parse("""{"value": 0.05}""")) "0.05 satisfies neither branch"
         }
 
-    // Old shape-only check (tryString, kind-only) would always report Choice1Of2 here, regardless
-    // of value, since both branches are the same JSON kind (string).
+    [<Literal>]
+    let stringPatternOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string", "pattern": "^[0-9]+$"}, {"type": "string", "pattern": "^[a-z]+$"}] } }, "required": ["value"] }"""
+    type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
+
     let stringPatternOneOfPicksDigitsBranch =
         test "string|string oneOf: digits-only value picks the numeric-pattern branch" {
             let v = Expect.wantOk (StringPatternOneOf.Parse("""{"value": "123"}""")) "Parse should succeed"
@@ -304,7 +146,12 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2 "abc") "value = Choice2Of2 \"abc\""
         }
 
-    // Both branches are arrays of the same kind - only the item schema tells them apart.
+    // Both branches are arrays - only the item schema tells them apart.
+    [<Literal>]
+    let arrayItemTypeOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "array", "items": {"type": "integer"}}] } }, "required": ["value"] }"""
+    type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
+
     let arrayItemTypeOneOfPicksStringBranch =
         test "array|array oneOf: string items pick the string-item branch" {
             let v = Expect.wantOk (ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}""")) "Parse should succeed"
@@ -317,15 +164,16 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
 
-    // An empty array trivially satisfies "items: string" and "items: integer" alike, so it
-    // matches both branches - which violates oneOf's exactly-one-match rule, so the whole
-    // document fails Parse's upfront validation before any branch is ever picked.
     let arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation =
         test "array|array oneOf: an empty array matches both branches and fails Parse validation" {
-            Expect.isError
-                (ArrayItemTypeOneOf.Parse("""{"value": []}"""))
-                "[] satisfies both items:string and items:integer - not exactly one oneOf match"
+            Expect.isError (ArrayItemTypeOneOf.Parse("""{"value": []}""")) "[] satisfies both item schemas"
         }
+
+    // maxItems:2 and minItems:3 partition array length with no gap and no overlap.
+    [<Literal>]
+    let arrayLengthOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "array", "items": {"type": "integer"}, "maxItems": 2}, {"type": "array", "items": {"type": "integer"}, "minItems": 3}] } }, "required": ["value"] }"""
+    type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
 
     let arrayLengthOneOfPicksShortBranch =
         test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
@@ -336,8 +184,15 @@ module OneOfTests =
     let arrayLengthOneOfPicksLongBranch =
         test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
             let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 (1, 2, 3, [])) "value = Choice2Of2 [1;2;3]"
+            Expect.equal v.value (Choice2Of2(1, 2, 3, [])) "value = Choice2Of2 [1;2;3]"
         }
+
+    // No const-discriminated schema: NJsonSchema doesn't enforce `const` at all. enum is the
+    // keyword NJsonSchema does enforce for a value-only distinction between same-kind branches.
+    [<Literal>]
+    let enumOneOfSchema =
+        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string", "enum": ["red", "green", "blue"]}, {"type": "string", "enum": ["circle", "square"]}] } }, "required": ["value"] }"""
+    type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
     let enumOneOfPicksColorBranch =
         test "string|string oneOf: a color enum value picks the color branch" {
@@ -353,9 +208,7 @@ module OneOfTests =
 
     let enumOneOfRejectsValueInNeitherEnum =
         test "string|string oneOf: a value in neither enum fails Parse validation" {
-            Expect.isError
-                (EnumOneOf.Parse("""{"value": "banana"}"""))
-                "\"banana\" is in neither the color nor the shape enum"
+            Expect.isError (EnumOneOf.Parse("""{"value": "banana"}""")) "\"banana\" is in neither enum"
         }
 
     [<Tests>]

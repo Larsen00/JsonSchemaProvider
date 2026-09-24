@@ -1,5 +1,7 @@
 namespace JsonSchemaProvider.Tests
 
+// The skipRuntimeValidation static parameter: Create/Parse skip schema.Validate entirely, so
+// constraint violations pass through instead of becoming Result errors or exceptions.
 module SkipRuntimeValidationTests =
     open Expecto
     open JsonSchemaProvider
@@ -12,31 +14,11 @@ module SkipRuntimeValidationTests =
           "properties": {
             "age": { "type": "integer", "minimum": 18 },
             "name": { "type": "string", "pattern": "^[a-z]+$" },
-            "tags": {
-              "type": "array",
-              "items": { "type": "string" },
-              "uniqueItems": true
-            }
+            "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
           },
           "required": ["age", "name", "tags"]
         }"""
-
-    [<Literal>]
-    let constrainedIntegerSchema =
-        """{ "type": "integer", "minimum": 10 }"""
-
-    [<Literal>]
-    let constrainedStringSchema =
-        """{ "type": "string", "pattern": "^[a-z]+$" }"""
-
-    [<Literal>]
-    let constrainedArraySchema =
-        """{ "type": "array", "items": { "type": "integer" }, "uniqueItems": true }"""
-
     type UnsafeObject = JsonSchemaProvider<schema = constrainedObjectSchema, skipRuntimeValidation = true>
-    type UnsafeInteger = JsonSchemaProvider<schema = constrainedIntegerSchema, skipRuntimeValidation = true>
-    type UnsafeString = JsonSchemaProvider<schema = constrainedStringSchema, skipRuntimeValidation = true>
-    type UnsafeArray = JsonSchemaProvider<schema = constrainedArraySchema, skipRuntimeValidation = true>
 
     let validObjectStillCreatesNormally =
         test "skipRuntimeValidation preserves normal object creation" {
@@ -54,28 +36,14 @@ module SkipRuntimeValidationTests =
             Expect.equal value.tags [ "dup"; "dup" ] "uniqueItems validation is skipped"
         }
 
+    [<Literal>]
+    let constrainedIntegerSchema = """{ "type": "integer", "minimum": 10 }"""
+    type UnsafeInteger = JsonSchemaProvider<schema = constrainedIntegerSchema, skipRuntimeValidation = true>
+
     let invalidIntegerIsAccepted =
         test "skipRuntimeValidation accepts an integer below minimum" {
             let value: int = UnsafeInteger.Create 0
             Expect.equal value 0 "the underlying integer is returned directly"
-        }
-
-    let invalidStringIsAccepted =
-        test "skipRuntimeValidation accepts a string outside its pattern" {
-            let value: string = UnsafeString.Create "NOT_LOWERCASE"
-            Expect.equal value "NOT_LOWERCASE" "the underlying string is returned directly"
-        }
-
-    let validArrayStillCreatesNormally =
-        test "skipRuntimeValidation preserves valid primitive arrays" {
-            let value: int list = UnsafeArray.Create [ 1; 2; 3 ]
-            Expect.equal value [ 1; 2; 3 ] "the integer array is returned directly"
-        }
-
-    let invalidArrayIsAccepted =
-        test "skipRuntimeValidation accepts an array with duplicate items" {
-            let value: int list = UnsafeArray.Create [ 1; 1; 2 ]
-            Expect.equal value [ 1; 1; 2 ] "uniqueItems validation is skipped"
         }
 
     let constraintViolationIsAcceptedByParse =
@@ -96,6 +64,32 @@ module SkipRuntimeValidationTests =
             Expect.isError (UnsafeInteger.Parse("{")) "the syntax check still runs"
         }
 
+    [<Literal>]
+    let constrainedStringSchema = """{ "type": "string", "pattern": "^[a-z]+$" }"""
+    type UnsafeString = JsonSchemaProvider<schema = constrainedStringSchema, skipRuntimeValidation = true>
+
+    let invalidStringIsAccepted =
+        test "skipRuntimeValidation accepts a string outside its pattern" {
+            let value: string = UnsafeString.Create "NOT_LOWERCASE"
+            Expect.equal value "NOT_LOWERCASE" "the underlying string is returned directly"
+        }
+
+    [<Literal>]
+    let constrainedArraySchema = """{ "type": "array", "items": { "type": "integer" }, "uniqueItems": true }"""
+    type UnsafeArray = JsonSchemaProvider<schema = constrainedArraySchema, skipRuntimeValidation = true>
+
+    let validArrayStillCreatesNormally =
+        test "skipRuntimeValidation preserves valid primitive arrays" {
+            let value: int list = UnsafeArray.Create [ 1; 2; 3 ]
+            Expect.equal value [ 1; 2; 3 ] "the integer array is returned directly"
+        }
+
+    let invalidArrayIsAccepted =
+        test "skipRuntimeValidation accepts an array with duplicate items" {
+            let value: int list = UnsafeArray.Create [ 1; 1; 2 ]
+            Expect.equal value [ 1; 1; 2 ] "uniqueItems validation is skipped"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -103,9 +97,9 @@ module SkipRuntimeValidationTests =
             [ validObjectStillCreatesNormally
               invalidObjectValuesAreAccepted
               invalidIntegerIsAccepted
-              invalidStringIsAccepted
-              validArrayStillCreatesNormally
-              invalidArrayIsAccepted
               constraintViolationIsAcceptedByParse
               wrongShapeJsonRaisesDuringParse
-              malformedJsonIsStillErrorInParse ]
+              malformedJsonIsStillErrorInParse
+              invalidStringIsAccepted
+              validArrayStillCreatesNormally
+              invalidArrayIsAccepted ]
