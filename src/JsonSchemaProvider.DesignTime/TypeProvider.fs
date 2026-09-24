@@ -11,6 +11,7 @@ module TypeProvider =
     open JsonSchemaProvider
     open FSharp.Data
     open System.Collections.Concurrent
+    open FSharp.Quotations
 
     // Function that can locate the next fsharpclass inside a type
     let rec private extractNestedClasses (fSharpType: FSharpType)  =
@@ -79,36 +80,21 @@ module TypeProvider =
         )
 
 
+    // Parse evaluates to Result<valueType, string list> for every root kind - see
+    // ExprGenerator.generateParseInvokeCode for why it can't drop the Result the way Create can.
     let private createProvidedParseMethod
         (context: GenerationContext)
-        (returnType: Type)
+        (valueType: Type)
+        (runtimeType: Type)
+        (toRuntime: Expr)
         : ProvidedMethod =
-        let schemaHashCode = context.SchemaHashCode
-        let schemaString = context.SchemaString
 
         ProvidedMethod(
             methodName = "Parse",
             parameters = [ ProvidedParameter("json", typeof<string>) ],
-            returnType = returnType,
+            returnType = typedefof<Result<_,_>>.MakeGenericType(valueType, typeof<string list>),
             isStatic = true,
-            invokeCode =
-                fun args ->
-                    <@@
-                        let schema = SchemaCache.retrieveSchema schemaHashCode schemaString
-
-                        let validationErrors = schema.Validate((%%args[0]): string)
-
-                        if Seq.isEmpty validationErrors then
-                            NullableJsonValue(JsonValue.Parse(%%args[0]))
-                        else
-                            let message =
-                                validationErrors
-                                |> Seq.map (fun validationError -> validationError.ToString())
-                                |> fun msgs ->
-                                    System.String.Join(", ", msgs) |> sprintf "JSON Schema validation failed: %s"
-
-                            raise (ArgumentException(message, ((%%args[0]): string)))
-                    @@>
+            invokeCode = generateParseInvokeCode context runtimeType toRuntime
         )
 
     let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
@@ -152,7 +138,7 @@ module TypeProvider =
 
 
             if suffix = "" then
-                let parseMethod = createProvidedParseMethod context thisTypeDef
+                let parseMethod = createProvidedParseMethod context thisTypeDef typeof<NullableJsonValue> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
                 thisTypeDef.AddMember parseMethod
 
             (keywords.common.Path, thisTypeDef) :: childEntries
@@ -211,7 +197,7 @@ module TypeProvider =
             let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
             providedTypeDefinition.AddMember createMethod
 
-            let parseMethod = createProvidedParseMethod context providedTypeDefinition
+            let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
@@ -237,5 +223,8 @@ module TypeProvider =
 
             let createMethod = createProvidedCreateMethod context classMap fsharptype resultType
             providedTypeDefinition.AddMember createMethod
+
+            let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
+            providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition

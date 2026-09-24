@@ -154,7 +154,7 @@ module OldCodeGenerationTests =
     let objectWithRequiredWorks =
         test "object with required properties loaded from file Parse builds the record" {
             let v =
-                ObjectWithRequired.Parse("""{"first_name": "Robert", "last_name": "Jordan"}""")
+                Expect.wantOk (ObjectWithRequired.Parse("""{"first_name": "Robert", "last_name": "Jordan"}""")) "Parse should succeed"
 
             Expect.equal v.first_name (Some "Robert") "first_name is optional -> Some"
             Expect.equal v.last_name "Jordan" "last_name is required -> plain string"
@@ -179,7 +179,7 @@ module OldCodeGenerationTests =
 
     let storageVariantApplicationIOSWorks =
         test "storage variant application-iOS schema loaded from file Parse builds the record" {
-            let v = StorageVariantApplicationIOS.Parse("""{"bundleId": "com.example.app"}""")
+            let v = Expect.wantOk (StorageVariantApplicationIOS.Parse("""{"bundleId": "com.example.app"}""")) "Parse should succeed"
             Expect.equal v.bundleId "com.example.app" "bundleId is required -> plain string"
             Expect.equal v.teamId None "teamId is optional -> None"
         }

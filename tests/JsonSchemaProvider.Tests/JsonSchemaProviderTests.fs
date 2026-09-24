@@ -172,7 +172,7 @@ module JsonSchemaProviderTests =
 
     let validRecordShouldBeParsed =
         test "valid record should be parsed" {
-            let flat = Flat.Parse("""{"X": "x", "Z": 1}""")
+            let flat = Expect.wantOk (Flat.Parse("""{"X": "x", "Z": 1}""")) "Parse should succeed"
             Expect.equal flat.X (Some("x")) """flat.X = Some("x")"""
             Expect.equal flat.Y None """flat.Y = None"""
             Expect.equal flat.Z (Some(1)) "flat.Z = Some(1)"
@@ -203,7 +203,7 @@ module JsonSchemaProviderTests =
     let requiredPropertiesShouldNotBeParsedIntoOption =
         test "required properties should not be parsed into Option" {
             let requiredProperties =
-                RequiredProperties.Parse("""{"X": "x", "Y": "y", "Z": 1}""")
+                Expect.wantOk (RequiredProperties.Parse("""{"X": "x", "Y": "y", "Z": 1}""")) "Parse should succeed"
 
             Expect.equal requiredProperties.X "x" """requiredProperties.X = "x" """
             Expect.equal requiredProperties.Y "y" """requiredProperties.Y = "y" """
@@ -217,8 +217,8 @@ module JsonSchemaProviderTests =
 
     let validationErrorShouldBeDetectedByParse =
         test "validation error should be detected by Parse" {
-            Expect.throws
-                (fun _ -> PatternSchema.Parse("""{"X": "a1"}""") |> ignore)
+            Expect.isError
+                (PatternSchema.Parse("""{"X": "a1"}"""))
                 "Parse throws validation exception"
         }
 

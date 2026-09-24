@@ -78,11 +78,22 @@ module SkipRuntimeValidationTests =
             Expect.equal value [ 1; 1; 2 ] "uniqueItems validation is skipped"
         }
 
-    let malformedJsonStillRaisesDuringParsing =
-        test "skipRuntimeValidation does not make incompatible JSON safe to parse" {
+    let constraintViolationIsAcceptedByParse =
+        test "skipRuntimeValidation skips schema validation in Parse too" {
+            let value = Expect.wantOk (UnsafeInteger.Parse("3")) "minimum validation is skipped"
+            Expect.equal value 3 "the below-minimum integer is returned as-is"
+        }
+
+    let wrongShapeJsonRaisesDuringParse =
+        test "skipRuntimeValidation makes Parse raise on JSON of the wrong shape" {
             Expect.throws
                 (fun () -> UnsafeInteger.Parse("\"not an integer\"") |> ignore)
-                "converting an incompatible JSON value should still fail"
+                "no validation runs, so converting a string to int raises"
+        }
+
+    let malformedJsonIsStillErrorInParse =
+        test "skipRuntimeValidation still reports malformed JSON as Error in Parse" {
+            Expect.isError (UnsafeInteger.Parse("{")) "the syntax check still runs"
         }
 
     [<Tests>]
@@ -95,4 +106,6 @@ module SkipRuntimeValidationTests =
               invalidStringIsAccepted
               validArrayStillCreatesNormally
               invalidArrayIsAccepted
-              malformedJsonStillRaisesDuringParsing ]
+              constraintViolationIsAcceptedByParse
+              wrongShapeJsonRaisesDuringParse
+              malformedJsonIsStillErrorInParse ]

@@ -124,7 +124,7 @@ module JsonSchemaProviderTestsWithConstrains =
 
     let validRecordShouldBeParsed =
         test "in-range value is accepted by Parse" {
-            let record = Age.Parse("""{"age": 7}""")
+            let record = Expect.wantOk (Age.Parse("""{"age": 7}""")) "Parse should succeed"
             Expect.equal record.age 7 "record.age = 7"
         }
 
@@ -140,8 +140,8 @@ module JsonSchemaProviderTestsWithConstrains =
 
     let belowMinimumShouldBeRejectedByParse =
         test "below-minimum value is rejected by Parse" {
-            Expect.throws
-                (fun () -> Age.Parse("""{"age": 3}""") |> ignore)
+            Expect.isError
+                (Age.Parse("""{"age": 3}"""))
                 "Parse should reject age below minimum"
         }
 

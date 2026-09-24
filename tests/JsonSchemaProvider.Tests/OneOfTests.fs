@@ -188,75 +188,75 @@ module OneOfTests =
 
     let parseStringBranchOfTwoWayOneOf =
         test "parse picks string branch of a string|int oneOf" {
-            let v = StringOrInt.Parse("""{"value": "hello"}""")
+            let v = Expect.wantOk (StringOrInt.Parse("""{"value": "hello"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "hello") "value = Choice1Of2 \"hello\""
         }
 
     let parseIntBranchOfTwoWayOneOf =
         test "parse picks int branch of a string|int oneOf" {
-            let v = StringOrInt.Parse("""{"value": 42}""")
+            let v = Expect.wantOk (StringOrInt.Parse("""{"value": 42}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 42) "value = Choice2Of2 42"
         }
 
     let createStringBranchRoundTrips =
         test "create with string branch round-trips through Parse" {
             let created = StringOrInt.Create(value = Choice1Of2 "abc")
-            let reparsed = StringOrInt.Parse(created.ToString())
+            let reparsed = Expect.wantOk (StringOrInt.Parse(created.ToString())) "Parse should succeed"
             Expect.equal reparsed.value (Choice1Of2 "abc") "round-tripped value = Choice1Of2 \"abc\""
         }
 
     let createIntBranchRoundTrips =
         test "create with int branch round-trips through Parse" {
             let created = StringOrInt.Create(value = Choice2Of2 99)
-            let reparsed = StringOrInt.Parse(created.ToString())
+            let reparsed = Expect.wantOk (StringOrInt.Parse(created.ToString())) "Parse should succeed"
             Expect.equal reparsed.value (Choice2Of2 99) "round-tripped value = Choice2Of2 99"
         }
 
     let parseStringBranchOfThreeWayOneOf =
         test "parse picks string branch of a string|int|bool oneOf" {
-            let v = StringOrIntOrBool.Parse("""{"value": "x"}""")
+            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": "x"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "x") "value = Choice1Of2 \"x\""
         }
 
     let parseIntBranchOfThreeWayOneOf =
         test "parse picks int branch of a string|int|bool oneOf" {
-            let v = StringOrIntOrBool.Parse("""{"value": 7}""")
+            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": 7}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2(Choice1Of2 7)) "value = Choice2Of2(Choice1Of2 7)"
         }
 
     let parseBoolBranchOfThreeWayOneOf =
         test "parse picks bool branch of a string|int|bool oneOf" {
-            let v = StringOrIntOrBool.Parse("""{"value": true}""")
+            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": true}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2(Choice2Of2 true)) "value = Choice2Of2(Choice2Of2 true)"
         }
 
     let parseStringBranchOfStringOrArrayOneOf =
         test "parse picks string branch of a string|array oneOf" {
-            let v = StringOrIntArray.Parse("""{"value": "hi"}""")
+            let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": "hi"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "hi") "value = Choice1Of2 \"hi\""
         }
 
     let parseArrayBranchOfStringOrArrayOneOf =
         test "parse picks array branch of a string|array oneOf" {
-            let v = StringOrIntArray.Parse("""{"value": [1, 2, 3]}""")
+            let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
 
     let nestedOneOfMatchesOuterAlternative =
         test "nested oneOf: outer string alternative matches" {
-            let v = NestedOneOf.Parse("""{"value": "s"}""")
+            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": "s"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "s") "value = Choice1Of2 \"s\""
         }
 
     let nestedOneOfMatchesInnerFirstAlternative =
         test "nested oneOf: inner int alternative matches" {
-            let v = NestedOneOf.Parse("""{"value": 3}""")
+            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": 3}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2(Choice1Of2 3)) "value = Choice2Of2(Choice1Of2 3)"
         }
 
     let nestedOneOfMatchesInnerSecondAlternative =
         test "nested oneOf: inner bool alternative matches" {
-            let v = NestedOneOf.Parse("""{"value": false}""")
+            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": false}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2(Choice2Of2 false)) "value = Choice2Of2(Choice2Of2 false)"
         }
 
@@ -264,19 +264,19 @@ module OneOfTests =
     // of value, since both branches are the same JSON kind (number).
     let numberRangeOneOfPicksNonPositiveBranch =
         test "number|number oneOf: value <= 0 picks the maximum-0 branch" {
-            let v = NumberRangeOneOf.Parse("""{"value": -5.5}""")
+            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": -5.5}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 -5.5) "value = Choice1Of2 -5.5"
         }
 
     let numberRangeOneOfPicksPositiveBranch =
         test "number|number oneOf: value > 0 picks the minimum-0.1 branch" {
-            let v = NumberRangeOneOf.Parse("""{"value": 3.2}""")
+            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": 3.2}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 3.2) "value = Choice2Of2 3.2"
         }
 
     let numberRangeOneOfBoundaryPicksInclusiveBranch =
         test "number|number oneOf: the maximum-0 boundary itself picks the inclusive branch" {
-            let v = NumberRangeOneOf.Parse("""{"value": 0}""")
+            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": 0}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 0.0) "0 satisfies maximum: 0 (inclusive) but not minimum: 0.1"
         }
 
@@ -285,8 +285,8 @@ module OneOfTests =
     // selection runs, per Parse's upfront schema.Validate call.
     let numberRangeOneOfGapValueFailsWholeDocumentValidation =
         test "number|number oneOf: a value matching neither branch fails Parse validation" {
-            Expect.throws
-                (fun () -> NumberRangeOneOf.Parse("""{"value": 0.05}""") |> ignore)
+            Expect.isError
+                (NumberRangeOneOf.Parse("""{"value": 0.05}"""))
                 "0.05 satisfies neither maximum: 0 nor minimum: 0.1"
         }
 
@@ -294,26 +294,26 @@ module OneOfTests =
     // of value, since both branches are the same JSON kind (string).
     let stringPatternOneOfPicksDigitsBranch =
         test "string|string oneOf: digits-only value picks the numeric-pattern branch" {
-            let v = StringPatternOneOf.Parse("""{"value": "123"}""")
+            let v = Expect.wantOk (StringPatternOneOf.Parse("""{"value": "123"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "123") "value = Choice1Of2 \"123\""
         }
 
     let stringPatternOneOfPicksLettersBranch =
         test "string|string oneOf: lowercase-only value picks the alphabetic-pattern branch" {
-            let v = StringPatternOneOf.Parse("""{"value": "abc"}""")
+            let v = Expect.wantOk (StringPatternOneOf.Parse("""{"value": "abc"}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 "abc") "value = Choice2Of2 \"abc\""
         }
 
     // Both branches are arrays of the same kind - only the item schema tells them apart.
     let arrayItemTypeOneOfPicksStringBranch =
         test "array|array oneOf: string items pick the string-item branch" {
-            let v = ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}""")
+            let v = Expect.wantOk (ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 [ "a"; "b" ]) "value = Choice1Of2 [\"a\";\"b\"]"
         }
 
     let arrayItemTypeOneOfPicksIntBranch =
         test "array|array oneOf: integer items pick the integer-item branch" {
-            let v = ArrayItemTypeOneOf.Parse("""{"value": [1, 2, 3]}""")
+            let v = Expect.wantOk (ArrayItemTypeOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
 
@@ -322,39 +322,39 @@ module OneOfTests =
     // document fails Parse's upfront validation before any branch is ever picked.
     let arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation =
         test "array|array oneOf: an empty array matches both branches and fails Parse validation" {
-            Expect.throws
-                (fun () -> ArrayItemTypeOneOf.Parse("""{"value": []}""") |> ignore)
+            Expect.isError
+                (ArrayItemTypeOneOf.Parse("""{"value": []}"""))
                 "[] satisfies both items:string and items:integer - not exactly one oneOf match"
         }
 
     let arrayLengthOneOfPicksShortBranch =
         test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
-            let v = ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")
+            let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2(Some(1, Some 2))) "value = Choice1Of2 (Some (1, Some 2))"
         }
 
     let arrayLengthOneOfPicksLongBranch =
         test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
-            let v = ArrayLengthOneOf.Parse """{"value": [1, 2, 3]}"""
+            let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 (1, 2, 3, [])) "value = Choice2Of2 [1;2;3]"
         }
 
     let enumOneOfPicksColorBranch =
         test "string|string oneOf: a color enum value picks the color branch" {
-            let v = EnumOneOf.Parse("""{"value": "red"}""")
+            let v = Expect.wantOk (EnumOneOf.Parse("""{"value": "red"}""")) "Parse should succeed"
             Expect.equal v.value (Choice1Of2 "red") "value = Choice1Of2 \"red\""
         }
 
     let enumOneOfPicksShapeBranch =
         test "string|string oneOf: a shape enum value picks the shape branch" {
-            let v = EnumOneOf.Parse("""{"value": "circle"}""")
+            let v = Expect.wantOk (EnumOneOf.Parse("""{"value": "circle"}""")) "Parse should succeed"
             Expect.equal v.value (Choice2Of2 "circle") "value = Choice2Of2 \"circle\""
         }
 
     let enumOneOfRejectsValueInNeitherEnum =
         test "string|string oneOf: a value in neither enum fails Parse validation" {
-            Expect.throws
-                (fun () -> EnumOneOf.Parse("""{"value": "banana"}""") |> ignore)
+            Expect.isError
+                (EnumOneOf.Parse("""{"value": "banana"}"""))
                 "\"banana\" is in neither the color nor the shape enum"
         }
 

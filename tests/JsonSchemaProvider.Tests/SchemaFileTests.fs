@@ -34,7 +34,7 @@ module SchemaFileTests =
     let requiredPropertiesFromFileShouldBeParsed =
         test "required properties loaded from file should not be parsed into Option" {
             let v =
-                RequiredPropertiesFromFile.Parse("""{"X": "x", "Y": "y", "Z": 1}""")
+                Expect.wantOk (RequiredPropertiesFromFile.Parse("""{"X": "x", "Y": "y", "Z": 1}""")) "Parse should succeed"
 
             Expect.equal v.X "x" """v.X = "x" """
             Expect.equal v.Y "y" """v.Y = "y" """

@@ -272,27 +272,27 @@ module KeywordCoverageTests =
 
     let additionalPropertyIsRejectedByParse =
         test "additionalProperties=false rejects an undeclared property via Parse" {
-            Expect.throws
-                (fun () -> AdditionalPropertiesObject.Parse("""{"a": 1, "extra": true}""") |> ignore)
+            Expect.isError
+                (AdditionalPropertiesObject.Parse("""{"a": 1, "extra": true}"""))
                 "\"extra\" isn't declared and additionalProperties is false"
         }
 
     let onlyDeclaredPropertyIsAcceptedByParse =
         test "additionalProperties=false accepts an object with only declared properties via Parse" {
-            let result = AdditionalPropertiesObject.Parse("""{"a": 1}""")
+            let result = Expect.wantOk (AdditionalPropertiesObject.Parse("""{"a": 1}""")) "Parse should succeed"
             Expect.equal result.a (Some 1) "only declared properties present"
         }
 
     let nonMatchingPropertyNameIsRejectedByParse =
         test "patternProperties rejects a property name that matches neither the pattern nor additionalProperties" {
-            Expect.throws
-                (fun () -> PatternPropertiesObject.Parse("""{"S_x": "ok", "other": 1}""") |> ignore)
+            Expect.isError
+                (PatternPropertiesObject.Parse("""{"S_x": "ok", "other": 1}"""))
                 "\"other\" doesn't match the S_ pattern and additionalProperties is false"
         }
 
     let matchingPatternPropertyIsAcceptedByParse =
         test "patternProperties accepts a property name matching the pattern" {
-            PatternPropertiesObject.Parse("""{"S_x": "ok"}""") |> ignore
+            Expect.isOk (PatternPropertiesObject.Parse("""{"S_x": "ok"}""")) "Parse should succeed"
         }
 
     [<Tests>]

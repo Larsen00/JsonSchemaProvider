@@ -134,6 +134,46 @@ module ExprGenerator =
         | _ -> failwith "Expected a quotation of the form <@ fun a b -> SomeModule.someFunction a b @>"
 
 
+    // Parse always evaluates to Result<'T, string list>, unlike Create: its input is an arbitrary
+    // string, so it can fail even when the node is FullyCompilable. SkipRuntimeValidation is
+    // respected like in Create - only the syntax check remains, so JSON of the wrong shape can
+    // raise inside toRuntime. toRuntime is a closed lambda JsonValue -> runtimeType.
+    let generateParseInvokeCode
+        (context: GenerationContext)
+        (runtimeType: Type)
+        (toRuntime: Expr)
+        : Expr list -> Expr =
+
+        let schemaHashCode = context.SchemaHashCode
+        let schemaSource = context.SchemaString
+
+        fun (args: Expr list) ->
+            let parsedVar = Var($"parsed{Guid.NewGuid()}", typeof<Result<JsonValue, string list>>)
+            let parsed = Expr.Var parsedVar
+
+            let isOk = <@@ Result.isOk (%%parsed: Result<JsonValue, string list>) @@>
+            let okValue = <@@ match (%%parsed: Result<JsonValue, string list>) with Ok v -> v | Error _ -> JsonValue.Null @@>
+            let errorValue = <@@ match (%%parsed: Result<JsonValue, string list>) with Error e -> e | Ok _ -> [] @@>
+
+            // Same Expr.NewUnionCase construction as Create's primitive/list/oneOf branch below:
+            // the success type is only known here, so Result<runtimeType, _> is built by reflection.
+            let resultType = typedefof<Result<_, _>>.MakeGenericType(runtimeType, typeof<string list>)
+            let cases = Reflection.FSharpType.GetUnionCases resultType
+            let okCase, errorCase = cases.[0], cases.[1]
+
+            Expr.Let(
+                parsedVar,
+                (if context.CompileFlags.SkipRuntimeValidation then
+                     <@@ parseOnly (%%args[0]: string) @@>
+                 else
+                     <@@ parseAndValidate (%%args[0]: string) schemaHashCode schemaSource @@>),
+                Expr.IfThenElse(
+                    isOk,
+                    Expr.NewUnionCase(okCase, [ Expr.Application(toRuntime, okValue) ]),
+                    Expr.NewUnionCase(errorCase, [ errorValue ])
+                )
+            )
+
     let generateCreateInvokeCode
         (context: GenerationContext)
         (classMap: ClassMap)

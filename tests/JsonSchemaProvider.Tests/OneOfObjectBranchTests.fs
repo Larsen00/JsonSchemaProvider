@@ -83,7 +83,7 @@ module OneOfObjectBranchTests =
 
     let requiredPropertyDiscriminatorPicksABranch =
         test "object|object oneOf: {a} alone picks the a-branch" {
-            let v = RequiredPropertyDiscriminator.Parse("""{"value": {"a": "x"}}""")
+            let v = Expect.wantOk (RequiredPropertyDiscriminator.Parse("""{"value": {"a": "x"}}""")) "Parse should succeed"
 
             match v.value with
             | Choice1Of2 case -> Expect.equal case.a "x" "a = \"x\""
@@ -92,7 +92,7 @@ module OneOfObjectBranchTests =
 
     let requiredPropertyDiscriminatorPicksBBranch =
         test "object|object oneOf: {b} alone picks the b-branch" {
-            let v = RequiredPropertyDiscriminator.Parse("""{"value": {"b": "y"}}""")
+            let v = Expect.wantOk (RequiredPropertyDiscriminator.Parse("""{"value": {"b": "y"}}""")) "Parse should succeed"
 
             match v.value with
             | Choice2Of2 case ->
@@ -108,14 +108,14 @@ module OneOfObjectBranchTests =
     // additionalProperties is enforced per-branch, not just "required".
     let requiredPropertyDiscriminatorRejectsBothPropertiesPresent =
         test "object|object oneOf: {a, b} together satisfies neither branch and fails Parse validation" {
-            Expect.throws
-                (fun () -> RequiredPropertyDiscriminator.Parse("""{"value": {"a": "x", "b": "y"}}""") |> ignore)
+            Expect.isError
+                (RequiredPropertyDiscriminator.Parse("""{"value": {"a": "x", "b": "y"}}"""))
                 "additionalProperties:false rejects the other branch's property on both sides"
         }
 
     let constDiscriminatorPicksCircleBranch =
         test "object|object oneOf: kind=\"circle\" picks the circle branch" {
-            let v = ConstDiscriminator.Parse("""{"value": {"kind": "circle", "radius": 2.5}}""")
+            let v = Expect.wantOk (ConstDiscriminator.Parse("""{"value": {"kind": "circle", "radius": 2.5}}""")) "Parse should succeed"
 
             match v.value with
             | Choice1Of2 case ->
@@ -126,7 +126,7 @@ module OneOfObjectBranchTests =
 
     let constDiscriminatorPicksSquareBranch =
         test "object|object oneOf: kind=\"square\" picks the square branch" {
-            let v = ConstDiscriminator.Parse("""{"value": {"kind": "square", "side": 4.0}}""")
+            let v = Expect.wantOk (ConstDiscriminator.Parse("""{"value": {"kind": "square", "side": 4.0}}""")) "Parse should succeed"
 
             match v.value with
             | Choice2Of2 case ->

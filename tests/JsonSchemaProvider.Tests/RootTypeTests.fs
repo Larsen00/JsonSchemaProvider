@@ -1,9 +1,8 @@
 namespace JsonSchemaProvider.Tests
 
 // Covers the "any type as root" work in notes/any-type-as-root-refactor.md: a schema whose
-// root is a primitive, not just an object. There's no getter property for a primitive root yet
-// (see that note's open item #2), so these tests read the constructed value back out via the
-// raw NullableJsonValue.JsonVal instead of a nice typed accessor.
+// root is a primitive, list or oneOf, not just an object. Create and Parse both work with the
+// plain typed value (bool, int, string list, Choice<...>); Parse always wraps it in Result.
 module RootTypeTests =
     open Expecto
     open JsonSchemaProvider
@@ -140,8 +139,8 @@ module RootTypeTests =
 
     let boolRootShouldBeParsed =
         test "boolean root Parse builds the value" {
-            let result = BoolRoot.Parse("true")
-            Expect.equal (result.JsonVal.AsBoolean()) true "BoolRoot.Parse(\"true\").JsonVal = true"
+            let result = Expect.wantOk (BoolRoot.Parse("true")) "Parse should succeed"
+            Expect.equal result true "BoolRoot.Parse(\"true\") = Ok true"
         }
 
     let intRootShouldBeCreated =
@@ -152,8 +151,8 @@ module RootTypeTests =
 
     let intRootShouldBeParsed =
         test "integer root Parse builds the value" {
-            let result = IntRoot.Parse("42")
-            Expect.equal (result.JsonVal.AsInteger()) 42 "IntRoot.Parse(\"42\").JsonVal = 42"
+            let result = Expect.wantOk (IntRoot.Parse("42")) "Parse should succeed"
+            Expect.equal result 42 "IntRoot.Parse(\"42\") = Ok 42"
         }
 
     let numberRootShouldBeCreated =
@@ -164,8 +163,8 @@ module RootTypeTests =
 
     let numberRootShouldBeParsed =
         test "number root Parse builds the value" {
-            let result = NumberRoot.Parse("3.14")
-            Expect.equal (result.JsonVal.AsFloat()) 3.14 "NumberRoot.Parse(\"3.14\").JsonVal = 3.14"
+            let result = Expect.wantOk (NumberRoot.Parse("3.14")) "Parse should succeed"
+            Expect.equal result 3.14 "NumberRoot.Parse(\"3.14\") = Ok 3.14"
         }
 
     let stringRootShouldBeCreated =
@@ -176,8 +175,8 @@ module RootTypeTests =
 
     let stringRootShouldBeParsed =
         test "string root Parse builds the value" {
-            let result = StringRoot.Parse("\"hello\"")
-            Expect.equal (result.JsonVal.AsString()) "hello" "StringRoot.Parse of a JSON string literal = \"hello\""
+            let result = Expect.wantOk (StringRoot.Parse("\"hello\"")) "Parse should succeed"
+            Expect.equal result "hello" "StringRoot.Parse of a JSON string literal = Ok \"hello\""
         }
 
     // minimum/maximum are known keywords (JsonNumber.Specific has fields for them) but nothing
@@ -201,8 +200,8 @@ module RootTypeTests =
 
     let belowMinimumConstrainedIntRootShouldBeRejectedByParse =
         test "below-minimum integer root value is rejected by Parse" {
-            Expect.throws
-                (fun () -> ConstrainedIntRoot.Parse("3") |> ignore)
+            Expect.isError
+                (ConstrainedIntRoot.Parse("3"))
                 "Parse should reject a root value below minimum"
         }
 
@@ -343,6 +342,45 @@ module RootTypeTests =
             Expect.equal value (Choice2Of2(Choice2Of2 false)) "NestedOneOfRoot.Create(Choice2Of2(Choice2Of2 false))"
         }
 
+    // List and oneOf roots get Parse the same way primitive roots do: validate the whole document
+    // against the root schema, then evaluate to the same typed value Create takes.
+    let listRootShouldBeParsed =
+        test "array root Parse builds the value" {
+            let result = Expect.wantOk (ListRoot.Parse("""["a", "b"]""")) "Parse should succeed"
+            Expect.equal result [ "a"; "b" ] "ListRoot.Parse evaluates to the typed string list"
+        }
+
+    let listRootParseShouldRejectInvalidItem =
+        test "array root Parse rejects an item of the wrong type" {
+            Expect.isError
+                (ListRoot.Parse("""["a", 1]"""))
+                "Parse should reject a non-string item"
+        }
+
+    let placeListRootShouldBeParsed =
+        test "array-of-objects root Parse builds the value" {
+            let result = Expect.wantOk (PlaceListRoot.Parse("""[{"name": "Copenhagen", "lat": 55.6761, "lng": 12.5683}]""")) "Parse should succeed"
+            Expect.equal result.[0].name "Copenhagen" "name roundtrips through the typed Item class"
+        }
+
+    let stringOrIntRootShouldBeParsed =
+        test "oneOf root Parse builds the value" {
+            let result = Expect.wantOk (StringOrIntRoot.Parse("42")) "Parse should succeed"
+            Expect.equal result (Choice2Of2 42) "StringOrIntRoot.Parse(\"42\") picks the int branch"
+        }
+
+    let constrainedOneOfRootParseShouldRejectNoMatchingBranch =
+        test "oneOf root Parse rejects a value matching no branch" {
+            Expect.isError
+                (ConstrainedIntOrStringRoot.Parse("3"))
+                "Parse should reject a value matching no oneOf branch"
+        }
+
+    let malformedJsonParseShouldBeError =
+        test "Parse of syntactically malformed JSON evaluates to Error instead of raising" {
+            Expect.isError (ListRoot.Parse("""["a", """)) "malformed JSON should be an Error"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -377,4 +415,10 @@ module RootTypeTests =
               constrainedOneOfRootShouldRejectBelowMinimumIntBranch
               nestedOneOfRootShouldBeCreatedFromOuterStringBranch
               nestedOneOfRootShouldBeCreatedFromInnerIntBranch
-              nestedOneOfRootShouldBeCreatedFromInnerBoolBranch ]
+              nestedOneOfRootShouldBeCreatedFromInnerBoolBranch
+              listRootShouldBeParsed
+              listRootParseShouldRejectInvalidItem
+              placeListRootShouldBeParsed
+              stringOrIntRootShouldBeParsed
+              constrainedOneOfRootParseShouldRejectNoMatchingBranch
+              malformedJsonParseShouldBeError ]

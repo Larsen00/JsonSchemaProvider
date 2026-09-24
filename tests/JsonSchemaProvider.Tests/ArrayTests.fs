@@ -130,7 +130,7 @@ module ArrayTests =
 
     let withoutFlagMinItemsSchemaYieldsPlainList =
         test "minItems schema without compileMinItems flag yields plain list" {
-            let v = PlainStringArray.Parse("""{"tags": ["a", "b", "c"]}""")
+            let v = Expect.wantOk (PlainStringArray.Parse("""{"tags": ["a", "b", "c"]}""")) "Parse should succeed"
             Expect.equal v.tags [ "a"; "b"; "c" ] "tags = [a; b; c]"
         }
 
@@ -145,7 +145,7 @@ module ArrayTests =
 
     let min2ParseProducesCorrectTuple =
         test "minItems=2 Parse produces correct tuple" {
-            let v = StringArrayMin2.Parse("""{"tags": ["x", "y", "z"]}""")
+            let v = Expect.wantOk (StringArrayMin2.Parse("""{"tags": ["x", "y", "z"]}""")) "Parse should succeed"
             let (h1, h2, rest) = v.tags
             Expect.equal h1 "x" "first element"
             Expect.equal h2 "y" "second element"
@@ -154,7 +154,7 @@ module ArrayTests =
 
     let min2ExactlyMinimumGivesEmptyRest =
         test "minItems=2 with exactly 2 elements gives empty rest" {
-            let v = StringArrayMin2.Parse("""{"tags": ["a", "b"]}""")
+            let v = Expect.wantOk (StringArrayMin2.Parse("""{"tags": ["a", "b"]}""")) "Parse should succeed"
             let (h1, h2, rest) = v.tags
             Expect.equal h1 "a" "first element"
             Expect.equal h2 "b" "second element"
@@ -171,7 +171,7 @@ module ArrayTests =
 
     let min1ParseProducesCorrectPair =
         test "minItems=1 Parse produces correct pair" {
-            let v = IntArrayMin1.Parse("""{"values": [10, 20, 30]}""")
+            let v = Expect.wantOk (IntArrayMin1.Parse("""{"values": [10, 20, 30]}""")) "Parse should succeed"
             let (head, rest) = v.values
             Expect.equal head 10 "head"
             Expect.equal rest [ 20; 30 ] "rest"
@@ -179,7 +179,7 @@ module ArrayTests =
 
     let min1ExactlyMinimumGivesEmptyRest =
         test "minItems=1 with exactly 1 element gives empty rest" {
-            let v = IntArrayMin1.Parse("""{"values": [99]}""")
+            let v = Expect.wantOk (IntArrayMin1.Parse("""{"values": [99]}""")) "Parse should succeed"
             let (head, rest) = v.values
             Expect.equal head 99 "head"
             Expect.equal rest [] "rest is empty"
@@ -205,7 +205,7 @@ module ArrayTests =
 
     let minMaxParseAtMaximumGivesSome =
         test "minItems=1, maxItems=2: Parse with maxItems elements gives Some for the rest" {
-            let v = IntArrayMin1Max2.Parse("""{"values": [1, 2]}""")
+            let v = Expect.wantOk (IntArrayMin1Max2.Parse("""{"values": [1, 2]}""")) "Parse should succeed"
             Expect.equal v.values (1, Some 2) "parsed tuple matches the two elements"
         }
 
@@ -231,7 +231,7 @@ module ArrayTests =
 
     let maxOnlyParseAtLimit =
         test "maxItems=2, no minItems: Parse at the limit round-trips both elements" {
-            let v = IntArrayMax2.Parse("""{"values": [5, 6]}""")
+            let v = Expect.wantOk (IntArrayMax2.Parse("""{"values": [5, 6]}""")) "Parse should succeed"
             Expect.equal v.values (Some(5, Some 6)) "both elements present"
         }
 
@@ -251,7 +251,7 @@ module ArrayTests =
 
     let maxOneParseSingleElement =
         test "maxItems=1: Parse with one element round-trips it" {
-            let v = IntArrayMax1.Parse("""{"values": [7]}""")
+            let v = Expect.wantOk (IntArrayMax1.Parse("""{"values": [7]}""")) "Parse should succeed"
             Expect.equal v.values (Some 7) "the single element"
         }
 
@@ -265,7 +265,7 @@ module ArrayTests =
 
     let exactWithoutFlagParseProducesTuple =
         test "minItems=maxItems=2, no flag: Parse produces the exact tuple" {
-            let v = IntArrayExact2.Parse("""{"values": [3, 4]}""")
+            let v = Expect.wantOk (IntArrayExact2.Parse("""{"values": [3, 4]}""")) "Parse should succeed"
             Expect.equal v.values (3, 4) "exact 2-tuple"
         }
 
@@ -277,7 +277,7 @@ module ArrayTests =
 
     let exactWithFlagParseProducesTuple =
         test "minItems=maxItems=2, with compileMinItems: Parse produces the same exact tuple" {
-            let v = IntArrayExact2WithFlag.Parse("""{"values": [7, 8]}""")
+            let v = Expect.wantOk (IntArrayExact2WithFlag.Parse("""{"values": [7, 8]}""")) "Parse should succeed"
             Expect.equal v.values (7, 8) "the flag doesn't change the exact-tuple shape"
         }
 

@@ -26,6 +26,24 @@ module SchemaValidationExprs =
         | [] -> Ok record
         | errors -> Error errors
 
+    // Parse's entry point under SkipRuntimeValidation: syntax check only, no schema validation.
+    // Malformed JSON is still an Error, but JSON of the wrong shape passes through and can raise
+    // later, when converted to the typed value.
+    let parseOnly (jsonText: string) : Result<JsonValue, string list> =
+        match JsonValue.TryParse jsonText with
+        | None -> Error [ "Invalid JSON: " + jsonText ]
+        | Some jsonValue -> Ok jsonValue
+
+    // Parse's default entry point: syntactically parses jsonText, then validates it against the
+    // whole root schema. Malformed JSON is reported as an Error too, so Parse never raises.
+    let parseAndValidate (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : Result<JsonValue, string list> =
+        match parseOnly jsonText with
+        | Error errors -> Error errors
+        | Ok jsonValue ->
+            match collectValidationErrors "#" jsonText schemaHashCode schemaSource with
+            | [] -> Ok jsonValue
+            | errors -> Error errors
+
     // Returns an F# quotation expression that validates a JsonValue against the schema and returns a boolean indicating success.
     let validateJsonSchemaExpr (jsonValExpr: Expr) schemaHashCode schemaSource path =
         <@@ validateJsonSchema path (%%jsonValExpr: JsonValue) schemaHashCode schemaSource |> Result.isOk @@>
