@@ -180,6 +180,160 @@ module ArrayKeywordTests =
             Expect.equal v (7, 8) "exact 2-tuple"
         }
 
+    // -- ToList/ToTuple helpers on root arrays --
+
+    [<Literal>]
+    let intArrayExact1Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1 }"""
+    type IntArrayExact1 = JsonSchemaProvider<schema = intArrayExact1Schema>
+
+    let exact1ToListGivesSingletonList =
+        test "minItems=maxItems=1: ToList gives a singleton list" {
+            Expect.equal (IntArrayExact1.ToList(7)) [ 7 ] "ToList wraps the bare element"
+        }
+
+    let exact2ToListFlattensNestedPair =
+        test "minItems=maxItems=2: ToList flattens (h, tail) down to a plain list" {
+            Expect.equal (IntArrayExact2.ToList((1, 2))) [ 1; 2 ] "ToList = [1; 2]"
+        }
+
+    let exact2ToTupleRebuildsFlatTuple =
+        test "minItems=maxItems=2: ToTuple rebuilds the classic flat tuple" {
+            Expect.equal (IntArrayExact2.ToTuple((1, 2))) (1, 2) "ToTuple = (1, 2)"
+        }
+
+    // n >= 3 has more than one level of nesting to flatten.
+    [<Literal>]
+    let intArrayExact3Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 }"""
+    type IntArrayExact3 = JsonSchemaProvider<schema = intArrayExact3Schema>
+
+    [<Literal>]
+    let intArrayExact4Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4 }"""
+    type IntArrayExact4 = JsonSchemaProvider<schema = intArrayExact4Schema>
+
+    let exact3ToListFlattensNestedPairs =
+        test "minItems=maxItems=3: ToList flattens (h, (h, t)) down to a plain list" {
+            Expect.equal (IntArrayExact3.ToList((1, (2, 3)))) [ 1; 2; 3 ] "ToList = [1; 2; 3]"
+        }
+
+    let exact3ToTupleRebuildsFlatTuple =
+        test "minItems=maxItems=3: ToTuple rebuilds the flat 3-tuple" {
+            Expect.equal (IntArrayExact3.ToTuple((1, (2, 3)))) (1, 2, 3) "ToTuple = (1, 2, 3)"
+        }
+
+    let exact4ToTupleRebuildsFlatTuple =
+        test "minItems=maxItems=4: ToTuple rebuilds the flat 4-tuple" {
+            Expect.equal (IntArrayExact4.ToTuple((1, (2, (3, 4))))) (1, 2, 3, 4) "ToTuple = (1, 2, 3, 4)"
+        }
+
+    let exact3ParseThenToTupleRoundtrips =
+        test "minItems=maxItems=3: Parse then ToTuple gives the elements in JSON order" {
+            let v = Expect.wantOk (IntArrayExact3.Parse("""[7, 8, 9]""")) "Parse should succeed"
+            Expect.equal (IntArrayExact3.ToTuple(v)) (7, 8, 9) "ToTuple = (7, 8, 9)"
+        }
+
+    let min1ToListFlattensHeadAndOpenTail =
+        test "minItems=1, no maxItems: ToList flattens (h, tail list)" {
+            Expect.equal (IntArrayMin1.ToList((1, [ 2; 3 ]))) [ 1; 2; 3 ] "ToList = [1; 2; 3]"
+        }
+
+    let min1Max2ToListOnNoneTailGivesSingletonList =
+        test "minItems=1, maxItems=2: ToList on (h, None) gives a singleton list" {
+            Expect.equal (IntArrayMin1Max2.ToList((1, None))) [ 1 ] "ToList = [1]"
+        }
+
+    let min1Max2ToListOnSomeTailGivesBothElements =
+        test "minItems=1, maxItems=2: ToList on (h, Some t) gives both elements" {
+            Expect.equal (IntArrayMin1Max2.ToList((1, Some 2))) [ 1; 2 ] "ToList = [1; 2]"
+        }
+
+    let min2ToListFlattensNestedPrefix =
+        test "minItems=2, no maxItems: ToList flattens the mandatory prefix plus the open tail" {
+            Expect.equal (StringArrayMin2.ToList(("a", ("b", [ "c"; "d" ])))) [ "a"; "b"; "c"; "d" ] "ToList = [a; b; c; d]"
+        }
+
+    let maxOneToListOnNoneGivesEmptyList =
+        test "maxItems=1: ToList on None gives an empty list" {
+            Expect.equal (IntArrayMax1.ToList(None)) [] "ToList None = []"
+        }
+
+    let maxOneToListOnSomeGivesSingletonList =
+        test "maxItems=1: ToList on Some gives a singleton list" {
+            Expect.equal (IntArrayMax1.ToList(Some 42)) [ 42 ] "ToList (Some 42) = [42]"
+        }
+
+    let maxTwoToListOnNoneGivesEmptyList =
+        test "maxItems=2, no minItems: ToList on None gives an empty list" {
+            Expect.equal (IntArrayMax2.ToList(None)) [] "ToList None = []"
+        }
+
+    let maxTwoToListOnPartialSomeGivesSingletonList =
+        test "maxItems=2, no minItems: ToList on Some(head, None) gives a singleton list" {
+            Expect.equal (IntArrayMax2.ToList(Some(1, None))) [ 1 ] "ToList (Some(1, None)) = [1]"
+        }
+
+    let maxTwoToListOnFullSomeGivesTwoElementList =
+        test "maxItems=2, no minItems: ToList on Some(head, Some tail) gives both elements" {
+            Expect.equal (IntArrayMax2.ToList(Some(1, Some 2))) [ 1; 2 ] "ToList (Some(1, Some 2)) = [1; 2]"
+        }
+
+    let plainListToListIsIdentity =
+        test "no minItems/maxItems (or ignoreSpecificKeywords): ToList is the identity function" {
+            Expect.equal (PlainStringArray.ToList([ "a"; "b"; "c" ])) [ "a"; "b"; "c" ] "already a plain list"
+        }
+
+    // -- ToList/ToTuple for arrays inside arrays: helpers on nested "ItemArray" types --
+
+    [<Literal>]
+    let arrayOfExact3Schema =
+        """{ "type": "array", "items": { "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 } }"""
+    type ArrayOfExact3 = JsonSchemaProvider<schema = arrayOfExact3Schema>
+
+    let itemArrayToTupleOnEachElement =
+        test "array of exact-3 arrays: List.map ItemArray.ToTuple flattens each inner array" {
+            let v = Expect.wantOk (ArrayOfExact3.Parse("""[[1, 2, 3], [4, 5, 6]]""")) "Parse should succeed"
+            Expect.equal (v |> List.map ArrayOfExact3.ItemArray.ToTuple) [ (1, 2, 3); (4, 5, 6) ] "each inner array as a flat tuple"
+        }
+
+    let itemArrayToListOnEachElement =
+        test "array of exact-3 arrays: List.map ItemArray.ToList flattens each inner array" {
+            let v = Expect.wantOk (ArrayOfExact3.Parse("""[[1, 2, 3], [4, 5, 6]]""")) "Parse should succeed"
+            Expect.equal (v |> List.map ArrayOfExact3.ItemArray.ToList) [ [ 1; 2; 3 ]; [ 4; 5; 6 ] ] "each inner array as a list"
+        }
+
+    [<Literal>]
+    let arrayOfMax2OfExact2Schema =
+        """{ "type": "array", "items": { "type": "array", "maxItems": 2, "items": { "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2 } } }"""
+    type ArrayOfMax2OfExact2 = JsonSchemaProvider<schema = arrayOfMax2OfExact2Schema>
+
+    let itemArrayItemArrayTwoLevelsDeep =
+        test "three array levels: ItemArray.ToList and ItemArray.ItemArray.ToTuple each flatten their own level" {
+            let middle = ArrayOfMax2OfExact2.ItemArray.ToList(Some((1, 2), Some(3, 4)))
+            Expect.equal (middle |> List.map ArrayOfMax2OfExact2.ItemArray.ItemArray.ToTuple) [ (1, 2); (3, 4) ] "both levels flattened"
+        }
+
+    [<Literal>]
+    let min1ObjectArraySchema =
+        """{ "type": "array", "minItems": 1, "items": { "type": "object", "properties": { "a": {"type": "integer"} }, "required": ["a"] } }"""
+    type Min1ObjectArray = JsonSchemaProvider<schema = min1ObjectArraySchema>
+
+    let min1ObjectArrayToList =
+        test "minItems=1 array of objects: ToList flattens (h, tail list) of provided-type items" {
+            let item = Min1ObjectArray.Item.Create(a = 1)
+            Expect.equal (Min1ObjectArray.ToList((item, [])) |> List.map (fun i -> i.a)) [ 1 ] "ToList = [item]"
+        }
+
+    [<Literal>]
+    let arrayOfMin1ObjectArraysSchema =
+        """{ "type": "array", "items": { "type": "array", "minItems": 1, "items": { "type": "object", "properties": { "a": {"type": "integer"} }, "required": ["a"] } } }"""
+    type ArrayOfMin1ObjectArrays = JsonSchemaProvider<schema = arrayOfMin1ObjectArraysSchema>
+
+    let itemClassAndItemArrayCoexist =
+        test "array of arrays of objects: the Item class and the ItemArray helper don't clash" {
+            let item = ArrayOfMin1ObjectArrays.Item.Create(a = 1)
+            let flattened = ArrayOfMin1ObjectArrays.ItemArray.ToList((item, []))
+            Expect.equal (flattened |> List.map (fun i -> i.a)) [ 1 ] "ToList = [item]"
+        }
+
     // -- uniqueItems: runtime-only, no compile-time encoding --
 
     [<Literal>]
@@ -335,6 +489,28 @@ module ArrayKeywordTests =
               exactWithoutFlagParseProducesTuple
               exactWithFlagCreateProducesTuple
               exactWithFlagParseProducesTuple
+              exact1ToListGivesSingletonList
+              exact2ToListFlattensNestedPair
+              exact2ToTupleRebuildsFlatTuple
+              exact3ToListFlattensNestedPairs
+              exact3ToTupleRebuildsFlatTuple
+              exact4ToTupleRebuildsFlatTuple
+              exact3ParseThenToTupleRoundtrips
+              min1ToListFlattensHeadAndOpenTail
+              min1Max2ToListOnNoneTailGivesSingletonList
+              min1Max2ToListOnSomeTailGivesBothElements
+              min2ToListFlattensNestedPrefix
+              maxOneToListOnNoneGivesEmptyList
+              maxOneToListOnSomeGivesSingletonList
+              maxTwoToListOnNoneGivesEmptyList
+              maxTwoToListOnPartialSomeGivesSingletonList
+              maxTwoToListOnFullSomeGivesTwoElementList
+              plainListToListIsIdentity
+              itemArrayToTupleOnEachElement
+              itemArrayToListOnEachElement
+              itemArrayItemArrayTwoLevelsDeep
+              min1ObjectArrayToList
+              itemClassAndItemArrayCoexist
               duplicateItemsAreRejected
               allUniqueItemsAreAccepted
               atMaxItemsIsAccepted

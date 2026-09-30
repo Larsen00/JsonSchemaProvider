@@ -187,6 +187,45 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2(1, (2, (3, [])))) "value = Choice2Of2 [1;2;3]"
         }
 
+    // -- ToList/ToTuple for arrays inside oneOf: branch i gets a "<name>Case<i>Array" helper type --
+
+    let arrayLengthOneOfEachBranchHasOwnToList =
+        test "array|array oneOf: valueCase1Array/valueCase2Array.ToList flatten their own branch" {
+            let toList (v: ArrayLengthOneOf) =
+                match v.value with
+                | Choice1Of2 short -> ArrayLengthOneOf.valueCase1Array.ToList short
+                | Choice2Of2 long -> ArrayLengthOneOf.valueCase2Array.ToList long
+            let short = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")) "Parse should succeed"
+            let long = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3, 4]}""")) "Parse should succeed"
+            Expect.equal (toList short, toList long) ([ 1; 2 ], [ 1; 2; 3; 4 ]) "both branches flatten"
+        }
+
+    [<Literal>]
+    let rootStringOrExact2ArraySchema =
+        """{ "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}] }"""
+    type RootStringOrExact2Array = JsonSchemaProvider<schema = rootStringOrExact2ArraySchema>
+
+    let rootOneOfArrayBranchHasHelpers =
+        test "root string|array oneOf: Case2Array.ToTuple flattens the array branch" {
+            Expect.equal (RootStringOrExact2Array.Case2Array.ToTuple((1, 2))) (1, 2) "ToTuple = (1, 2)"
+        }
+
+    [<Literal>]
+    let arrayOfStringOrMin1ArraySchema =
+        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}, "minItems": 1}] } } }, "required": ["values"] }"""
+    type ArrayOfStringOrMin1Array = JsonSchemaProvider<schema = arrayOfStringOrMin1ArraySchema>
+
+    let arrayItemOneOfArrayBranchHasHelpers =
+        test "array of string|array oneOf items: valuesArray.ItemCase2Array.ToList flattens each array item" {
+            let v = Expect.wantOk (ArrayOfStringOrMin1Array.Parse("""{"values": ["a", [1, 2]]}""")) "Parse should succeed"
+            let flattened =
+                v.values
+                |> List.choose (function
+                    | Choice2Of2 arr -> Some(ArrayOfStringOrMin1Array.valuesArray.ItemCase2Array.ToList arr)
+                    | Choice1Of2 _ -> None)
+            Expect.equal flattened [ [ 1; 2 ] ] "only the array item, flattened"
+        }
+
     // No const-discriminated schema: NJsonSchema doesn't enforce `const` at all. enum is the
     // keyword NJsonSchema does enforce for a value-only distinction between same-kind branches.
     [<Literal>]
@@ -238,6 +277,9 @@ module OneOfTests =
               arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation
               arrayLengthOneOfPicksShortBranch
               arrayLengthOneOfPicksLongBranch
+              arrayLengthOneOfEachBranchHasOwnToList
+              rootOneOfArrayBranchHasHelpers
+              arrayItemOneOfArrayBranchHasHelpers
               enumOneOfPicksColorBranch
               enumOneOfPicksShapeBranch
               enumOneOfRejectsValueInNeitherEnum ]

@@ -79,6 +79,20 @@ module internal CommonExprs =
     let private optionNoneUnionCaseInfo (elementType: Type) : UnionCaseInfo =
         FSharpType.GetUnionCases(typedefof<_ option>.MakeGenericType(elementType))[0]
 
+    /// <summary>The Cons union case of 'elementType list.</summary>
+    /// <param name="elementType">The list's element type.</param>
+    /// <returns>The UnionCaseInfo for Cons.</returns>
+    let private listConsUnionCaseInfo (elementType: Type) : UnionCaseInfo =
+        FSharpType.GetUnionCases(typedefof<_ list>.MakeGenericType(elementType))
+        |> Array.find (fun uc -> uc.Name = "Cons")
+
+    /// <summary>The Empty union case of 'elementType list.</summary>
+    /// <param name="elementType">The list's element type.</param>
+    /// <returns>The UnionCaseInfo for Empty.</returns>
+    let private listEmptyUnionCaseInfo (elementType: Type) : UnionCaseInfo =
+        FSharpType.GetUnionCases(typedefof<_ list>.MakeGenericType(elementType))
+        |> Array.find (fun uc -> uc.Name = "Empty")
+
     /// <summary>The Array union case of JsonValue.</summary>
     /// <returns>The UnionCaseInfo for JsonValue.Array.</returns>
     let private jsonValueArrayUnionCaseInfo: UnionCaseInfo =
@@ -262,6 +276,27 @@ module internal CommonExprs =
     /// <returns>An Expr evaluating to `None`.</returns>
     let newOptionNone (elementType: Type) : Expr =
         Expr.NewUnionCase(optionNoneUnionCaseInfo elementType, [])
+
+    /// <summary>Builds an Expr that evaluates `[]`, typed as 'elementType list.</summary>
+    /// <param name="elementType">The list's element type.</param>
+    /// <returns>An Expr evaluating to the empty list.</returns>
+    let newListEmpty (elementType: Type) : Expr =
+        Expr.NewUnionCase(listEmptyUnionCaseInfo elementType, [])
+
+    /// <summary>Builds an Expr that evaluates `head :: tail`.</summary>
+    /// <param name="elementType">The list's element type.</param>
+    /// <param name="head">The expression producing the new head element.</param>
+    /// <param name="tail">The expression producing the existing tail list.</param>
+    /// <returns>An Expr evaluating to the extended list.</returns>
+    let newListCons (elementType: Type) (head: Expr) (tail: Expr) : Expr =
+        Expr.NewUnionCase(listConsUnionCaseInfo elementType, [ head; tail ])
+
+    /// <summary>Builds an Expr that evaluates `[value]`, a single-element list.</summary>
+    /// <param name="elementType">The list's element type.</param>
+    /// <param name="value">The expression producing the sole element.</param>
+    /// <returns>An Expr evaluating to the singleton list.</returns>
+    let newListSingleton (elementType: Type) (value: Expr) : Expr =
+        newListCons elementType value (newListEmpty elementType)
 
     /// <summary>Builds an Expr that evaluates `JsonValue.Array value`.</summary>
     /// <param name="value">The expression producing the underlying JsonValue array.</param>

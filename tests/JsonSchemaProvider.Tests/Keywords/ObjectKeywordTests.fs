@@ -354,6 +354,135 @@ module ObjectKeywordTests =
             Expect.equal v.values (7, 8) "exact 2-tuple"
         }
 
+    // -- ToList/ToTuple on array properties: helpers on a "<PropertyName>Array" type --
+
+    let valuesArrayToListFlattensNestedPair =
+        test "object property: minItems=maxItems=2: valuesArray.ToList flattens (h, tail)" {
+            Expect.equal (IntArrayExact2.valuesArray.ToList((1, 2))) [ 1; 2 ] "ToList = [1; 2]"
+        }
+
+    let valuesArrayToTupleRebuildsFlatTuple =
+        test "object property: minItems=maxItems=2: valuesArray.ToTuple rebuilds the flat tuple" {
+            Expect.equal (IntArrayExact2.valuesArray.ToTuple((1, 2))) (1, 2) "ToTuple = (1, 2)"
+        }
+
+    let tagsArrayToListFlattensNestedPrefix =
+        test "object property: minItems=2, no maxItems: tagsArray.ToList flattens the prefix plus the open tail" {
+            Expect.equal (StringArrayMin2.tagsArray.ToList(("a", ("b", [ "c"; "d" ])))) [ "a"; "b"; "c"; "d" ] "ToList = [a; b; c; d]"
+        }
+
+    // -- ToList/ToTuple inside nested classes: helpers sit on the nested type, e.g. metaObj.valuesArray --
+
+    [<Literal>]
+    let nestedClassArraySchema =
+        """{
+          "type": "object",
+          "properties": {
+            "meta": {
+              "type": "object",
+              "properties": {
+                "values": { "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 },
+                "inner": {
+                  "type": "object",
+                  "properties": { "tags": { "type": "array", "items": {"type": "string"}, "maxItems": 2 } },
+                  "required": ["tags"]
+                }
+              },
+              "required": ["values", "inner"]
+            },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": { "cells": { "type": "array", "items": {"type": "integer"}, "minItems": 1 } },
+                "required": ["cells"]
+              }
+            }
+          },
+          "required": ["meta", "rows"]
+        }"""
+    type NestedClassArray = JsonSchemaProvider<schema = nestedClassArraySchema>
+
+    let nestedClassArrayToTupleIsOnNestedType =
+        test "nested class: minItems=maxItems=3: metaObj.valuesArray.ToTuple rebuilds the flat tuple" {
+            Expect.equal (NestedClassArray.metaObj.valuesArray.ToTuple((1, (2, 3)))) (1, 2, 3) "ToTuple = (1, 2, 3)"
+        }
+
+    let nestedClassArrayToListOnParsedValue =
+        test "nested class: Parse then metaObj.valuesArray.ToList flattens the parsed property" {
+            let v =
+                Expect.wantOk
+                    (NestedClassArray.Parse("""{"meta": {"values": [4, 5, 6], "inner": {"tags": ["x"]}}, "rows": []}"""))
+                    "Parse should succeed"
+            Expect.equal (NestedClassArray.metaObj.valuesArray.ToList(v.meta.values)) [ 4; 5; 6 ] "ToList = [4; 5; 6]"
+        }
+
+    let twoLevelsNestedClassArrayToList =
+        test "two nested classes deep: metaObj.innerObj.tagsArray.ToList flattens the maxItems chain" {
+            Expect.equal (NestedClassArray.metaObj.innerObj.tagsArray.ToList(Some("a", Some "b"))) [ "a"; "b" ] "ToList = [a; b]"
+        }
+
+    let arrayItemClassArrayToList =
+        test "array item class: rowsItem.cellsArray.ToList flattens each row's (h, tail list)" {
+            let v =
+                Expect.wantOk
+                    (NestedClassArray.Parse("""{"meta": {"values": [1, 2, 3], "inner": {"tags": []}}, "rows": [{"cells": [1, 2]}, {"cells": [3]}]}"""))
+                    "Parse should succeed"
+            let flattened = v.rows |> List.map (fun row -> NestedClassArray.rowsItem.cellsArray.ToList(row.cells))
+            Expect.equal flattened [ [ 1; 2 ]; [ 3 ] ] "each row flattens independently"
+        }
+
+    // -- Property-level array-of-arrays / array-of-objects helper cases --
+
+    [<Literal>]
+    let propertyArrayOfArraysSchema =
+        """{
+          "type": "object",
+          "properties": {
+            "values": { "type": "array", "items": { "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 } },
+            "points": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "object", "properties": { "x": {"type": "integer"} }, "required": ["x"] } }
+          },
+          "required": ["values", "points"]
+        }"""
+    type PropertyArrayOfArrays = JsonSchemaProvider<schema = propertyArrayOfArraysSchema>
+
+    let propertyItemArrayToTuple =
+        test "object property: array of exact-3 arrays: valuesArray.ItemArray.ToTuple flattens each inner array" {
+            let v =
+                Expect.wantOk
+                    (PropertyArrayOfArrays.Parse("""{"values": [[1, 2, 3], [4, 5, 6]], "points": [{"x": 1}, {"x": 2}]}"""))
+                    "Parse should succeed"
+            Expect.equal (v.values |> List.map PropertyArrayOfArrays.valuesArray.ItemArray.ToTuple) [ (1, 2, 3); (4, 5, 6) ] "each inner array as a flat tuple"
+        }
+
+    let propertyObjectArrayToTupleKeepsItemType =
+        test "object property: exact-2 array of objects: pointsArray.ToTuple returns provided-class items" {
+            let v =
+                Expect.wantOk
+                    (PropertyArrayOfArrays.Parse("""{"values": [], "points": [{"x": 1}, {"x": 2}]}"""))
+                    "Parse should succeed"
+            let (first, second) = PropertyArrayOfArrays.pointsArray.ToTuple(v.points)
+            Expect.equal (first.x, second.x) (1, 2) "items keep their provided type (x is accessible)"
+        }
+
+    // Optional array property: the property is `shape option`, so ToList is applied with Option.map.
+    [<Literal>]
+    let optionalMin2ArraySchema =
+        """{ "type": "object", "properties": { "tags": { "type": "array", "items": {"type": "string"}, "minItems": 2 } } }"""
+    type OptionalMin2Array = JsonSchemaProvider<schema = optionalMin2ArraySchema>
+
+    let optionalArrayPresentToList =
+        test "optional array property, present: Option.map tagsArray.ToList gives Some list" {
+            let v = Expect.wantOk (OptionalMin2Array.Parse("""{"tags": ["a", "b", "c"]}""")) "Parse should succeed"
+            Expect.equal (v.tags |> Option.map OptionalMin2Array.tagsArray.ToList) (Some [ "a"; "b"; "c" ]) "Some [a; b; c]"
+        }
+
+    let optionalArrayAbsentToList =
+        test "optional array property, absent: Option.map tagsArray.ToList gives None" {
+            let v = Expect.wantOk (OptionalMin2Array.Parse("""{}""")) "Parse should succeed"
+            Expect.equal (v.tags |> Option.map OptionalMin2Array.tagsArray.ToList) None "None"
+        }
+
     [<Literal>]
     let uniqueItemsSchema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true } }, "required": ["values"] }"""
@@ -528,6 +657,17 @@ module ObjectKeywordTests =
               exactWithoutFlagParseProducesTuple
               exactWithFlagCreateProducesTuple
               exactWithFlagParseProducesTuple
+              valuesArrayToListFlattensNestedPair
+              valuesArrayToTupleRebuildsFlatTuple
+              tagsArrayToListFlattensNestedPrefix
+              nestedClassArrayToTupleIsOnNestedType
+              nestedClassArrayToListOnParsedValue
+              twoLevelsNestedClassArrayToList
+              arrayItemClassArrayToList
+              propertyItemArrayToTuple
+              propertyObjectArrayToTupleKeepsItemType
+              optionalArrayPresentToList
+              optionalArrayAbsentToList
               duplicateItemsAreRejected
               allUniqueItemsAreAccepted
               atMaxItemsIsAccepted

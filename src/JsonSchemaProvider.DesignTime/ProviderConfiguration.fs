@@ -28,3 +28,21 @@ module ProviderConfiguration =
         ToJson: Expr // closed lambda: RuntimeType -> JsonValue
         FullyCompilable: bool // Determines if the node conversion can be fully compiled and therefore skip validation at runtime
     }
+
+    // A helper conversion (ToList/ToTuple) plus the return type its provided method declares.
+    type RuntimeHelperConversion = {
+        Convert: Expr // closed lambda on runtime types (provided types can't be used here)
+        CompileTimeReturnType: Type
+    }
+
+    // Array-only static helpers, exposed on "<Property>Array" / "ItemArray" types.
+    type ArrayHelpers = {
+        ToList: RuntimeHelperConversion // any array shape -> 'T list
+        ToTuple: RuntimeHelperConversion option // ExactLength with n >= 2 only -> flat n-tuple
+    }
+
+    // An array's conversion: the normal node conversion plus the array-only helpers.
+    type ArrayConversion = {
+        common: NodeConversion
+        specific: ArrayHelpers
+    }

@@ -56,6 +56,22 @@ module NodeConversions =
     let private hasAtLeastOneElement (jsonArrVar: Var) : Expr =
         <@@ (%%(Expr.Var jsonArrVar): JsonValue[]).Length > 0 @@>
 
+    // Rebuilds the flat n-tuple (n >= 2) from an ExactLength nested-pair value (h1, (h2, ... hn)).
+    let private buildExactLengthToTuple (n: int) (inner: ProviderConfiguration.NodeConversion) (runtimeType: Type) : ProviderConfiguration.RuntimeHelperConversion =
+        let rec elems (remaining: int) (current: Expr) : Expr list =
+            if remaining = 1 then
+                [ current ]
+            else
+                Expr.TupleGet(current, 0) :: elems (remaining - 1) (Expr.TupleGet(current, 1))
+
+        { Convert = CommonExprs.freshLambda "value" runtimeType (fun valueVar -> Expr.NewTuple(elems n (Expr.Var valueVar)))
+          CompileTimeReturnType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType(Array.create n inner.CompileTimeType) }
+
+    // Creates a ToList helper; `body` builds the list from the array value.
+    let private buildToList (inner: ProviderConfiguration.NodeConversion) (runtimeType: Type) (body: Var -> Expr) : ProviderConfiguration.RuntimeHelperConversion =
+        { Convert = CommonExprs.freshLambda "value" runtimeType body
+          CompileTimeReturnType = typedefof<_ list>.MakeGenericType inner.CompileTimeType }
+
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     let rec convert (context: GenerationContext) (typeMap: TypeMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion = 
@@ -117,7 +133,7 @@ module NodeConversions =
             }
 
         // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
-        | FSharpList(innerType, arrayKeywords) -> buildArrayConversion context typeMap innerType arrayKeywords
+        | FSharpList(innerType, arrayKeywords) -> (buildArrayConversion context typeMap innerType arrayKeywords).common
 
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
         // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
@@ -138,10 +154,10 @@ module NodeConversions =
         (typeMap: TypeMap)
         (innerType: FSharpType)
         (arrayKeywords: JsonArray.Keywords)
-        : ProviderConfiguration.NodeConversion =
-        
+        : ProviderConfiguration.ArrayConversion =
+
         // Default conversion for F# list arrays based on their inner type.
-        let defaultArrayConversion: ProviderConfiguration.NodeConversion =
+        let defaultArrayConversion: ProviderConfiguration.ArrayConversion =
             // Extract the inner type conversion
             let inner = convert context typeMap innerType
 
@@ -177,11 +193,20 @@ module NodeConversions =
                         CommonExprs.newJsonValueArray arrayOfList
                     )
 
+            // Already a list, so ToList returns it unchanged.
+            let toList = buildToList inner runtimeType (fun valueVar -> Expr.Var valueVar)
+
             // MinItems.IsNone matters here specifically: reaching this default case with MinItems
             // still Some means compileFlags.CompileMinItems was false, so minItems is a real,
             // uncompiled constraint - MaxItems needs no equivalent check, since any Some MaxItems
             // is always caught by one of the tuple/option cases above, unconditionally.
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && inner.FullyCompilable }
+            { common =
+                { CompileTimeType = compileTimeType
+                  RuntimeType = runtimeType
+                  ToRuntime = toRuntime
+                  ToJson = toJson
+                  FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && inner.FullyCompilable }
+              specific = { ToList = toList; ToTuple = None } }
 
 
 
@@ -194,7 +219,7 @@ module NodeConversions =
         // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
         // If IgnoreSpecificKeywords is set, we need to fallback to runtime validation regardless of other keyword combinations.
         | UnsupportedKeywords _ ->
-            { defaultArrayConversion with FullyCompilable = false }
+            { defaultArrayConversion with common.FullyCompilable = false }
 
         // Exact-size, exactly one element left: same base case as MaxItemsSingle - just the element itself
         | ExactLength(_, _, 1) ->
@@ -210,11 +235,17 @@ module NodeConversions =
                         Expr.NewArray(typeof<JsonValue>, [ Expr.Application(inner.ToJson, Expr.Var runtimeObjVar) ])
                     ))
 
-            { CompileTimeType = inner.CompileTimeType
-              RuntimeType = inner.RuntimeType
-              ToRuntime = toRuntime
-              ToJson = toJson
-              FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+            let toList =
+                buildToList inner inner.RuntimeType (fun valueVar ->
+                    CommonExprs.newListSingleton inner.RuntimeType (Expr.Var valueVar))
+
+            { common =
+                { CompileTimeType = inner.CompileTimeType
+                  RuntimeType = inner.RuntimeType
+                  ToRuntime = toRuntime
+                  ToJson = toJson
+                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+              specific = { ToList = toList; ToTuple = None } }
 
         // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
         // same exact-length shape with n - 1
@@ -224,7 +255,8 @@ module NodeConversions =
                 { arrayKeywords with
                     specific.MinItems = Some(n - 1)
                     specific.MaxItems = Some(n - 1) }
-            buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
+            let headTail = buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
+            { headTail with specific.ToTuple = Some(buildExactLengthToTuple n inner headTail.common.RuntimeType) }
 
         // minItems mandatory prefix: (Head, Tail) where Tail recurses with minItems decremented
         // by one (dropping to None once exhausted) and maxItems decremented by one
@@ -274,7 +306,19 @@ module NodeConversions =
                         Expr.IfThenElse(CommonExprs.getOptionIsSome inner.RuntimeType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray)
                     )
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+            // Some x -> [x] | None -> []
+            let toList =
+                buildToList inner runtimeType (fun valueVar ->
+                    let thenBranch = CommonExprs.newListSingleton inner.RuntimeType (CommonExprs.getOptionValue inner.RuntimeType (Expr.Var valueVar))
+                    Expr.IfThenElse(CommonExprs.getOptionIsSome inner.RuntimeType (Expr.Var valueVar), thenBranch, CommonExprs.newListEmpty inner.RuntimeType))
+
+            { common =
+                { CompileTimeType = compileTimeType
+                  RuntimeType = runtimeType
+                  ToRuntime = toRuntime
+                  ToJson = toJson
+                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+              specific = { ToList = toList; ToTuple = None } }
 
         // maxItems > 1: option<(inner * tail)>, tail built by recursing on this same function.
         | MaxItemsChain(_, _, maxItems) ->
@@ -284,7 +328,8 @@ module NodeConversions =
 
             // Build the tail conversion by recursively calling this function with MaxItems decreased by 1.
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
-            let tail = buildArrayConversion context typeMap innerType tailKeywords
+            let tailArray = buildArrayConversion context typeMap innerType tailKeywords
+            let tail = tailArray.common
 
             // Build the compile-time and runtime types for the option containing the pair of head and tail.
             let compileTimePairType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.CompileTimeType; tail.CompileTimeType |]
@@ -327,7 +372,28 @@ module NodeConversions =
                         )
                     Expr.IfThenElse(CommonExprs.getOptionIsSome pairType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray))
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
+            // Some(h, t) -> h :: tail.ToList(t) | None -> []
+            let toList =
+                buildToList inner runtimeType (fun valueVar ->
+                    let pairVar = Var($"pair{Guid.NewGuid()}", pairType)
+                    let headExpr = Expr.TupleGet(Expr.Var pairVar, 0)
+                    let tailExpr = Expr.TupleGet(Expr.Var pairVar, 1)
+                    let tailListExpr = Expr.Application(tailArray.specific.ToList.Convert, tailExpr)
+                    let thenBranch =
+                        Expr.Let(
+                            pairVar,
+                            CommonExprs.getOptionValue pairType (Expr.Var valueVar),
+                            CommonExprs.newListCons inner.RuntimeType headExpr tailListExpr
+                        )
+                    Expr.IfThenElse(CommonExprs.getOptionIsSome pairType (Expr.Var valueVar), thenBranch, CommonExprs.newListEmpty inner.RuntimeType))
+
+            { common =
+                { CompileTimeType = compileTimeType
+                  RuntimeType = runtimeType
+                  ToRuntime = toRuntime
+                  ToJson = toJson
+                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
+              specific = { ToList = toList; ToTuple = None } }
 
         // Default case: unbounded list.
         | Unbounded _ -> defaultArrayConversion
@@ -343,9 +409,10 @@ module NodeConversions =
         (arrayKeywords: JsonArray.Keywords)
         (inner: ProviderConfiguration.NodeConversion)
         (tailKeywords: JsonArray.Keywords)
-        : ProviderConfiguration.NodeConversion =
+        : ProviderConfiguration.ArrayConversion =
 
-        let tail = buildArrayConversion context typeMap innerType tailKeywords
+        let tailArray = buildArrayConversion context typeMap innerType tailKeywords
+        let tail = tailArray.common
 
         let compileTimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.CompileTimeType; tail.CompileTimeType |]
         let runtimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.RuntimeType; tail.RuntimeType |]
@@ -368,11 +435,21 @@ module NodeConversions =
                         typeof<JsonValue>
                 ))
 
-        { CompileTimeType = compileTimeType
-          RuntimeType = runtimeType
-          ToRuntime = toRuntime
-          ToJson = toJson
-          FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
+        // head :: tail.ToList(tail-value)
+        let toList =
+            buildToList inner runtimeType (fun valueVar ->
+                let headExpr = Expr.TupleGet(Expr.Var valueVar, 0)
+                let tailExpr = Expr.TupleGet(Expr.Var valueVar, 1)
+                let tailListExpr = Expr.Application(tailArray.specific.ToList.Convert, tailExpr)
+                CommonExprs.newListCons inner.RuntimeType headExpr tailListExpr)
+
+        { common =
+            { CompileTimeType = compileTimeType
+              RuntimeType = runtimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
+          specific = { ToList = toList; ToTuple = None } }
 
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>

@@ -21,6 +21,24 @@ module TypeProvider =
         | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
         | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
 
+    let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
+        ProvidedTypeDefinition(
+            context.Assembly,
+            context.NamespaceName,
+            className + suffix,
+            Some context.RootBaseType
+        )
+
+    // Creates a static method (e.g. ToList) that applies the given conversion to its argument.
+    let private createProvidedConversionMethod (methodName: string) (parameterType: Type) (conversion: ProviderConfiguration.RuntimeHelperConversion) : ProvidedMethod =
+        ProvidedMethod(
+            methodName = methodName,
+            parameters = [ ProvidedParameter("value", parameterType) ],
+            returnType = conversion.CompileTimeReturnType,
+            isStatic = true,
+            invokeCode = fun args -> Expr.Application(conversion.Convert, args.[0])
+        )
+
     // create providedProperties for classes
     let rec private createProvidedProperties
         (context: GenerationContext)
@@ -43,6 +61,45 @@ module TypeProvider =
 
         | _ -> failwith "idk not done"
 
+
+    // Adds ToList/ToTuple for one array to `target`, then helper types for any arrays inside its items.
+    let rec private addArrayHelperMethods
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (target: ProvidedTypeDefinition)
+        (innerType: FSharpType)
+        (arrayKeywords: JsonArray.Keywords)
+        : unit =
+
+        let array = buildArrayConversion context typeMap innerType arrayKeywords
+        let parameterType = array.common.CompileTimeType
+
+        target.AddMember(createProvidedConversionMethod "ToList" parameterType array.specific.ToList)
+
+        array.specific.ToTuple
+        |> Option.iter (fun toTuple -> target.AddMember(createProvidedConversionMethod "ToTuple" parameterType toTuple))
+
+        addArrayHelperTypes context typeMap target "Item" innerType
+
+    // Adds a "<name>Array" helper type to `parent` for each array in `fsharpType`; oneOf branch i is named "<name>Case<i>".
+    and private addArrayHelperTypes
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (parent: ProvidedTypeDefinition)
+        (name: string)
+        (fsharpType: FSharpType)
+        : unit =
+
+        match fsharpType with
+        | FSharpList(innerType, arrayKeywords) ->
+            let helperType = createprovidedTypeDefinition context "Array" name
+            addArrayHelperMethods context typeMap helperType innerType arrayKeywords
+            parent.AddMember helperType
+        | FSharpOneOf(_, head, tail) ->
+            head :: tail
+            |> List.iteri (fun i branch -> addArrayHelperTypes context typeMap parent $"{name}Case{i + 1}" branch)
+        // A class gets its own helpers when buildTypeMapHelper builds it.
+        | FSharpClass _ | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> ()
 
     let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (fsharptype: FSharpType) isRequired parameterName =
         let parameterType = fSharpTypeToMethodParameterType context typeMap (not isRequired) fsharptype
@@ -97,14 +154,6 @@ module TypeProvider =
             invokeCode = generateParseInvokeCode context runtimeType toRuntime
         )
 
-    let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
-        ProvidedTypeDefinition(
-            context.Assembly,
-            context.NamespaceName,
-            className + suffix,
-            Some context.RootBaseType
-        )
-
     // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
     // doubles as the "is this the root" check below - the root is the only caller that passes "".
     let rec private buildTypeMapHelper context (suffix: string) (name: string) (fsharptype: FSharpType) : (String * ProvidedTypeDefinition) list =
@@ -124,6 +173,9 @@ module TypeProvider =
 
             createProvidedProperties context merged fsharptype
             |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
+
+            properties
+            |> List.iter (fun (propertyName, propertyType) -> addArrayHelperTypes context merged thisTypeDef propertyName propertyType)
 
             // Wrap the return type in Result unless this class (and every property's own type) is
             // FullyCompilable, in which case Create can't fail and returns the class directly.
@@ -201,7 +253,7 @@ module TypeProvider =
             providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
-        
+
         | FSharpList _ | FSharpOneOf _ as fsharptype ->
             let typeMap = buildTypeMap context "" "" fsharptype
 
@@ -226,5 +278,10 @@ module TypeProvider =
 
             let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
+
+            // Root array: helpers go directly on the root type. Root oneOf: "Case<i>Array" types.
+            match fsharptype with
+            | FSharpList(innerType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition innerType arrayKeywords
+            | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" fsharptype
 
             providedTypeDefinition
