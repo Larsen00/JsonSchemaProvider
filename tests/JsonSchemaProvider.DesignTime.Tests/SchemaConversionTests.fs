@@ -85,7 +85,7 @@ module SchemaConversionTests =
         }"""
 
     // Path is computed via NJsonSchema's own JsonPathUtilities.GetJsonPath(root, node) - a JSON
-    // Pointer identifying this node's own position in the document. Every FSharpType/JsonSchemaType
+    // Pointer identifying this node's own position in the document. Every JsonSchemaType
     // case now carries its own Path (via `common`), not just objects - see
     // ideas/oneof-runtime-disambiguation.md's "Superseded: path lives on every type's own Keywords"
     // section. Values below were captured by running the real conversion against these exact
@@ -176,34 +176,33 @@ module SchemaConversionTests =
         test "NestedObjects should be class tree with four classes" {
             let actual =
                 parseJsonSchema nestedObjects
-                |> jsonSchemaTypeToFSharpType
 
             let expected =
-                FSharpClass(
+                JsonObject(
                     objKeywords "#" (Map.ofList [ "header", false; "body", true ]),
                     [ ("header",
-                       FSharpClass(
+                       JsonObject(
                            objKeywords
                                "#/properties/header"
                                (Map.ofList [ "id", true; "sender", true; "resend", false; "time", false ]),
-                           [ ("id", FSharpInt(intKeywordsAt "#/properties/header/properties/id"))
-                             ("sender", FSharpString(stringKeywordsAt "#/properties/header/properties/sender"))
-                             ("resend", FSharpBool(boolKeywordsAt "#/properties/header/properties/resend"))
+                           [ ("id", JsonInteger(intKeywordsAt "#/properties/header/properties/id"))
+                             ("sender", JsonString(stringKeywordsAt "#/properties/header/properties/sender"))
+                             ("resend", JsonBoolean(boolKeywordsAt "#/properties/header/properties/resend"))
                              ("time",
-                              FSharpClass(
+                              JsonObject(
                                   objKeywords
                                       "#/properties/header/properties/time"
                                       (Map.ofList [ "hour", true; "minute", true; "second", true ]),
-                                  [ ("hour", FSharpInt(intKeywordsAt "#/properties/header/properties/time/properties/hour"))
-                                    ("minute", FSharpInt(intKeywordsAt "#/properties/header/properties/time/properties/minute"))
-                                    ("second", FSharpInt(intKeywordsAt "#/properties/header/properties/time/properties/second")) ]
+                                  [ ("hour", JsonInteger(intKeywordsAt "#/properties/header/properties/time/properties/hour"))
+                                    ("minute", JsonInteger(intKeywordsAt "#/properties/header/properties/time/properties/minute"))
+                                    ("second", JsonInteger(intKeywordsAt "#/properties/header/properties/time/properties/second")) ]
                               )) ]
                        ))
                       ("body",
-                       FSharpClass(
+                       JsonObject(
                            objKeywords "#/properties/body" (Map.ofList [ "length", true; "payload", true ]),
-                           [ ("length", FSharpInt(intKeywordsAt "#/properties/body/properties/length"))
-                             ("payload", FSharpString(stringKeywordsAt "#/properties/body/properties/payload")) ]
+                           [ ("length", JsonInteger(intKeywordsAt "#/properties/body/properties/length"))
+                             ("payload", JsonString(stringKeywordsAt "#/properties/body/properties/payload")) ]
                        )) ]
                 )
 
@@ -214,18 +213,17 @@ module SchemaConversionTests =
         test "NestedArrayWithObjectItems should be class tree with two classes" {
             let actual =
                 parseJsonSchema nestedArrayWithObjectItems
-                |> jsonSchemaTypeToFSharpType
 
             let expected =
-                FSharpClass(
+                JsonObject(
                     objKeywords "#" (Map.ofList [ "values", false ]),
                     [ ("values",
-                       FSharpList(
-                           FSharpList(
-                               FSharpClass(
+                       JsonArray(
+                           JsonArray(
+                               JsonObject(
                                    objKeywords "#/properties/values/items/items" (Map.ofList [ "propA", false; "propB", false ]),
-                                   [ ("propA", FSharpInt(intKeywordsAt "#/properties/values/items/items/properties/propA"))
-                                     ("propB", FSharpString(stringKeywordsAt "#/properties/values/items/items/properties/propB")) ]
+                                   [ ("propA", JsonInteger(intKeywordsAt "#/properties/values/items/items/properties/propA"))
+                                     ("propB", JsonString(stringKeywordsAt "#/properties/values/items/items/properties/propB")) ]
                                ),
                                arrKeywords "#/properties/values/items"
                            ),

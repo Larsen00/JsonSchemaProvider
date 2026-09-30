@@ -14,12 +14,12 @@ module TypeProvider =
     open FSharp.Quotations
 
     // Function that can locate the next fsharpclass inside a type
-    let rec private extractNestedClasses (fSharpType: FSharpType)  =
-        match fSharpType with
-        | FSharpClass(classID, properties) -> [(classID, properties)]
-        | FSharpList(inner, _) -> extractNestedClasses inner
-        | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
+    let rec private extractNestedClasses (schemaType: JsonSchemaType)  =
+        match schemaType with
+        | JsonObject(classID, properties) -> [(classID, properties)]
+        | JsonArray(inner, _) -> extractNestedClasses inner
+        | JsonOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
     let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
         ProvidedTypeDefinition(
@@ -43,21 +43,21 @@ module TypeProvider =
     let rec private createProvidedProperties
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (fsharptype: FSharpType )
+        (schemaType: JsonSchemaType )
         : ProvidedProperty list =
 
-        match fsharptype with
-        | FSharpClass (_, []) -> []
-        | FSharpClass (keywords, (name, fsharptype as property :: rest)) -> 
+        match schemaType with
+        | JsonObject (_, []) -> []
+        | JsonObject (keywords, (name, schemaType as property :: rest)) -> 
 
-            let plainPropertyCompileTimeType = (convert context typeMap fsharptype).CompileTimeType
+            let plainPropertyCompileTimeType = (convert context typeMap schemaType).CompileTimeType
 
             ProvidedProperty(
                 propertyName = name,
                 propertyType = optionalOrPlainType (not <| Map.find name keywords.specific.Required) plainPropertyCompileTimeType,
                 getterCode = generatePropertyGetter context typeMap keywords property
             )
-            :: createProvidedProperties context typeMap (FSharpClass (keywords, rest))
+            :: createProvidedProperties context typeMap (JsonObject (keywords, rest))
 
         | _ -> failwith "idk not done"
 
@@ -67,7 +67,7 @@ module TypeProvider =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (target: ProvidedTypeDefinition)
-        (innerType: FSharpType)
+        (innerType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         : unit =
 
@@ -81,58 +81,58 @@ module TypeProvider =
 
         addArrayHelperTypes context typeMap target "Item" innerType
 
-    // Adds a "<name>Array" helper type to `parent` for each array in `fsharpType`; oneOf branch i is named "<name>Case<i>".
+    // Adds a "<name>Array" helper type to `parent` for each array in `schemaType`; oneOf branch i is named "<name>Case<i>".
     and private addArrayHelperTypes
         (context: GenerationContext)
         (typeMap: TypeMap)
         (parent: ProvidedTypeDefinition)
         (name: string)
-        (fsharpType: FSharpType)
+        (schemaType: JsonSchemaType)
         : unit =
 
-        match fsharpType with
-        | FSharpList(innerType, arrayKeywords) ->
+        match schemaType with
+        | JsonArray(innerType, arrayKeywords) ->
             let helperType = createprovidedTypeDefinition context "Array" name
             addArrayHelperMethods context typeMap helperType innerType arrayKeywords
             parent.AddMember helperType
-        | FSharpOneOf(_, head, tail) ->
+        | JsonOneOf(_, head, tail) ->
             head :: tail
             |> List.iteri (fun i branch -> addArrayHelperTypes context typeMap parent $"{name}Case{i + 1}" branch)
         // A class gets its own helpers when buildTypeMapHelper builds it.
-        | FSharpClass _ | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> ()
+        | JsonObject _ | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> ()
 
-    let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (fsharptype: FSharpType) isRequired parameterName =
-        let parameterType = fSharpTypeToMethodParameterType context typeMap (not isRequired) fsharptype
+    let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) isRequired parameterName =
+        let parameterType = schemaTypeToMethodParameterType context typeMap (not isRequired) schemaType
 
         if isRequired then
             ProvidedParameter(parameterName, parameterType)
         else
             ProvidedParameter(parameterName, parameterType, false, defaultValueForNullableType parameterType)
 
-    let rec private createMethodParameters (context: GenerationContext) (typeMap: TypeMap) (fsharptype: FSharpType) =
-        match fsharptype with
-        | FSharpClass (_, []) -> []
-        | FSharpClass (keywords, (name, innerfsharptype) :: rest) ->
-            createMethodParameter context typeMap innerfsharptype (Map.find name keywords.specific.Required) name
-            :: createMethodParameters context typeMap (FSharpClass (keywords, rest))
+    let rec private createMethodParameters (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) =
+        match schemaType with
+        | JsonObject (_, []) -> []
+        | JsonObject (keywords, (name, innerSchemaType) :: rest) ->
+            createMethodParameter context typeMap innerSchemaType (Map.find name keywords.specific.Required) name
+            :: createMethodParameters context typeMap (JsonObject (keywords, rest))
 
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ | FSharpOneOf _ ->
-            [ createMethodParameter context typeMap fsharptype true "value" ]
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
+            [ createMethodParameter context typeMap schemaType true "value" ]
 
 
     // The .create method to create in instance of the provided type
     let private createProvidedCreateMethod
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (fsharptype: FSharpType)
+        (schemaType: JsonSchemaType)
         (returnType: Type)
         : ProvidedMethod =
 
         ProvidedMethod(
             methodName = "Create",
-            parameters = createMethodParameters context typeMap fsharptype,
+            parameters = createMethodParameters context typeMap schemaType,
             returnType = returnType,
-            invokeCode = generateCreateInvokeCode context typeMap fsharptype,
+            invokeCode = generateCreateInvokeCode context typeMap schemaType,
             isStatic = true
         )
 
@@ -156,9 +156,9 @@ module TypeProvider =
 
     // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
     // doubles as the "is this the root" check below - the root is the only caller that passes "".
-    let rec private buildTypeMapHelper context (suffix: string) (name: string) (fsharptype: FSharpType) : (String * ProvidedTypeDefinition) list =
-        match fsharptype with
-        | FSharpClass(keywords, properties) ->
+    let rec private buildTypeMapHelper context (suffix: string) (name: string) (schemaType: JsonSchemaType) : (String * ProvidedTypeDefinition) list =
+        match schemaType with
+        | JsonObject(keywords, properties) ->
 
             let thisTypeDef = createprovidedTypeDefinition context suffix name
 
@@ -171,7 +171,7 @@ module TypeProvider =
 
             let merged = Map.ofList childEntries
 
-            createProvidedProperties context merged fsharptype
+            createProvidedProperties context merged schemaType
             |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
 
             properties
@@ -185,7 +185,7 @@ module TypeProvider =
                 else
                     typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context merged fsharptype returnType
+            let createMethod = createProvidedCreateMethod context merged schemaType returnType
             thisTypeDef.AddMember createMethod
 
 
@@ -194,14 +194,14 @@ module TypeProvider =
                 thisTypeDef.AddMember parseMethod
 
             (keywords.common.Path, thisTypeDef) :: childEntries
-        | FSharpList(inner, _) -> buildTypeMapHelper context "Item" name inner
+        | JsonArray(inner, _) -> buildTypeMapHelper context "Item" name inner
         // #region oneof-case-naming
-        | FSharpOneOf (_, head, tail) -> head :: tail |> List.collect (buildTypeMapHelper context "Case" name)
+        | JsonOneOf (_, head, tail) -> head :: tail |> List.collect (buildTypeMapHelper context "Case" name)
         // #endregion
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ -> []
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
-    let private buildTypeMap context (suffix: string) (name: string) (fsharptype: FSharpType) : Map<String, ProvidedTypeDefinition> =
-        buildTypeMapHelper context suffix name fsharptype |> Map.ofList
+    let private buildTypeMap context (suffix: string) (name: string) (schemaType: JsonSchemaType) : Map<String, ProvidedTypeDefinition> =
+        buildTypeMapHelper context suffix name schemaType |> Map.ofList
 
 
     let run
@@ -226,19 +226,19 @@ module TypeProvider =
             ConversionCache = ConcurrentDictionary()
         }
 
-        match parseJsonSchemaStructured schema schema |> jsonSchemaTypeToFSharpType with
-        | FSharpClass(keywords, _) as fsharptype ->
-            buildTypeMap context "" typeName fsharptype
+        match parseJsonSchemaStructured schema schema with
+        | JsonObject(keywords, _) as schemaType ->
+            buildTypeMap context "" typeName schemaType
             |> Map.find keywords.common.Path
 
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ as fsharptype ->
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ as schemaType ->
 
             // Class map contains nested classes inside the type - since a primitive type dont have nested classes this is empty.
             let typeMap = Map.empty
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
-            let conversions = convert context typeMap fsharptype
+            let conversions = convert context typeMap schemaType
             let innerReturnType = conversions.CompileTimeType
             let resultType = 
                 if context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
@@ -246,7 +246,7 @@ module TypeProvider =
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context typeMap fsharptype resultType
+            let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
             providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
@@ -254,15 +254,15 @@ module TypeProvider =
 
             providedTypeDefinition
 
-        | FSharpList _ | FSharpOneOf _ as fsharptype ->
-            let typeMap = buildTypeMap context "" "" fsharptype
+        | JsonArray _ | JsonOneOf _ as schemaType ->
+            let typeMap = buildTypeMap context "" "" schemaType
 
             let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
 
-            extractNestedClasses fsharptype
+            extractNestedClasses schemaType
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember typeMap[keywords.common.Path])
 
-            let conversions = convert context typeMap fsharptype
+            let conversions = convert context typeMap schemaType
             let innerReturnType = conversions.CompileTimeType
 
 
@@ -273,15 +273,15 @@ module TypeProvider =
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context typeMap fsharptype resultType
+            let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
             providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             // Root array: helpers go directly on the root type. Root oneOf: "Case<i>Array" types.
-            match fsharptype with
-            | FSharpList(innerType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition innerType arrayKeywords
-            | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" fsharptype
+            match schemaType with
+            | JsonArray(innerType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition innerType arrayKeywords
+            | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" schemaType
 
             providedTypeDefinition

@@ -150,34 +150,3 @@ module SchemaConversion =
     let parseJsonSchema (input: string) : JsonSchemaType =
         let schema = SchemaCache.parseSchema input
         parseJsonSchemaStructured schema schema
-
-    // Fsharp match types to the JsonProperty and JsonSchemaType types.
-    type FSharpType =
-        | FSharpClass of JsonObject.Keywords * List<PropertyName * FSharpType>
-        | FSharpList of FSharpType * JsonArray.Keywords
-        | FSharpDouble of JsonNumber.Keywords
-        | FSharpInt of JsonNumber.Keywords
-        | FSharpString of JsonString.Keywords
-        | FSharpBool of JsonBoolean.Keywords
-        | FSharpOneOf of Common.Keywords * FSharpType * FSharpType list
-
-    // Conversion from the JsonSchemaType into a the eqalevant FSharpType
-    let rec jsonSchemaTypeToFSharpType (jsonSchemaType: JsonSchemaType) : FSharpType =
-        match jsonSchemaType with
-        | JsonBoolean keywords -> FSharpBool keywords
-        | JsonInteger keywords -> FSharpInt keywords
-        | JsonNumber keywords -> FSharpDouble keywords
-        | JsonString keywords -> FSharpString keywords
-        | JsonObject (keywords, properties) ->
-            // Convert the jsonshematype inside the properties into a fsharptype
-            let properties' = List.map (fun (name, jsonSchemaType') -> name, jsonSchemaTypeToFSharpType jsonSchemaType') properties
-            FSharpClass (keywords, properties')
-
-        | JsonArray(innerType, keywords) ->
-            let innerFSharpType = jsonSchemaTypeToFSharpType  innerType
-            FSharpList(innerFSharpType, keywords)
-
-        | JsonOneOf (keywords, head, tail) ->
-            List.map jsonSchemaTypeToFSharpType (head :: tail)
-            |> fun l -> FSharpOneOf (keywords, List.head l, List.tail l)
-

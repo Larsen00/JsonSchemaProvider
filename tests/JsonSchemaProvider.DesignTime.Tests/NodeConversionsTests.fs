@@ -24,7 +24,7 @@ module NodeConversionsTests =
 
     let jsonBooleanKeywords : JsonSchemaProvider.JsonBoolean.Keywords = { common = commonKeywords }
 
-    // "...At" variants for building several nodes that appear *together* in one FSharpType tree
+    // "...At" variants for building several nodes that appear *together* in one JsonSchemaType tree
     // (e.g. oneOf branches, or an array and its own inner type). convert now caches by Path, and
     // a real schema never gives a node and its own descendant the same Path - the plain
     // (non-"At") values above are only safe for a single, standalone node with no same-tree
@@ -50,7 +50,7 @@ module NodeConversionsTests =
     let noFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false }
 
     // A function, not a single top-level value: convert now caches by the node's own Path, and
-    // several tests below reuse the same Path ("#") for structurally different FSharpType shapes
+    // several tests below reuse the same Path ("#") for structurally different JsonSchemaType shapes
     // (that was harmless before caching existed). A fresh context - and so a fresh, empty
     // ConversionCache - per test keeps those tests independent of each other and of test order.
     let private dummyContext () : GenerationContext =
@@ -62,12 +62,12 @@ module NodeConversionsTests =
           CompileFlags = noFlags
           ConversionCache = System.Collections.Concurrent.ConcurrentDictionary() }
 
-    let toCompileTimeType (fSharpType: FSharpType) =
-        (convert (dummyContext ()) Map.empty fSharpType).CompileTimeType
+    let toCompileTimeType (schemaType: JsonSchemaType) =
+        (convert (dummyContext ()) Map.empty schemaType).CompileTimeType
 
     let oneOfSingleBranchYieldsPlainType =
         test "oneOf with a single branch yields the branch type directly" {
-            let actual = toCompileTimeType (FSharpOneOf (commonKeywords, FSharpInt (intKeywordsAt "#/oneOf/0"), []))
+            let actual = toCompileTimeType (JsonOneOf (commonKeywords, JsonInteger (intKeywordsAt "#/oneOf/0"), []))
             Expect.equal actual typeof<int> "single-branch oneOf should not be wrapped in Choice"
         }
 
@@ -75,7 +75,7 @@ module NodeConversionsTests =
         test "oneOf with two branches yields Choice<T1,T2>" {
             let actual =
                 toCompileTimeType (
-                    FSharpOneOf (commonKeywords, FSharpInt (intKeywordsAt "#/oneOf/0"), [ FSharpString (stringKeywordsAt "#/oneOf/1") ])
+                    JsonOneOf (commonKeywords, JsonInteger (intKeywordsAt "#/oneOf/0"), [ JsonString (stringKeywordsAt "#/oneOf/1") ])
                 )
             Expect.equal actual typeof<Choice<int, string>> "two-branch oneOf should be Choice<int,string>"
         }
@@ -84,10 +84,10 @@ module NodeConversionsTests =
         test "oneOf with three branches yields Choice<T1, Choice<T2,T3>>" {
             let actual =
                 toCompileTimeType (
-                    FSharpOneOf (
+                    JsonOneOf (
                         commonKeywords,
-                        FSharpInt (intKeywordsAt "#/oneOf/0"),
-                        [ FSharpString (stringKeywordsAt "#/oneOf/1"); FSharpBool (boolKeywordsAt "#/oneOf/2") ]
+                        JsonInteger (intKeywordsAt "#/oneOf/0"),
+                        [ JsonString (stringKeywordsAt "#/oneOf/1"); JsonBoolean (boolKeywordsAt "#/oneOf/2") ]
                     )
                 )
             Expect.equal actual typeof<Choice<int, Choice<string, bool>>> "three-branch oneOf should nest"
@@ -111,7 +111,7 @@ module NodeConversionsTests =
     // something Expect.throws could wrap around a running Create/Parse call.
     let maxItemsLessThanMinItemsThrows =
         test "buildArrayConversion rejects a schema where maxItems < minItems" {
-            let arrayType = FSharpList(FSharpInt jsonIntegerNoneKeywords, jsonArrayKeywords (Some 3) (Some 2))
+            let arrayType = JsonArray(JsonInteger jsonIntegerNoneKeywords, jsonArrayKeywords (Some 3) (Some 2))
             Expect.throws (fun () -> toCompileTimeType arrayType |> ignore) "maxItems < minItems should fail fast, not silently produce a type"
         }
 
@@ -123,10 +123,10 @@ module NodeConversionsTests =
     let convertCachesRepeatedCallsOnTheSameNode =
         test "convert returns the exact same cached instance for a repeated call on the same node" {
             let context = dummyContext ()
-            let fSharpType = FSharpInt jsonIntegerNoneKeywords
+            let schemaType = JsonInteger jsonIntegerNoneKeywords
 
-            let first = convert context Map.empty fSharpType
-            let second = convert context Map.empty fSharpType
+            let first = convert context Map.empty schemaType
+            let second = convert context Map.empty schemaType
 
             Expect.isTrue (obj.ReferenceEquals(first, second)) "second call should hit the cache, not recompute"
         }
@@ -135,12 +135,12 @@ module NodeConversionsTests =
         test "convert keeps distinct nodes distinct within the same cache" {
             let context = dummyContext ()
 
-            let intConversion = convert context Map.empty (FSharpInt jsonIntegerNoneKeywords)
+            let intConversion = convert context Map.empty (JsonInteger jsonIntegerNoneKeywords)
             let stringConversion =
                 convert
                     context
                     Map.empty
-                    (FSharpString { jsonStringKeywords with common = { commonKeywords with Path = "#/other" } })
+                    (JsonString { jsonStringKeywords with common = { commonKeywords with Path = "#/other" } })
 
             Expect.notEqual intConversion.CompileTimeType stringConversion.CompileTimeType
                 "two different-Path nodes must not share a cache entry"
@@ -156,7 +156,7 @@ module NodeConversionsTests =
             // Array at "#", inner element at "#/items" - distinct paths, exactly like a real
             // schema's own array/items relationship, so the array's own cache entry (at "#")
             // can't collide with (and mask) its inner element's entry (at "#/items").
-            let innerType = FSharpInt (intKeywordsAt "#/items")
+            let innerType = JsonInteger (intKeywordsAt "#/items")
 
             // Compute the inner type once up front, exactly as buildArrayConversion's first
             // recursion level will, then let the minItems-prefix case recurse over the same node.
@@ -164,7 +164,7 @@ module NodeConversionsTests =
             // case instead, a different, non-recursive arm that wouldn't exercise the recursion
             // this test is actually about.
             let innerDirect = convert context Map.empty innerType
-            let arrayType = FSharpList(innerType, jsonArrayKeywordsAt "#" (Some 3) None)
+            let arrayType = JsonArray(innerType, jsonArrayKeywordsAt "#" (Some 3) None)
             convert context Map.empty arrayType |> ignore
 
             let innerAfterArrayConversion = convert context Map.empty innerType

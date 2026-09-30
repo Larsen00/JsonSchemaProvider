@@ -75,7 +75,7 @@ module OneOfTests =
             Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
         }
 
-    // string | (int | bool) instead of a flat 3-way oneOf - exercises a nested FSharpOneOf.
+    // string | (int | bool) instead of a flat 3-way oneOf - exercises a nested JsonOneOf.
     [<Literal>]
     let nestedOneOfSchema =
         """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"oneOf": [{"type": "integer"}, {"type": "boolean"}]}] } }, "required": ["value"] }"""

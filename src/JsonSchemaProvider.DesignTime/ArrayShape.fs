@@ -7,26 +7,26 @@ module ArrayShape =
     // An array have multiple shapes depending on its keywords, we are gonna use this type to help diffrent functions agree on the shapes.
     type ArrayShape =
         // minItems > maxItems - not a valid schema.
-        | InvalidBounds of FSharpType * JsonArray.Keywords
+        | InvalidBounds of JsonSchemaType * JsonArray.Keywords
         // UniqueItems / additionalItems keywords, or CompileFlags.IgnoreSpecificKeywords, force a
         // runtime-only fallback even though no size bound applies structurally. Same compile-time
         // encoding as Unbounded (bare list) - only FullyCompilable differs.
-        | UnsupportedKeywords of FSharpType * JsonArray.Keywords
+        | UnsupportedKeywords of JsonSchemaType * JsonArray.Keywords
         // minItems = maxItems = n: exact n-tuple, nothing optional.
-        | ExactLength of FSharpType * JsonArray.Keywords * n: int
+        | ExactLength of JsonSchemaType * JsonArray.Keywords * n: int
         // minItems mandatory prefix, maxItems optional tail bound.
-        | MinItemsPrefix of FSharpType * JsonArray.Keywords * minItems: int * maxItems: int option
+        | MinItemsPrefix of JsonSchemaType * JsonArray.Keywords * minItems: int * maxItems: int option
         // maxItems = 1, no minItems floor: option<inner>. Base case of the MaxItemsChain recursion.
-        | MaxItemsSingle of FSharpType * JsonArray.Keywords
+        | MaxItemsSingle of JsonSchemaType * JsonArray.Keywords
         // maxItems > 1, no minItems floor: option<inner * tail>, recurses down to MaxItemsSingle.
-        | MaxItemsChain of FSharpType * JsonArray.Keywords * maxItems: int
+        | MaxItemsChain of JsonSchemaType * JsonArray.Keywords * maxItems: int
         // No minItems/maxItems bound at all: plain list, already free (real `::`/List.isEmpty).
-        | Unbounded of FSharpType * JsonArray.Keywords
+        | Unbounded of JsonSchemaType * JsonArray.Keywords
 
     // Helper function that turn a set of array keywords into an ArrayShape value.
     let classifyArrayShape
         (compileFlags: ProviderConfiguration.CompileFlags)
-        (innerType: FSharpType)
+        (innerType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         : ArrayShape =
         match arrayKeywords.specific with

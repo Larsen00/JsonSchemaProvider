@@ -95,7 +95,7 @@ module RootTypeTests =
         }
 
     // Confirms primitive-root validation runs the whole sub-schema through NJsonSchema's own
-    // Validate, not just whatever SchemaConversion.fs's FSharpType model happens to act on.
+    // Validate, not just whatever SchemaConversion.fs's JsonSchemaType model happens to act on.
     [<Literal>]
     let patternConstrainedStringRootSchema = """{ "type": "string", "pattern": "^[a-z]+$" }"""
     type PatternConstrainedStringRoot = JsonSchemaProvider<schema=patternConstrainedStringRootSchema>

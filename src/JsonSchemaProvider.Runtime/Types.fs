@@ -38,8 +38,8 @@ module JsonArray =
 
 module JsonNumber =
     // Shared by both "integer" and "number" - the numeric range/multipleOf keywords apply the
-    // same way regardless of which of the two the schema declares. FSharpInt/FSharpDouble (the
-    // FSharpType cases built from this) still track that distinction themselves; it's not a
+    // same way regardless of which of the two the schema declares. JsonInteger/JsonNumber (the
+    // JsonSchemaType cases built from this) still track that distinction themselves; it's not a
     // keyword, so it doesn't live here.
     type Specific = {
         Minimum: float option

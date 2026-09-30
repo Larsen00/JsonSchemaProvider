@@ -30,7 +30,7 @@ module ExprGenerator =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords:  JsonObject.Keywords)
-        ((name, innertype): PropertyName * FSharpType)
+        ((name, innertype): PropertyName * JsonSchemaType)
         : Expr list -> Expr =
         let conv = convert context typeMap innertype
         let plainPropertyRuntimeType = conv.RuntimeType
@@ -76,11 +76,11 @@ module ExprGenerator =
 
                 Expr.Application(convertToRuntimeType, propertySelect)
 
-    let private generateIsNullCheck (fSharpType: FSharpType) (arg: Expr) : Expr =
-        match fSharpType with
-        | FSharpBool(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
-        | FSharpInt(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
-        | FSharpDouble(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
+    let private generateIsNullCheck (schemaType: JsonSchemaType) (arg: Expr) : Expr =
+        match schemaType with
+        | JsonBoolean(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
+        | JsonInteger(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
+        | JsonNumber(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
         | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
 
     let private generatePropertyCreation
@@ -88,14 +88,14 @@ module ExprGenerator =
         (typeMap: TypeMap)
         (name: string)
         (optional: bool)
-        (fSharpType: FSharpType)
+        (schemaType: JsonSchemaType)
         (arg: Expr)
         =
-        let conv = convert context typeMap fSharpType
+        let conv = convert context typeMap schemaType
         let toJson = wrapOptionalToJson conv optional
 
         if optional then
-            let isNull = generateIsNullCheck fSharpType arg
+            let isNull = generateIsNullCheck schemaType arg
 
             let thenBranch = Expr.NewArray(typeof<string * JsonValue>, [])
 
@@ -177,7 +177,7 @@ module ExprGenerator =
     let generateCreateInvokeCode
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (fsharptype: FSharpType)
+        (schemaType: JsonSchemaType)
         : Expr list -> Expr =
 
         // Plain locals extracted up front so the quotations below only ever close over ordinary
@@ -186,8 +186,8 @@ module ExprGenerator =
         let schemaHashCode = context.SchemaHashCode
         let schemaSource = context.SchemaString
 
-        match fsharptype with
-        | FSharpClass(keywords, properties) ->
+        match schemaType with
+        | JsonObject(keywords, properties) ->
             fun (args: Expr list) ->
                 let elementType = typedefof<(string * JsonValue)[]>
 
@@ -213,17 +213,17 @@ module ExprGenerator =
         // Only hitting this branch when the type is at the root of the json Schema
         // never gets its own Create when nested as a property, so this always validates against
         // the whole schema directly, no path lookup needed.
-        | FSharpBool _ | FSharpInt _ | FSharpDouble _ | FSharpString _ | FSharpList _ | FSharpOneOf _ ->
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
             fun (args: Expr list) ->
                 
-                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap fsharptype).FullyCompilable then
+                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaType).FullyCompilable then
                     args[0]
                 else 
-                    let conv = convert context typeMap fsharptype
+                    let conv = convert context typeMap schemaType
                     let jsonValExpr = Expr.Application(conv.ToJson, args[0])
                     let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
-                    let path = pathOf fsharptype
+                    let path = pathOf schemaType
                     let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
 
                     // The success payload is args[0] itself (the caller's bool/int/double/string/list),

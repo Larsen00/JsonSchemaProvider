@@ -29,8 +29,8 @@ module ObjectKeywordTests =
             Expect.equal flat.Z (Some 1) "flat.Z = Some 1"
         }
 
-    // flatSchema's optional Z:integer covers the FSharpInt branch; this covers the FSharpBool/
-    // FSharpDouble optional-property branches, which nothing else in this file exercises.
+    // flatSchema's optional Z:integer covers the JsonInteger branch; this covers the JsonBoolean/
+    // JsonNumber optional-property branches, which nothing else in this file exercises.
     [<Literal>]
     let optionalPrimitivesSchema =
         """{ "type": "object", "properties": { "flag": {"type": "boolean"}, "amount": {"type": "number"} } }"""

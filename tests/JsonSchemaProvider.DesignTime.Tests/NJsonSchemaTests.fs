@@ -144,7 +144,7 @@ module NJsonSchemaTests =
     // quotation, only simple values (strings/ints/Guids) can. JsonPathUtilities.GetJsonPath gives
     // a path string identifying a node's position in the tree - if that path is stable across
     // independent parses of the same schema text, it's a candidate for "the id to carry in
-    // FSharpType", without needing to inject anything into the schema JSON itself.
+    // JsonSchemaType", without needing to inject anything into the schema JSON itself.
     let jsonPathForANestedPropertyIsStableAcrossIndependentParses =
         test "JsonPathUtilities.GetJsonPath returns the same path for the same property across two independent parses" {
             let schemaText =

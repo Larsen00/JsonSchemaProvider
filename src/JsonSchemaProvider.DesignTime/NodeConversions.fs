@@ -30,15 +30,15 @@ module NodeConversions =
 
     // Every type carries its own Path
     // A root-level node's Path is "#".
-    let pathOf (fsharpType: FSharpType) : string =
-        match fsharpType with
-        | FSharpDouble keywords
-        | FSharpInt keywords            -> keywords.common.Path
-        | FSharpBool keywords           -> keywords.common.Path
-        | FSharpString keywords         -> keywords.common.Path
-        | FSharpClass (keywords, _)     -> keywords.common.Path
-        | FSharpList(_, keywords)       -> keywords.common.Path
-        | FSharpOneOf (keywords, _, _)  -> keywords.Path
+    let pathOf (schemaType: JsonSchemaType) : string =
+        match schemaType with
+        | JsonNumber keywords
+        | JsonInteger keywords            -> keywords.common.Path
+        | JsonBoolean keywords           -> keywords.common.Path
+        | JsonString keywords         -> keywords.common.Path
+        | JsonObject (keywords, _)     -> keywords.common.Path
+        | JsonArray(_, keywords)       -> keywords.common.Path
+        | JsonOneOf (keywords, _, _)  -> keywords.Path
 
     // Builds `fun jsonVal -> let jsonArr = jsonVal.AsArray() in buildBody jsonArr`
     let private withJsonArrayLambda (buildBody: Var -> Expr) : Expr =
@@ -74,24 +74,24 @@ module NodeConversions =
 
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
-    let rec convert (context: GenerationContext) (typeMap: TypeMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion = 
+    let rec convert (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion = 
         
         context.ConversionCache.GetOrAdd( 
-            pathOf fSharpType,
-            fun _ -> conversion context typeMap fSharpType
+            pathOf schemaType,
+            fun _ -> conversion context typeMap schemaType
         )
         
 
-    // Builds everything there is to know about turning one FSharpType node into F#: its
+    // Builds everything there is to know about turning one JsonSchemaType node into F#: its
     // compile-time type, its runtime/erased type, and the two conversion functions between
     // JsonValue and that runtime type
     //
     // Its done like this because otherwise we needed four separate functions that all needed
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
-    and conversion (context: GenerationContext) (typeMap: TypeMap) (fSharpType: FSharpType) : ProviderConfiguration.NodeConversion =
+    and conversion (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion =
         
-        match fSharpType with
-        | FSharpBool keywords -> { 
+        match schemaType with
+        | JsonBoolean keywords -> { 
                 CompileTimeType = typeof<bool>
                 RuntimeType = typeof<bool>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
@@ -99,7 +99,7 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
-        | FSharpInt keywords -> {
+        | JsonInteger keywords -> {
                 CompileTimeType = typeof<int>
                 RuntimeType = typeof<int>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
@@ -107,7 +107,7 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
-        | FSharpDouble keywords -> {
+        | JsonNumber keywords -> {
                 CompileTimeType = typeof<double>
                 RuntimeType = typeof<double>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
@@ -115,7 +115,7 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
-        | FSharpString keywords -> {
+        | JsonString keywords -> {
                 CompileTimeType = typeof<string>
                 RuntimeType = typeof<string>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
@@ -123,7 +123,7 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
-        | FSharpClass(keywords, properties) ->
+        | JsonObject(keywords, properties) ->
             {
                 CompileTimeType = typeMap[keywords.common.Path]
                 RuntimeType = typeof<NullableJsonValue>
@@ -133,12 +133,12 @@ module NodeConversions =
             }
 
         // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
-        | FSharpList(innerType, arrayKeywords) -> (buildArrayConversion context typeMap innerType arrayKeywords).common
+        | JsonArray(innerType, arrayKeywords) -> (buildArrayConversion context typeMap innerType arrayKeywords).common
 
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
         // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
         // buildOneOfConversion has no access to - folded in here instead.
-        | FSharpOneOf (keywords, head, tail) ->
+        | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
             { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
         
@@ -152,7 +152,7 @@ module NodeConversions =
     and buildArrayConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (innerType: FSharpType)
+        (innerType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         : ProviderConfiguration.ArrayConversion =
 
@@ -323,7 +323,6 @@ module NodeConversions =
         // maxItems > 1: option<(inner * tail)>, tail built by recursing on this same function.
         | MaxItemsChain(_, _, maxItems) ->
 
-            // im not super sure but i think i might accidental call this function maxitems times -- TODO
             let inner = convert context typeMap innerType
 
             // Build the tail conversion by recursively calling this function with MaxItems decreased by 1.
@@ -405,7 +404,7 @@ module NodeConversions =
     and private buildHeadTailConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (innerType: FSharpType)
+        (innerType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         (inner: ProviderConfiguration.NodeConversion)
         (tailKeywords: JsonArray.Keywords)
@@ -456,9 +455,9 @@ module NodeConversions =
     and buildOneOfConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (branchFSharpTypes: FSharpType list)
+        (branchSchemaTypes: JsonSchemaType list)
         : ProviderConfiguration.NodeConversion =
-        match branchFSharpTypes with
+        match branchSchemaTypes with
         | [] -> failwith "OneOf must have at least one type"
         | [ single ] -> convert context typeMap single
         | headType :: restTypes ->
@@ -488,7 +487,7 @@ module NodeConversions =
 
     // Whether a class's own Create can skip Result-wrapping: its own JSON carries nothing
     // unmodeled, and every property's own conversion is itself FullyCompilable. Split out from
-    // convert's FSharpClass case (rather than inlined there) because TypeProvider.fs's
+    // convert's JsonObject case (rather than inlined there) because TypeProvider.fs's
     // buildTypeMapHelper and ExprGenerator.fs's generateCreateInvokeCode both need this same
     // answer while still building the class's own members - before its own path is registered in
     // typeMap, so calling convert on the class itself (which needs typeMap[keywords.common.Path])
@@ -498,7 +497,7 @@ module NodeConversions =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords: JsonObject.Keywords)
-        (properties: (PropertyName * FSharpType) list)
+        (properties: (PropertyName * JsonSchemaType) list)
         : bool =
         keywords.common.CanBeCompiled
         && properties |> List.forall (fun (_, propertyType) -> (convert context typeMap propertyType).FullyCompilable)
@@ -521,11 +520,11 @@ module NodeConversions =
     let defaultValueForNullableType (compileTimeType: Type) : obj =
         if compileTimeType.IsValueType then Nullable() else null
 
-    let fSharpTypeToMethodParameterType
+    let schemaTypeToMethodParameterType
         (context: GenerationContext)
         (typeMap: TypeMap)
         (optional: bool)
-        (fSharpType: FSharpType)
+        (schemaType: JsonSchemaType)
         : Type =
-        let compileTimeType = (convert context typeMap fSharpType).CompileTimeType
+        let compileTimeType = (convert context typeMap schemaType).CompileTimeType
         nullableOrPlainType optional compileTimeType
