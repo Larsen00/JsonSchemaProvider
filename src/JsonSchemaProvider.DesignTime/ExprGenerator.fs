@@ -141,6 +141,7 @@ module ExprGenerator =
     // raise inside toRuntime. toRuntime is a closed lambda JsonValue -> runtimeType.
     let generateParseInvokeCode
         (context: GenerationContext)
+        (path: string)
         (runtimeType: Type)
         (toRuntime: Expr)
         : Expr list -> Expr =
@@ -167,7 +168,7 @@ module ExprGenerator =
                 (if context.CompileFlags.SkipRuntimeValidation then
                      <@@ parseOnly (%%args[0]: string) @@>
                  else
-                     <@@ parseAndValidate (%%args[0]: string) schemaHashCode schemaSource @@>),
+                     <@@ parseAndValidate path (%%args[0]: string) schemaHashCode schemaSource @@>),
                 Expr.IfThenElse(
                     isOk,
                     Expr.NewUnionCase(okCase, [ Expr.Application(toRuntime, okValue) ]),

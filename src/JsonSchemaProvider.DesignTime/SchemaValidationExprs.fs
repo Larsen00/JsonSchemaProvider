@@ -35,12 +35,12 @@ module SchemaValidationExprs =
         | Some jsonValue -> Ok jsonValue
 
     // Parse's default entry point: syntactically parses jsonText, then validates it against the
-    // whole root schema. Malformed JSON is reported as an Error too, so Parse never raises.
-    let parseAndValidate (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : Result<JsonValue, string list> =
+    // sub-schema at path ("#" for the root). Malformed JSON is reported as an Error too, so Parse never raises.
+    let parseAndValidate (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : Result<JsonValue, string list> =
         match parseOnly jsonText with
         | Error errors -> Error errors
         | Ok jsonValue ->
-            match collectValidationErrors "#" jsonText schemaHashCode schemaSource with
+            match collectValidationErrors path jsonText schemaHashCode schemaSource with
             | [] -> Ok jsonValue
             | errors -> Error errors
 

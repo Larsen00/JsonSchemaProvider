@@ -116,6 +116,53 @@ module NestedValidationTests =
             Expect.equal item.points 50 "within range"
         }
 
+    // Parse on nested classes: each must validate against its own sub-schema, like Create above.
+    let nestedParseAcceptsInRangeValue =
+        test "nested class Parse accepts an in-range value when called directly" {
+            let person = Expect.wantOk (NestedAge.personObj.Parse("""{"age": 7}""")) "nested Parse should succeed"
+            Expect.equal person.age 7 "in range"
+        }
+
+    let nestedParseValidatesConstraints =
+        test "nested class Parse enforces constraints when called directly" {
+            Expect.isError (NestedAge.personObj.Parse("""{"age": 3}""")) "below minimum, enforced on its own"
+        }
+
+    let nestedParseRejectsMissingRequired =
+        test "nested class Parse enforces its own required list" {
+            Expect.isError (NestedAge.personObj.Parse("""{}""")) "age is required by the nested sub-schema"
+        }
+
+    let nestedParseRejectsMalformedJson =
+        test "nested class Parse reports malformed JSON as Error" {
+            Expect.isError (NestedAge.personObj.Parse("""{"age": """)) "syntax check runs on nested Parse too"
+        }
+
+    let twoLevelNestedParseValidatesConstraints =
+        test "a class nested two levels deep validates its own constraints in Parse" {
+            Expect.isError (TwoLevelNested.personObj.addressObj.Parse("""{"zip": 500}""")) "below minimum"
+            let address = Expect.wantOk (TwoLevelNested.personObj.addressObj.Parse("""{"zip": 5000}""")) "nested Parse should succeed"
+            Expect.equal address.zip 5000 "in range"
+        }
+
+    let siblingNestedClassesParseAgainstTheirOwnConstraints =
+        test "two sibling nested classes each validate against their own sub-schema in Parse" {
+            let smallValue = Expect.wantOk (SiblingConstraints.smallObj.Parse("""{"value": 5}""")) "small Parse should succeed"
+            Expect.equal smallValue.value 5 "within small's own range"
+            Expect.isError (SiblingConstraints.smallObj.Parse("""{"value": 150}""")) "outside small's range, even though within large's"
+
+            let largeValue = Expect.wantOk (SiblingConstraints.largeObj.Parse("""{"value": 150}""")) "large Parse should succeed"
+            Expect.equal largeValue.value 150 "within large's own range"
+            Expect.isError (SiblingConstraints.largeObj.Parse("""{"value": 5}""")) "outside large's range, even though within small's"
+        }
+
+    let arrayItemNestedClassParseValidatesConstraints =
+        test "a class reached through an array item validates its own constraints in Parse" {
+            Expect.isError (ArrayItemConstraints.scoresItem.Parse("""{"points": 150}""")) "above maximum"
+            let item = Expect.wantOk (ArrayItemConstraints.scoresItem.Parse("""{"points": 50}""")) "nested Parse should succeed"
+            Expect.equal item.points 50 "within range"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -130,4 +177,11 @@ module NestedValidationTests =
               twoLevelNestedCreateRejectsOutOfRange
               twoLevelNestedCreateAcceptsInRange
               siblingNestedClassesValidateAgainstTheirOwnConstraints
-              arrayItemNestedClassValidatesConstraints ]
+              arrayItemNestedClassValidatesConstraints
+              nestedParseAcceptsInRangeValue
+              nestedParseValidatesConstraints
+              nestedParseRejectsMissingRequired
+              nestedParseRejectsMalformedJson
+              twoLevelNestedParseValidatesConstraints
+              siblingNestedClassesParseAgainstTheirOwnConstraints
+              arrayItemNestedClassParseValidatesConstraints ]

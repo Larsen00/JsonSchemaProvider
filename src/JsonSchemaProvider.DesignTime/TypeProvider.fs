@@ -142,6 +142,7 @@ module TypeProvider =
     // ExprGenerator.generateParseInvokeCode for why it can't drop the Result the way Create can.
     let private createProvidedParseMethod
         (context: GenerationContext)
+        (path: string)
         (valueType: Type)
         (runtimeType: Type)
         (toRuntime: Expr)
@@ -152,11 +153,10 @@ module TypeProvider =
             parameters = [ ProvidedParameter("json", typeof<string>) ],
             returnType = typedefof<Result<_,_>>.MakeGenericType(valueType, typeof<string list>),
             isStatic = true,
-            invokeCode = generateParseInvokeCode context runtimeType toRuntime
+            invokeCode = generateParseInvokeCode context path runtimeType toRuntime
         )
 
-    // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
-    // doubles as the "is this the root" check below - the root is the only caller that passes "".
+    // suffix identifies *why* this class is nested (property vs list item vs oneOf case); the root passes "".
     let rec private buildTypeMapHelper
         (context: GenerationContext)
         (suffix: string)
@@ -202,13 +202,13 @@ module TypeProvider =
                 createProvidedCreateMethod context typeMap schemaType returnType
             providedType.AddMember createMethod
 
-            if suffix = "" then
-                let toRuntime =
-                    <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
-                let parseMethod =
-                    createProvidedParseMethod
-                        context providedType typeof<NullableJsonValue> toRuntime
-                providedType.AddMember parseMethod
+            // Like Create, every class gets Parse, validated against its own sub-schema by Path.
+            let toRuntime =
+                <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
+            let parseMethod =
+                createProvidedParseMethod
+                    context keywords.common.Path providedType typeof<NullableJsonValue> toRuntime
+            providedType.AddMember parseMethod
 
             (keywords.common.Path, providedType) :: nestedTypes
         | JsonArray(itemType, _) -> buildTypeMapHelper context "Item" name itemType
@@ -278,7 +278,7 @@ module TypeProvider =
             // #old let createMethod = createProvidedCreateMethod context typeMap schemaType returnType
             providedTypeDefinition.AddMember createMethod
 
-            let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
+            let parseMethod = createProvidedParseMethod context (pathOf schemaType) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
@@ -306,7 +306,7 @@ module TypeProvider =
             let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
             providedTypeDefinition.AddMember createMethod
 
-            let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
+            let parseMethod = createProvidedParseMethod context (pathOf schemaType) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             // Root array: helpers go directly on the root type. Root oneOf: "Case<i>Array" types.
