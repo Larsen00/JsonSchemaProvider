@@ -22,7 +22,7 @@ module TypeProvider =
         | JsonOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
-    let private createprovidedTypeDefinition (context: GenerationContext) (suffix: string) className =
+    let private createProvidedTypeDefinition (context: GenerationContext) (suffix: string) className =
         ProvidedTypeDefinition(
             context.Assembly,
             context.NamespaceName,
@@ -93,7 +93,7 @@ module TypeProvider =
 
         match schemaType with
         | JsonArray(innerType, arrayKeywords) ->
-            let helperType = createprovidedTypeDefinition context "Array" name
+            let helperType = createProvidedTypeDefinition context "Array" name
             addArrayHelperMethods context typeMap helperType innerType arrayKeywords
             parent.AddMember helperType
         | JsonOneOf(_, head, tail) ->
@@ -157,51 +157,70 @@ module TypeProvider =
 
     // suffix identifies *why* this class is nested (property vs list item vs oneOf case) and
     // doubles as the "is this the root" check below - the root is the only caller that passes "".
-    let rec private buildTypeMapHelper context (suffix: string) (name: string) (schemaType: JsonSchemaType) : (String * ProvidedTypeDefinition) list =
+    let rec private buildTypeMapHelper
+        (context: GenerationContext)
+        (suffix: string)
+        (name: string)
+        (schemaType: JsonSchemaType)
+        : (String * ProvidedTypeDefinition) list =
+
         match schemaType with
         | JsonObject(keywords, properties) ->
+            let providedType = createProvidedTypeDefinition context suffix name
 
-            let thisTypeDef = createprovidedTypeDefinition context suffix name
-
-            let childEntries =
+            let nestedTypes =
                 properties
-                |> List.collect (fun (propertyName, t) -> buildTypeMapHelper context "Obj" propertyName t)
+                |> List.collect (fun (propertyName, propertyType) ->
+                    buildTypeMapHelper context "Obj" propertyName propertyType)
 
-            childEntries
-            |> List.iter (fun (_, nestedClassProvidedTypeDefinition) -> thisTypeDef.AddMember nestedClassProvidedTypeDefinition)
+            nestedTypes
+            |> List.iter (fun (_, nestedType) -> providedType.AddMember nestedType)
 
-            let merged = Map.ofList childEntries
+            let typeMap = Map.ofList nestedTypes
 
-            createProvidedProperties context merged schemaType
-            |> List.iter (fun providedProperty -> thisTypeDef.AddMember(providedProperty))
+            createProvidedProperties context typeMap schemaType
+            |> List.iter (fun property -> providedType.AddMember property)
 
+            // #elide-start
             properties
-            |> List.iter (fun (propertyName, propertyType) -> addArrayHelperTypes context merged thisTypeDef propertyName propertyType)
+            |> List.iter (fun (propertyName, propertyType) ->
+                addArrayHelperTypes context typeMap providedType propertyName propertyType)
+            // #elide-end
 
-            // Wrap the return type in Result unless this class (and every property's own type) is
-            // FullyCompilable, in which case Create can't fail and returns the class directly.
+            // #omit-start
+            // Create returns the type directly when it can't fail, otherwise a Result.
             let returnType =
-                if context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context merged keywords properties then
-                    thisTypeDef :> Type
+                if context.CompileFlags.SkipRuntimeValidation
+                   || isClassFullyCompilable context typeMap keywords properties then
+                    providedType :> Type
                 else
-                    typedefof<Result<_,_>>.MakeGenericType(thisTypeDef, typeof<string list>)
+                    typedefof<Result<_,_>>.MakeGenericType(providedType, typeof<string list>)
+            // #omit-end
+            // #old let returnType = providedType :> Type
 
-            let createMethod = createProvidedCreateMethod context merged schemaType returnType
-            thisTypeDef.AddMember createMethod
-
+            let createMethod =
+                createProvidedCreateMethod context typeMap schemaType returnType
+            providedType.AddMember createMethod
 
             if suffix = "" then
-                let parseMethod = createProvidedParseMethod context thisTypeDef typeof<NullableJsonValue> <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
-                thisTypeDef.AddMember parseMethod
+                let toRuntime =
+                    <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
+                let parseMethod =
+                    createProvidedParseMethod
+                        context providedType typeof<NullableJsonValue> toRuntime
+                providedType.AddMember parseMethod
 
-            (keywords.common.Path, thisTypeDef) :: childEntries
-        | JsonArray(inner, _) -> buildTypeMapHelper context "Item" name inner
+            (keywords.common.Path, providedType) :: nestedTypes
+        | JsonArray(itemType, _) -> buildTypeMapHelper context "Item" name itemType
+        // #omit-start
         // #region oneof-case-naming
-        | JsonOneOf (_, head, tail) -> head :: tail |> List.collect (buildTypeMapHelper context "Case" name)
+        | JsonOneOf (_, head, tail) ->
+            head :: tail |> List.collect (buildTypeMapHelper context "Case" name)
         // #endregion
+        // #omit-end
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
-    let private buildTypeMap context (suffix: string) (name: string) (schemaType: JsonSchemaType) : Map<String, ProvidedTypeDefinition> =
+    let private buildTypeMap context (suffix: string) (name: string) (schemaType: JsonSchemaType) : TypeMap =
         buildTypeMapHelper context suffix name schemaType |> Map.ofList
 
 
@@ -227,6 +246,7 @@ module TypeProvider =
             ConversionCache = ConcurrentDictionary()
         }
 
+        // #region root-match
         match parseJsonSchemaStructured schema schema with
         | JsonObject(keywords, _) as schemaType ->
             buildTypeMap context "" typeName schemaType
@@ -234,20 +254,28 @@ module TypeProvider =
 
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ as schemaType ->
 
+            // #omit-start
             // Class map contains nested classes inside the type - since a primitive type dont have nested classes this is empty.
+            // #omit-end
             let typeMap = Map.empty
 
-            let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
+            let providedTypeDefinition = createProvidedTypeDefinition context "" typeName
 
             let conversions = convert context typeMap schemaType
+            // #omit-start
             let innerReturnType = conversions.CompileTimeType
-            let resultType = 
+            let resultType =
                 if context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
                     innerReturnType
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
+            // #omit-end
+            // #old let returnType = conversions.CompileTimeType
 
+            // #omit-start
             let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
+            // #omit-end
+            // #old let createMethod = createProvidedCreateMethod context typeMap schemaType returnType
             providedTypeDefinition.AddMember createMethod
 
             let parseMethod = createProvidedParseMethod context conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
@@ -258,10 +286,11 @@ module TypeProvider =
         | JsonArray _ | JsonOneOf _ as schemaType ->
             let typeMap = buildTypeMap context "" "" schemaType
 
-            let providedTypeDefinition = createprovidedTypeDefinition context "" typeName
+            let providedTypeDefinition = createProvidedTypeDefinition context "" typeName
 
             extractNestedClasses schemaType
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember typeMap[keywords.common.Path])
+            // #elide-start
 
             let conversions = convert context typeMap schemaType
             let innerReturnType = conversions.CompileTimeType
@@ -284,5 +313,7 @@ module TypeProvider =
             match schemaType with
             | JsonArray(innerType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition innerType arrayKeywords
             | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" schemaType
+            // #elide-end
 
             providedTypeDefinition
+            // #endregion

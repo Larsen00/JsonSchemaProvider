@@ -60,6 +60,7 @@ module NodeConversions =
 
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
+    // #region convert-conversion
     let rec convert (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion = 
         
         context.ConversionCache.GetOrAdd( 
@@ -68,12 +69,14 @@ module NodeConversions =
         )
         
 
+    // #elide-start
     // Builds everything there is to know about turning one JsonSchemaType node into F#: its
     // compile-time type, its runtime/erased type, and the two conversion functions between
     // JsonValue and that runtime type
     //
     // Its done like this because otherwise we needed four separate functions that all needed
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
+    // #elide-end
     and conversion (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion =
         
         match schemaType with
@@ -82,9 +85,12 @@ module NodeConversions =
                 RuntimeType = typeof<bool>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
                 ToJson = <@@ fun (runtimeObj: bool) -> JsonValue.Boolean(runtimeObj) @@>
+                // #elide-start
                 FullyCompilable = keywords.common.CanBeCompiled
+                // #elide-end
             }
 
+        // #elide-start
         | JsonInteger keywords -> {
                 CompileTimeType = typeof<int>
                 RuntimeType = typeof<int>
@@ -127,6 +133,8 @@ module NodeConversions =
         | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
             { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
+        // #elide-end
+        // #endregion
         
 
     

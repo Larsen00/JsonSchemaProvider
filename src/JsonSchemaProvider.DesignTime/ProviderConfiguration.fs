@@ -47,6 +47,8 @@ module ProviderConfiguration =
         RootBaseType: Type
         SchemaHashCode: int32
         SchemaString: string
+        // #omit-start
         CompileFlags: CompileFlags
+        // #omit-end
         ConversionCache: ConcurrentDictionary<string, NodeConversion> // keyed by node Path
     }
