@@ -6,27 +6,13 @@ module NodeConversions =
     open FSharp.Quotations
     open FSharp.Data
     open SchemaConversion
+    open ProviderConfiguration
     open ProviderImplementation.ProvidedTypes
     open JsonSchemaProvider
     open System.Collections.Concurrent
     open ArrayShape
 
     type TypeMap = Map<string, ProvidedTypeDefinition>
-
-    // Many of the functions in TypeProvider.fs/ExprGenerator.fs reuse the same static data, hence
-    // a record type to bundle it instead of threading each field separately. Lives here (rather
-    // than in TypeProvider.fs, where it used to be) so ExprGenerator.fs - which compiles before
-    // TypeProvider.fs - can see it too.
-    type GenerationContext =
-        { Assembly: Assembly
-          NamespaceName: string
-          RootBaseType: Type
-          SchemaHashCode: int32
-          SchemaString: string
-          CompileFlags: ProviderConfiguration.CompileFlags
-
-          // Mutable cache for node conversions to avoid recomputation
-          ConversionCache: ConcurrentDictionary<string, ProviderConfiguration.NodeConversion> }
 
     // Every type carries its own Path
     // A root-level node's Path is "#".
