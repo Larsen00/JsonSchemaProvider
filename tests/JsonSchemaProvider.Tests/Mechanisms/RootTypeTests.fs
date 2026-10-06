@@ -210,8 +210,8 @@ module RootTypeTests =
             Expect.equal (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice2Of2 true))) (Choice2Of2(Choice2Of2 true)) "bool branch"
         }
 
-    // One branch is an object - the generated class is named "Case" (empty root name + "Case"
-    // suffix) and, being an unconstrained string property, is FullyCompilable.
+    // One branch is an object - the generated class is named "Case1" (empty root name + its
+    // branch's "Case<i>" suffix) and, being an unconstrained string property, is FullyCompilable.
     [<Literal>]
     let placeOrIdRootSchema =
         """{ "oneOf": [{ "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }, { "type": "integer" }] }"""
@@ -219,7 +219,7 @@ module RootTypeTests =
 
     let oneOfRootWithObjectBranchShouldBeCreatedFromObjectBranch =
         test "oneOf root with an object branch Create builds the value from the object branch" {
-            let place = PlaceOrIdRoot.Case.Create(name = "Copenhagen")
+            let place = PlaceOrIdRoot.Case1.Create(name = "Copenhagen")
             match PlaceOrIdRoot.Create(value = Choice1Of2 place) with
             | Choice1Of2 case -> Expect.equal case.name "Copenhagen" "name roundtrips"
             | Choice2Of2 _ -> failtest "expected the object branch (Choice1Of2)"

@@ -1,9 +1,7 @@
 namespace JsonSchemaProvider.Tests
 
-// Two object branches in the same oneOf both get named "valueCase" (buildClassMapHelper's naming
-// rule), so the compiler resolves a member access against only one of the two identically-named
-// types. The two b-branch/square-branch tests below work around it via ToString() instead of the
-// typed member - a generated-type naming gap, not a validation gap (branch selection still works).
+// Two object branches in the same oneOf: branch selection, and each branch getting its own
+// indexed provided type ("valueCase1", "valueCase2") whose members are reachable by name.
 module OneOfObjectBranchTests =
     open Expecto
     open JsonSchemaProvider
@@ -37,10 +35,24 @@ module OneOfObjectBranchTests =
         test "object|object oneOf: {b} alone picks the b-branch" {
             let v = Expect.wantOk (RequiredPropertyDiscriminator.Parse("""{"value": {"b": "y"}}""")) "Parse should succeed"
             match v.value with
-            | Choice2Of2 case ->
-                Expect.stringContains (case.ToString()) "\"b\"" "the record has a \"b\" property"
-                Expect.stringContains (case.ToString()) "\"y\"" "b's value is \"y\""
+            | Choice2Of2 case -> Expect.equal case.b "y" "b = \"y\""
             | Choice1Of2 _ -> failtest "expected the b-branch (Choice2Of2)"
+        }
+
+    // Before branches were indexed, both were named "valueCase" and only the first resolved by name.
+    let eachBranchHasItsOwnCreate =
+        test "object|object oneOf: each branch's indexed type has its own Create" {
+            let a = Expect.wantOk (RequiredPropertyDiscriminator.valueCase1.Create(a = "x")) "first branch Create should succeed"
+            let b = Expect.wantOk (RequiredPropertyDiscriminator.valueCase2.Create(b = "y")) "second branch Create should succeed"
+            Expect.equal a.a "x" "first branch's Create builds an a-record"
+            Expect.equal b.b "y" "second branch's Create builds a b-record"
+        }
+
+    let secondBranchParseValidatesItsOwnSubschema =
+        test "object|object oneOf: the second branch's Parse validates against its own sub-schema" {
+            let b = Expect.wantOk (RequiredPropertyDiscriminator.valueCase2.Parse("""{"b": "y"}""")) "Parse should succeed"
+            Expect.equal b.b "y" "b = \"y\""
+            Expect.isError (RequiredPropertyDiscriminator.valueCase2.Parse("""{"a": "x"}""")) "the a-branch's JSON fails the b-branch"
         }
 
     // additionalProperties:false makes {a, b} invalid against *both* branches, not just ambiguous.
@@ -86,8 +98,7 @@ module OneOfObjectBranchTests =
             match v.value with
             | Choice2Of2 case ->
                 Expect.equal case.kind "square" "kind = \"square\""
-                Expect.stringContains (case.ToString()) "\"side\"" "the record has a \"side\" property"
-                Expect.stringContains (case.ToString()) "4" "side's value is 4.0"
+                Expect.equal case.side 4.0 "side = 4.0"
             | Choice1Of2 _ -> failtest "expected the square branch (Choice2Of2)"
         }
 
@@ -100,6 +111,8 @@ module OneOfObjectBranchTests =
             "JsonSchemaProvider.Tests.OneOfObjectBranchTests"
             [ requiredPropertyDiscriminatorPicksABranch
               requiredPropertyDiscriminatorPicksBBranch
+              eachBranchHasItsOwnCreate
+              secondBranchParseValidatesItsOwnSubschema
               requiredPropertyDiscriminatorRejectsBothPropertiesPresent
               constDiscriminatorPicksCircleBranch
               constDiscriminatorPicksSquareBranch ]

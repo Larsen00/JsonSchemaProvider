@@ -215,7 +215,10 @@ module TypeProvider =
         // #omit-start
         // #region oneof-case-naming
         | JsonOneOf (_, head, tail) ->
-            head :: tail |> List.collect (buildTypeMapHelper context "Case" name)
+            // Branch i gets "Case<i>", so object branches of one oneOf never share a name.
+            head :: tail
+            |> List.mapi (fun i branch -> buildTypeMapHelper context $"Case{i + 1}" name branch)
+            |> List.concat
         // #endregion
         // #omit-end
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
@@ -283,7 +286,10 @@ module TypeProvider =
 
             providedTypeDefinition
 
+        // #omit-start
         | JsonArray _ | JsonOneOf _ as schemaType ->
+        // #omit-end
+        // #old | JsonArray _ as schemaType ->
             let typeMap = buildTypeMap context "" "" schemaType
 
             let providedTypeDefinition = createProvidedTypeDefinition context "" typeName
