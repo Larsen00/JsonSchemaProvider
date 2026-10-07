@@ -613,6 +613,24 @@ module ObjectKeywordTests =
             Expect.isOk (PatternPropertiesObject.Parse("""{"S_x": "ok"}""")) "Parse should succeed"
         }
 
+    // An exact-length-1 int array compiles to int, so the optional parameter is Nullable<int>.
+    [<Literal>]
+    let optionalExact1Schema =
+        """{ "type": "object", "properties": { "one": { "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1 } } }"""
+    type OptionalExact1 = JsonSchemaProvider<schema = optionalExact1Schema>
+
+    let optionalExact1Absent =
+        test "optional exact-length-1 array property: omitted argument leaves the property out" {
+            Expect.equal (OptionalExact1.Create()).one None "absent"
+        }
+
+    let optionalExact1Present =
+        test "optional exact-length-1 array property: given argument is stored as a one-element array" {
+            let created = OptionalExact1.Create(one = 4)
+            Expect.equal created.one (Some 4) "present"
+            Expect.equal (created.ToString().Replace(" ", "").Replace("\n", "").Replace("\r", "")) """{"one":[4]}""" "JSON"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -683,4 +701,6 @@ module ObjectKeywordTests =
               additionalPropertyIsRejectedByParse
               onlyDeclaredPropertyIsAcceptedByParse
               nonMatchingPropertyNameIsRejectedByParse
-              matchingPatternPropertyIsAcceptedByParse ]
+              matchingPatternPropertyIsAcceptedByParse
+              optionalExact1Absent
+              optionalExact1Present ]

@@ -5,8 +5,14 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="TestHelpers.fs" />
     <Compile Include="SchemaConversionTests.fs" />
+    <Compile Include="SchemaKeywordTests.fs" />
+    <Compile Include="ArrayShapeTests.fs" />
     <Compile Include="NodeConversionsTests.fs" />
+    <Compile Include="ConversionTests.fs" />
+    <Compile Include="ExprGeneratorTests.fs" />
+    <Compile Include="TypeProviderTests.fs" />
     <Compile Include="NJsonSchemaTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>

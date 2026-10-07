@@ -77,12 +77,12 @@ module ExprGenerator =
 
                 Expr.Application(convertToRuntimeType, propertySelect)
 
-    let private generateIsNullCheck (schemaType: JsonSchemaType) (arg: Expr) : Expr =
-        match schemaType with
-        | JsonBoolean(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<bool> arg)
-        | JsonInteger(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<int> arg)
-        | JsonNumber(_) -> CommonExprs.callOpNot (CommonExprs.getNullableHasValue typeof<double> arg)
-        | _ -> CommonExprs.callOpEquality arg (Expr.Value(null))
+    // Value types arrive as Nullable<T> (see nullableOrPlainType), everything else as a nullable reference.
+    let private generateIsNullCheck (conv: ProviderConfiguration.NodeConversion) (arg: Expr) : Expr =
+        if conv.RuntimeType.IsValueType then
+            CommonExprs.callOpNot (CommonExprs.getNullableHasValue conv.RuntimeType arg)
+        else
+            CommonExprs.callOpEquality arg (Expr.Value(null))
 
     let private generatePropertyCreation
         (context: GenerationContext)
@@ -96,7 +96,7 @@ module ExprGenerator =
         let toJson = wrapOptionalToJson conv optional
 
         if optional then
-            let isNull = generateIsNullCheck schemaType arg
+            let isNull = generateIsNullCheck conv arg
 
             let thenBranch = Expr.NewArray(typeof<string * JsonValue>, [])
 
