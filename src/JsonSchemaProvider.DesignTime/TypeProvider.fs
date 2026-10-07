@@ -10,7 +10,6 @@ module TypeProvider =
     open ProviderImplementation.ProvidedTypes
     open NJsonSchema
     open JsonSchemaProvider
-    open FSharp.Data
     open System.Collections.Concurrent
     open FSharp.Quotations
 
@@ -176,7 +175,9 @@ module TypeProvider =
             nestedTypes
             |> List.iter (fun (_, nestedType) -> providedType.AddMember nestedType)
 
-            let typeMap = Map.ofList nestedTypes
+            // The class itself is registered too, so convert can be called on its own node.
+            let typeMap = Map.ofList ((keywords.common.Path, providedType) :: nestedTypes)
+            let conversion = convert context typeMap schemaType
 
             createProvidedProperties context typeMap schemaType
             |> List.iter (fun property -> providedType.AddMember property)
@@ -190,8 +191,7 @@ module TypeProvider =
             // #omit-start
             // Create returns the type directly when it can't fail, otherwise a Result.
             let returnType =
-                if context.CompileFlags.SkipRuntimeValidation
-                   || isClassFullyCompilable context typeMap keywords properties then
+                if context.CompileFlags.SkipRuntimeValidation || conversion.FullyCompilable then
                     providedType :> Type
                 else
                     typedefof<Result<_,_>>.MakeGenericType(providedType, typeof<string list>)
@@ -203,11 +203,9 @@ module TypeProvider =
             providedType.AddMember createMethod
 
             // Like Create, every class gets Parse, validated against its own sub-schema by Path.
-            let toRuntime =
-                <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
             let parseMethod =
                 createProvidedParseMethod
-                    context keywords.common.Path providedType typeof<NullableJsonValue> toRuntime
+                    context keywords.common.Path conversion.CompileTimeType conversion.RuntimeType conversion.ToRuntime
             providedType.AddMember parseMethod
 
             (keywords.common.Path, providedType) :: nestedTypes

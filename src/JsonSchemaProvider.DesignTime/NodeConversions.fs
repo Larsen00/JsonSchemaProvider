@@ -480,13 +480,7 @@ module NodeConversions =
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable }
 
     // Whether a class's own Create can skip Result-wrapping: its own JSON carries nothing
-    // unmodeled, and every property's own conversion is itself FullyCompilable. Split out from
-    // convert's JsonObject case (rather than inlined there) because TypeProvider.fs's
-    // buildTypeMapHelper and ExprGenerator.fs's generateCreateInvokeCode both need this same
-    // answer while still building the class's own members - before its own path is registered in
-    // typeMap, so calling convert on the class itself (which needs typeMap[keywords.common.Path])
-    // isn't an option there. This only touches the properties, never the class's own entry, so it
-    // works from all three call sites.
+    // unmodeled, and every property's own conversion is itself FullyCompilable.
     and isClassFullyCompilable
         (context: GenerationContext)
         (typeMap: TypeMap)

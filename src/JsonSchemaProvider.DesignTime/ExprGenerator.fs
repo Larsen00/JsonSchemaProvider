@@ -202,14 +202,14 @@ module ExprGenerator =
 
                 let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
 
-                if  context.CompileFlags.SkipRuntimeValidation || isClassFullyCompilable context typeMap keywords properties then
-                    <@@ NullableJsonValue(%%jsonValExpr: JsonValue) @@>
+                let conv = convert context typeMap schemaType
+                let record = Expr.Application(conv.ToRuntime, jsonValExpr)
+
+                if  context.CompileFlags.SkipRuntimeValidation || conv.FullyCompilable then
+                    record
                 else
                     let path = keywords.common.Path
-                    <@@
-                        let record = NullableJsonValue(%%jsonValExpr: JsonValue)
-                        validateJsonSchema path record schemaHashCode schemaSource
-                    @@>
+                    <@@ validateJsonSchema path (%%record: NullableJsonValue) schemaHashCode schemaSource @@>
 
 
         // Only hitting this branch when the type is at the root of the json Schema
