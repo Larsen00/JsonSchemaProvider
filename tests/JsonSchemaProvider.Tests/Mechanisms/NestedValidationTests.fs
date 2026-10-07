@@ -8,9 +8,34 @@ module NestedValidationTests =
     open Expecto
     open JsonSchemaProvider
 
+    // #region create-usage
     [<Literal>]
-    let ageSchema = """{ "type": "object", "properties": { "age": { "type": "integer", "minimum": 5, "maximum": 10 } }, "required": ["age"] }"""
+    let ageSchema = """
+    {
+        "type": "object",
+        "properties": {
+            "age": {
+                "type": "integer",
+                "minimum": 5,
+                "maximum": 10
+            }
+        },
+        "required": ["age"]
+    }
+    """
+
     type Age = JsonSchemaProvider<schema=ageSchema>
+
+    let message =
+        match Age.Create(age = 7) with
+        | Ok person -> sprintf "Age: %d" person.age
+        | Error errors -> sprintf "Invalid: %A" errors
+    // #endregion
+
+    let createUsageEvaluatesToOk =
+        test "user-style match on Create takes the Ok arm for an in-range value" {
+            Expect.equal message "Age: 7" "Create(age = 7) should hit the Ok arm"
+        }
 
     let validRecordShouldBeCreated =
         test "in-range value is accepted by Create" {
@@ -167,7 +192,8 @@ module NestedValidationTests =
     let tests =
         testList
             "JsonSchemaProvider.Tests.NestedValidationTests"
-            [ validRecordShouldBeCreated
+            [ createUsageEvaluatesToOk
+              validRecordShouldBeCreated
               validRecordShouldBeParsed
               belowMinimumShouldBeRejectedByCreate
               aboveMaximumShouldBeRejectedByCreate
