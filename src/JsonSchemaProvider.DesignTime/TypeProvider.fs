@@ -202,10 +202,12 @@ module TypeProvider =
                 createProvidedCreateMethod context typeMap schemaType returnType
             providedType.AddMember createMethod
 
-            // Like Create, every class gets Parse, validated against its own sub-schema by Path.
             let parseMethod =
                 createProvidedParseMethod
-                    context keywords.common.Path conversion.CompileTimeType conversion.RuntimeType conversion.ToRuntime
+                    context keywords.common.Path 
+                    conversion.CompileTimeType 
+                    conversion.RuntimeType 
+                    conversion.ToRuntime        
             providedType.AddMember parseMethod
 
             (keywords.common.Path, providedType) :: nestedTypes
