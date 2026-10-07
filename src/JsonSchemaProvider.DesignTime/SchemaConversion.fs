@@ -18,6 +18,7 @@ module SchemaConversion =
         | JsonInteger of JsonNumber.Keywords
         | JsonNumber of JsonNumber.Keywords
         | JsonString of JsonString.Keywords
+        // #omit-start
         // TODO: None is missing from the specification
         | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // Oneof has atleat one element
 
