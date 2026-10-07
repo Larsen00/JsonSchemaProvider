@@ -20,7 +20,8 @@ module SchemaConversion =
         | JsonString of JsonString.Keywords
         // #omit-start
         // TODO: None is missing from the specification
-        | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // Oneof has atleat one element
+        | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // Oneof has atleast one element
+        // #omit-end
 
 
     // Annotation keywords, legal anywhere, never affecting validation - plus "$schema", always
