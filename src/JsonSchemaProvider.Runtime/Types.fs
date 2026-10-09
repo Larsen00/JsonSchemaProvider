@@ -7,13 +7,17 @@ namespace JsonSchemaProvider
 //                 Title/Description/Default/Enum/Const later)
 //   - `specific`: keywords only that `type` supports (the table JSON Schema itself draws between
 //                 "core"/"metadata" keywords and per-type "validation" keywords)
+// #region common-keywords
 module Common =
     type Keywords = {
+        // #elide-start
         Path: string
-        // A local promise only: true when this node's own JSON (not its children's) has nothing
-        // stopping it from compiling, assuming every child also turns out compilable
+        // A local promise only: true when this node's own JSON (not its children's) 
+        // has nothing that would require runtime validation.
+        // #elide-end
         CanBeCompiled: bool
     }
+// #endregion
 
 module JsonObject =
     type Specific = {

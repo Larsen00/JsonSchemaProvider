@@ -9,10 +9,12 @@ module ProviderConfiguration =
 
     // Types and conversions for one schema node, built together so they stay in sync.
     type NodeConversion = {
+        // #elide-start
         CompileTimeType: Type // shown in signatures; differs from RuntimeType for erased types
         RuntimeType: Type
         ToRuntime: Expr // closed lambda: JsonValue -> RuntimeType
         ToJson: Expr // closed lambda: RuntimeType -> JsonValue
+        // #elide-end
         FullyCompilable: bool // true means runtime validation can be skipped
     }
 
@@ -41,14 +43,20 @@ module ProviderConfiguration =
     }
 
     // Shared data for one generation run, passed through every generation function.
+    // #region generation-context-flags
     type GenerationContext = {
+        // #elide-start generation-context-flags
         Assembly: Assembly
         NamespaceName: string
         RootBaseType: Type
         SchemaHashCode: int32
         SchemaString: string
-        // #omit-start
+        // #elide-end generation-context-flags
+        // #omit-start GenerationContext
         CompileFlags: CompileFlags
-        // #omit-end
+        // #omit-end GenerationContext
+        // #elide-start generation-context-flags
         ConversionCache: ConcurrentDictionary<string, NodeConversion> // keyed by node Path
+        // #elide-end generation-context-flags
     }
+    // #endregion

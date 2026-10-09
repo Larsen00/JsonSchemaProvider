@@ -189,12 +189,14 @@ module TypeProvider =
             // #elide-end
 
             // #omit-start
+            // #region object-return-type
             // Create returns the type directly when it can't fail, otherwise a Result.
             let returnType =
                 if context.CompileFlags.SkipRuntimeValidation || conversion.FullyCompilable then
                     providedType :> Type
                 else
                     typedefof<Result<_,_>>.MakeGenericType(providedType, typeof<string list>)
+            // #endregion
             // #omit-end
             // #old let returnType = providedType :> Type
 

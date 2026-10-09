@@ -61,6 +61,7 @@ module NodeConversions =
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     // #region convert-conversion
+    // #region object-fully-compilable
     let rec convert (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion = 
         
         context.ConversionCache.GetOrAdd( 
@@ -80,17 +81,18 @@ module NodeConversions =
     and conversion (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion =
         
         match schemaType with
-        | JsonBoolean keywords -> { 
+        // #elide-start object-fully-compilable
+        | JsonBoolean keywords -> {
                 CompileTimeType = typeof<bool>
                 RuntimeType = typeof<bool>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsBoolean() @@>
                 ToJson = <@@ fun (runtimeObj: bool) -> JsonValue.Boolean(runtimeObj) @@>
-                // #elide-start
+                // #elide-start convert-conversion
                 FullyCompilable = keywords.common.CanBeCompiled
-                // #elide-end
+                // #elide-end convert-conversion
             }
 
-        // #elide-start
+        // #elide-start convert-conversion
         | JsonInteger keywords -> {
                 CompileTimeType = typeof<int>
                 RuntimeType = typeof<int>
@@ -115,15 +117,19 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
+        // #elide-end object-fully-compilable
         | JsonObject(keywords, properties) ->
             {
+                // #elide-start object-fully-compilable
                 CompileTimeType = typeMap[keywords.common.Path]
                 RuntimeType = typeof<NullableJsonValue>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
                 ToJson = <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
-                FullyCompilable = isClassFullyCompilable context typeMap keywords properties
+                // #elide-end object-fully-compilable
+                FullyCompilable = isObjectFullyCompilable context typeMap keywords properties
             }
 
+        // #elide-start object-fully-compilable
         // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
         | JsonArray(innerType, arrayKeywords) -> (buildArrayConversion context typeMap innerType arrayKeywords).common
 
@@ -133,8 +139,10 @@ module NodeConversions =
         | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
             { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
-        // #elide-end
+        // #elide-end object-fully-compilable
+        // #elide-end convert-conversion
         // #endregion
+    // #elide-start object-fully-compilable
         
 
     
@@ -479,16 +487,18 @@ module NodeConversions =
 
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable }
 
-    // Whether a class's own Create can skip Result-wrapping: its own JSON carries nothing
-    // unmodeled, and every property's own conversion is itself FullyCompilable.
-    and isClassFullyCompilable
+    // An object is fully compilable if it can be compiled itself (no stray keywords) and all of its properties are fully compilable.
+    // #elide-end object-fully-compilable
+    and isObjectFullyCompilable
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords: JsonObject.Keywords)
         (properties: (PropertyName * JsonSchemaType) list)
         : bool =
-        keywords.common.CanBeCompiled
-        && properties |> List.forall (fun (_, propertyType) -> (convert context typeMap propertyType).FullyCompilable)
+        let isCompilable (_, propertyType) =
+            (convert context typeMap propertyType).FullyCompilable
+        keywords.common.CanBeCompiled && List.forall isCompilable properties
+    // #endregion object-fully-compilable
 
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then
