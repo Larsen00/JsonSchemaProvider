@@ -444,6 +444,164 @@ module OneOfTests =
             Expect.stringStarts (describeOwner """{"owner": {"name": "Ada", "email": "ada@example.com"}}""") "contact {" "object branch prints the JSON object"
         }
 
+    // A single branch is not wrapped in a Choice: the property gets the branch type directly.
+    [<Literal>]
+    let singleBranchSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {"oneOf": [{"type": "integer"}]}
+            },
+            "required": ["value"]
+        }
+        """
+    type SingleBranch = JsonSchemaProvider<schema = singleBranchSchema>
+
+    let singleBranchParsesToPlainType =
+        test "single-branch oneOf: Parse gives the branch type, not a Choice" {
+            let v = Expect.wantOk (SingleBranch.Parse("""{"value": 5}""")) "Parse should succeed"
+            let n: int = v.value
+            Expect.equal n 5 "value = 5"
+        }
+
+    let singleBranchCreateRoundTrips =
+        test "single-branch oneOf: Create round-trips through Parse" {
+            let created = SingleBranch.Create(value = 9)
+            let reparsed = Expect.wantOk (SingleBranch.Parse(created.ToString())) "Parse should succeed"
+            Expect.equal reparsed.value 9 "round-tripped value = 9"
+        }
+
+    let singleBranchRejectsOtherKind =
+        test "single-branch oneOf: a value outside the only branch fails Parse validation" {
+            Expect.isError (SingleBranch.Parse("""{"value": "five"}""")) "a string does not match the integer branch"
+        }
+
+    // Eight branches of the same kind, told apart only by enum. Choice nests seven levels deep.
+    [<Literal>]
+    let eightEnumBranchesSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string", "enum": ["a"]},
+                        {"type": "string", "enum": ["b"]},
+                        {"type": "string", "enum": ["c"]},
+                        {"type": "string", "enum": ["d"]},
+                        {"type": "string", "enum": ["e"]},
+                        {"type": "string", "enum": ["f"]},
+                        {"type": "string", "enum": ["g"]},
+                        {"type": "string", "enum": ["h"]}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
+    type EightEnumBranches = JsonSchemaProvider<schema = eightEnumBranchesSchema>
+
+    let parseEightEnum json =
+        (Expect.wantOk (EightEnumBranches.Parse(json)) "Parse should succeed").value
+
+    let eightEnumBranchesPickFirst =
+        test "8-way enum oneOf: \"a\" picks the first branch" {
+            Expect.equal (parseEightEnum """{"value": "a"}""") (Choice1Of2 "a") "value = Choice1Of2 \"a\""
+        }
+
+    let eightEnumBranchesPickMiddle =
+        test "8-way enum oneOf: \"d\" picks the fourth branch" {
+            Expect.equal
+                (parseEightEnum """{"value": "d"}""")
+                (Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "d"))))
+                "value is the fourth branch"
+        }
+
+    let eightEnumBranchesPickSeventh =
+        test "8-way enum oneOf: \"g\" picks the seventh branch, the last Choice1Of2" {
+            Expect.equal
+                (parseEightEnum """{"value": "g"}""")
+                (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "g")))))))
+                "value is the seventh branch"
+        }
+
+    let eightEnumBranchesPickLast =
+        test "8-way enum oneOf: \"h\" picks the eighth branch, the innermost Choice2Of2" {
+            Expect.equal
+                (parseEightEnum """{"value": "h"}""")
+                (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2 "h")))))))
+                "value is the eighth branch"
+        }
+
+    let eightEnumBranchesRejectValueInNoBranch =
+        test "8-way enum oneOf: a value in no enum fails Parse validation" {
+            Expect.isError (EightEnumBranches.Parse("""{"value": "z"}""")) "\"z\" is in no branch's enum"
+        }
+
+    // Eight branches of mixed kinds: every JSON kind except null, with integers split into ranges.
+    [<Literal>]
+    let eightMixedBranchesSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "boolean"},
+                        {"type": "integer", "maximum": 0},
+                        {"type": "integer", "minimum": 1, "maximum": 9},
+                        {"type": "integer", "minimum": 10},
+                        {"type": "array", "items": {"type": "string"}},
+                        {"type": "array", "items": {"type": "integer"}},
+                        {
+                            "type": "object",
+                            "properties": {"x": {"type": "integer"}},
+                            "required": ["x"]
+                        }
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
+    type EightMixedBranches = JsonSchemaProvider<schema = eightMixedBranchesSchema>
+
+    let describeMixed json =
+        let v = Expect.wantOk (EightMixedBranches.Parse(json)) "Parse should succeed"
+        match v.value with
+        | Choice1Of2 s -> $"string {s}"
+        | Choice2Of2 (Choice1Of2 b) -> $"boolean {b}"
+        | Choice2Of2 (Choice2Of2 (Choice1Of2 n)) -> $"non-positive {n}"
+        | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice1Of2 n))) -> $"digit {n}"
+        | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice1Of2 n)))) -> $"large {n}"
+        | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice1Of2 xs))))) -> $"strings %A{xs}"
+        | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice1Of2 xs)))))) -> $"ints %A{xs}"
+        | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 o)))))) -> $"object x={o.x}"
+
+    let eightMixedBranchesPickEachBranch =
+        test "8-way mixed oneOf: Parse picks the matching branch for each kind and range" {
+            Expect.equal (describeMixed """{"value": "s"}""") "string s" "branch 1"
+            Expect.equal (describeMixed """{"value": true}""") "boolean True" "branch 2"
+            Expect.equal (describeMixed """{"value": -3}""") "non-positive -3" "branch 3"
+            Expect.equal (describeMixed """{"value": 4}""") "digit 4" "branch 4"
+            Expect.equal (describeMixed """{"value": 42}""") "large 42" "branch 5"
+            Expect.equal (describeMixed """{"value": ["p", "q"]}""") "strings [\"p\"; \"q\"]" "branch 6"
+            Expect.equal (describeMixed """{"value": [1, 2]}""") "ints [1; 2]" "branch 7"
+            Expect.equal (describeMixed """{"value": {"x": 8}}""") "object x=8" "branch 8"
+        }
+
+    let eightMixedBranchesRejectAmbiguousEmptyArray =
+        test "8-way mixed oneOf: an empty array matches both array branches and fails Parse validation" {
+            Expect.isError (EightMixedBranches.Parse("""{"value": []}""")) "[] satisfies both array branches"
+        }
+
+    let eightMixedBranchesRejectValueInNoBranch =
+        test "8-way mixed oneOf: an object missing its required property fails Parse validation" {
+            Expect.isError (EightMixedBranches.Parse("""{"value": {"y": 1}}""")) "no branch accepts {\"y\": 1}"
+        }
+
     [<Tests>]
     let tests =
         testList
@@ -477,4 +635,15 @@ module OneOfTests =
               enumOneOfPicksColorBranch
               enumOneOfPicksShapeBranch
               enumOneOfRejectsValueInNeitherEnum
-              describeMatchesEachOwnerBranch ]
+              describeMatchesEachOwnerBranch
+              singleBranchParsesToPlainType
+              singleBranchCreateRoundTrips
+              singleBranchRejectsOtherKind
+              eightEnumBranchesPickFirst
+              eightEnumBranchesPickMiddle
+              eightEnumBranchesPickSeventh
+              eightEnumBranchesPickLast
+              eightEnumBranchesRejectValueInNoBranch
+              eightMixedBranchesPickEachBranch
+              eightMixedBranchesRejectAmbiguousEmptyArray
+              eightMixedBranchesRejectValueInNoBranch ]
