@@ -6,7 +6,15 @@ module OneOfTests =
 
     [<Literal>]
     let stringOrIntSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "integer"}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {"oneOf": [{"type": "string"}, {"type": "integer"}]}
+            },
+            "required": ["value"]
+        }
+        """
     type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema>
 
     let parseStringBranchOfTwoWayOneOf =
@@ -37,7 +45,21 @@ module OneOfTests =
 
     [<Literal>]
     let stringOrIntOrBoolSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "integer"}, {"type": "boolean"}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "integer"},
+                        {"type": "boolean"}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
 
     let parseStringBranchOfThreeWayOneOf =
@@ -60,7 +82,20 @@ module OneOfTests =
 
     [<Literal>]
     let stringOrIntArraySchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "integer"}}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
 
     let parseStringBranchOfStringOrArrayOneOf =
@@ -78,7 +113,20 @@ module OneOfTests =
     // string | (int | bool) instead of a flat 3-way oneOf - exercises a nested JsonOneOf.
     [<Literal>]
     let nestedOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string"}, {"oneOf": [{"type": "integer"}, {"type": "boolean"}]}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"oneOf": [{"type": "integer"}, {"type": "boolean"}]}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
 
     let nestedOneOfMatchesOuterAlternative =
@@ -103,7 +151,20 @@ module OneOfTests =
     // disambiguate these.
     [<Literal>]
     let numberRangeOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "number", "maximum": 0}, {"type": "number", "minimum": 0.1}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "number", "maximum": 0},
+                        {"type": "number", "minimum": 0.1}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type NumberRangeOneOf = JsonSchemaProvider<schema = numberRangeOneOfSchema>
 
     let numberRangeOneOfPicksNonPositiveBranch =
@@ -131,7 +192,20 @@ module OneOfTests =
 
     [<Literal>]
     let stringPatternOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string", "pattern": "^[0-9]+$"}, {"type": "string", "pattern": "^[a-z]+$"}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string", "pattern": "^[0-9]+$"},
+                        {"type": "string", "pattern": "^[a-z]+$"}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
 
     let stringPatternOneOfPicksDigitsBranch =
@@ -149,7 +223,20 @@ module OneOfTests =
     // Both branches are arrays - only the item schema tells them apart.
     [<Literal>]
     let arrayItemTypeOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "array", "items": {"type": "string"}}, {"type": "array", "items": {"type": "integer"}}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "array", "items": {"type": "string"}},
+                        {"type": "array", "items": {"type": "integer"}}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
 
     let arrayItemTypeOneOfPicksStringBranch =
@@ -172,7 +259,28 @@ module OneOfTests =
     // maxItems:2 and minItems:3 partition array length with no gap and no overlap.
     [<Literal>]
     let arrayLengthOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "array", "items": {"type": "integer"}, "maxItems": 2}, {"type": "array", "items": {"type": "integer"}, "minItems": 3}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "maxItems": 2
+                        },
+                        {
+                            "type": "array",
+                            "items": {"type": "integer"},
+                            "minItems": 3
+                        }
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
 
     let arrayLengthOneOfPicksShortBranch =
@@ -202,7 +310,19 @@ module OneOfTests =
 
     [<Literal>]
     let rootStringOrExact2ArraySchema =
-        """{ "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2}] }"""
+        """
+        {
+            "oneOf": [
+                {"type": "string"},
+                {
+                    "type": "array",
+                    "items": {"type": "integer"},
+                    "minItems": 2,
+                    "maxItems": 2
+                }
+            ]
+        }
+        """
     type RootStringOrExact2Array = JsonSchemaProvider<schema = rootStringOrExact2ArraySchema>
 
     let rootOneOfArrayBranchHasHelpers =
@@ -212,7 +332,27 @@ module OneOfTests =
 
     [<Literal>]
     let arrayOfStringOrMin1ArraySchema =
-        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "oneOf": [{"type": "string"}, {"type": "array", "items": {"type": "integer"}, "minItems": 1}] } } }, "required": ["values"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {
+                                "type": "array",
+                                "items": {"type": "integer"},
+                                "minItems": 1
+                            }
+                        ]
+                    }
+                }
+            },
+            "required": ["values"]
+        }
+        """
     type ArrayOfStringOrMin1Array = JsonSchemaProvider<schema = arrayOfStringOrMin1ArraySchema>
 
     let arrayItemOneOfArrayBranchHasHelpers =
@@ -230,7 +370,20 @@ module OneOfTests =
     // keyword NJsonSchema does enforce for a value-only distinction between same-kind branches.
     [<Literal>]
     let enumOneOfSchema =
-        """{ "type": "object", "properties": { "value": { "oneOf": [{"type": "string", "enum": ["red", "green", "blue"]}, {"type": "string", "enum": ["circle", "square"]}] } }, "required": ["value"] }"""
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {
+                    "oneOf": [
+                        {"type": "string", "enum": ["red", "green", "blue"]},
+                        {"type": "string", "enum": ["circle", "square"]}
+                    ]
+                }
+            },
+            "required": ["value"]
+        }
+        """
     type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
     let enumOneOfPicksColorBranch =
@@ -248,6 +401,47 @@ module OneOfTests =
     let enumOneOfRejectsValueInNeitherEnum =
         test "string|string oneOf: a value in neither enum fails Parse validation" {
             Expect.isError (EnumOneOf.Parse("""{"value": "banana"}""")) "\"banana\" is in neither enum"
+        }
+
+    [<Literal>]
+    let ownerSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "owner": {
+                    "oneOf": [
+                        {"type": "string"},
+                        {"type": "integer"},
+                        {
+                            "type": "object",
+                            "properties": {"name": {"type": "string"}, "email": {"type": "string"}}
+                        }
+                    ]
+                }
+            },
+            "required": ["owner"]
+        }
+        """
+    type Owner = JsonSchemaProvider<schema = ownerSchema>
+
+    // #region oneof-describe
+    let describe (owner: Choice<string, Choice<int, Owner.ownerCase3>>) =
+        match owner with
+        | Choice1Of2 name -> $"name {name}"
+        | Choice2Of2 (Choice1Of2 id) -> $"id {id}"
+        | Choice2Of2 (Choice2Of2 contact) -> $"contact {contact}"
+    // #endregion
+
+    let describeOwner json =
+        let v = Expect.wantOk (Owner.Parse(json)) "Parse should succeed"
+        describe v.owner
+
+    let describeMatchesEachOwnerBranch =
+        test "string|int|object oneOf: describe matches the branch Parse picked" {
+            Expect.equal (describeOwner """{"owner": "Ada"}""") "name Ada" "string branch"
+            Expect.equal (describeOwner """{"owner": 7}""") "id 7" "int branch"
+            Expect.stringStarts (describeOwner """{"owner": {"name": "Ada", "email": "ada@example.com"}}""") "contact {" "object branch prints the JSON object"
         }
 
     [<Tests>]
@@ -282,4 +476,5 @@ module OneOfTests =
               arrayItemOneOfArrayBranchHasHelpers
               enumOneOfPicksColorBranch
               enumOneOfPicksShapeBranch
-              enumOneOfRejectsValueInNeitherEnum ]
+              enumOneOfRejectsValueInNeitherEnum
+              describeMatchesEachOwnerBranch ]
