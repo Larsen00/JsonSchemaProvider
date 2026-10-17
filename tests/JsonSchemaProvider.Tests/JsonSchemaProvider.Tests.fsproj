@@ -2,10 +2,12 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <GenerateProgramFile>false</GenerateProgramFile>
+    <!-- xUnit v3 defaults to Microsoft.Testing.Platform, which the .NET 10 SDK rejects under the VSTest dotnet test. -->
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
   </PropertyGroup>
   <ItemGroup>
     <None Include="Debug.fsx" />
+    <Compile Include="TestHelpers.fs" />
     <!-- Keywords/: black-box coverage of JSON Schema keyword families, one file per family. -->
     <Compile Include="Keywords/NumberKeywordTests.fs" />
     <Compile Include="Keywords/StringKeywordTests.fs" />
@@ -20,16 +22,16 @@
     <Compile Include="Mechanisms/NestedValidationTests.fs" />
     <!-- Compatibility/: parity against an external tool's own fixture schemas, not our own design. -->
     <Compile Include="Compatibility/OldCodeGenerationTests.fs" />
-    <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="altcover" Version="9.0.102" />
-    <PackageReference Include="Expecto" Version="10.*" />
+    <PackageReference Include="xunit.v3" Version="4.0.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageReference Include="FsCheck.Xunit.v3" Version="3.4.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
-    <PackageReference Include="YoloDev.Expecto.TestSdk" Version="0.*" />
     <PackageReference Include="FSharp.Data.Json.Core" Version="6.6.0" />
     <PackageReference Include="NJsonSchema" Version="11.5.2" />
     <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2" />

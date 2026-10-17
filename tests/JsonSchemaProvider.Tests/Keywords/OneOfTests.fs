@@ -1,7 +1,9 @@
 namespace JsonSchemaProvider.Tests
 
 module OneOfTests =
-    open Expecto
+    open Xunit
+    open FsCheck
+    open FsCheck.Xunit
     open JsonSchemaProvider
 
     [<Literal>]
@@ -17,31 +19,39 @@ module OneOfTests =
         """
     type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema>
 
-    let parseStringBranchOfTwoWayOneOf =
-        test "parse picks string branch of a string|int oneOf" {
-            let v = Expect.wantOk (StringOrInt.Parse("""{"value": "hello"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "hello") "value = Choice1Of2 \"hello\""
-        }
+    [<Fact>]
+    let ``parse picks string branch of a string|int oneOf`` () =
+        let v = expectOk (StringOrInt.Parse("""{"value": "hello"}"""))
+        expectEqual v.value (Choice1Of2 "hello")
 
-    let parseIntBranchOfTwoWayOneOf =
-        test "parse picks int branch of a string|int oneOf" {
-            let v = Expect.wantOk (StringOrInt.Parse("""{"value": 42}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 42) "value = Choice2Of2 42"
-        }
+    [<Fact>]
+    let ``parse picks int branch of a string|int oneOf`` () =
+        let v = expectOk (StringOrInt.Parse("""{"value": 42}"""))
+        expectEqual v.value (Choice2Of2 42)
 
-    let createStringBranchRoundTrips =
-        test "create with string branch round-trips through Parse" {
-            let created = StringOrInt.Create(value = Choice1Of2 "abc")
-            let reparsed = Expect.wantOk (StringOrInt.Parse(created.ToString())) "Parse should succeed"
-            Expect.equal reparsed.value (Choice1Of2 "abc") "round-tripped value = Choice1Of2 \"abc\""
-        }
+    [<Fact>]
+    let ``create with string branch round-trips through Parse`` () =
+        let created = StringOrInt.Create(value = Choice1Of2 "abc")
+        let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
+        expectEqual reparsed.value (Choice1Of2 "abc")
 
-    let createIntBranchRoundTrips =
-        test "create with int branch round-trips through Parse" {
-            let created = StringOrInt.Create(value = Choice2Of2 99)
-            let reparsed = Expect.wantOk (StringOrInt.Parse(created.ToString())) "Parse should succeed"
-            Expect.equal reparsed.value (Choice2Of2 99) "round-tripped value = Choice2Of2 99"
-        }
+    [<Fact>]
+    let ``create with int branch round-trips through Parse`` () =
+        let created = StringOrInt.Create(value = Choice2Of2 99)
+        let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
+        expectEqual reparsed.value (Choice2Of2 99)
+
+    [<Property>]
+    let ``create with any string round-trips through Parse into the string branch`` (NonNull s) =
+        let created = StringOrInt.Create(value = Choice1Of2 s)
+        let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
+        expectEqual reparsed.value (Choice1Of2 s)
+
+    [<Property>]
+    let ``create with any int round-trips through Parse into the int branch`` (n: int) =
+        let created = StringOrInt.Create(value = Choice2Of2 n)
+        let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
+        expectEqual reparsed.value (Choice2Of2 n)
 
     [<Literal>]
     let stringOrIntOrBoolSchema =
@@ -62,23 +72,20 @@ module OneOfTests =
         """
     type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
 
-    let parseStringBranchOfThreeWayOneOf =
-        test "parse picks string branch of a string|int|bool oneOf" {
-            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": "x"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "x") "value = Choice1Of2 \"x\""
-        }
+    [<Fact>]
+    let ``parse picks string branch of a string|int|bool oneOf`` () =
+        let v = expectOk (StringOrIntOrBool.Parse("""{"value": "x"}"""))
+        expectEqual v.value (Choice1Of2 "x")
 
-    let parseIntBranchOfThreeWayOneOf =
-        test "parse picks int branch of a string|int|bool oneOf" {
-            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": 7}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(Choice1Of2 7)) "value = Choice2Of2(Choice1Of2 7)"
-        }
+    [<Fact>]
+    let ``parse picks int branch of a string|int|bool oneOf`` () =
+        let v = expectOk (StringOrIntOrBool.Parse("""{"value": 7}"""))
+        expectEqual v.value (Choice2Of2(Choice1Of2 7))
 
-    let parseBoolBranchOfThreeWayOneOf =
-        test "parse picks bool branch of a string|int|bool oneOf" {
-            let v = Expect.wantOk (StringOrIntOrBool.Parse("""{"value": true}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(Choice2Of2 true)) "value = Choice2Of2(Choice2Of2 true)"
-        }
+    [<Fact>]
+    let ``parse picks bool branch of a string|int|bool oneOf`` () =
+        let v = expectOk (StringOrIntOrBool.Parse("""{"value": true}"""))
+        expectEqual v.value (Choice2Of2(Choice2Of2 true))
 
     [<Literal>]
     let stringOrIntArraySchema =
@@ -98,17 +105,15 @@ module OneOfTests =
         """
     type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
 
-    let parseStringBranchOfStringOrArrayOneOf =
-        test "parse picks string branch of a string|array oneOf" {
-            let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": "hi"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "hi") "value = Choice1Of2 \"hi\""
-        }
+    [<Fact>]
+    let ``parse picks string branch of a string|array oneOf`` () =
+        let v = expectOk (StringOrIntArray.Parse("""{"value": "hi"}"""))
+        expectEqual v.value (Choice1Of2 "hi")
 
-    let parseArrayBranchOfStringOrArrayOneOf =
-        test "parse picks array branch of a string|array oneOf" {
-            let v = Expect.wantOk (StringOrIntArray.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
-        }
+    [<Fact>]
+    let ``parse picks array branch of a string|array oneOf`` () =
+        let v = expectOk (StringOrIntArray.Parse("""{"value": [1, 2, 3]}"""))
+        expectEqual v.value (Choice2Of2 [ 1; 2; 3 ])
 
     // string | (int | bool) instead of a flat 3-way oneOf - exercises a nested JsonOneOf.
     [<Literal>]
@@ -129,23 +134,20 @@ module OneOfTests =
         """
     type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
 
-    let nestedOneOfMatchesOuterAlternative =
-        test "nested oneOf: outer string alternative matches" {
-            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": "s"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "s") "value = Choice1Of2 \"s\""
-        }
+    [<Fact>]
+    let ``nested oneOf: outer string alternative matches`` () =
+        let v = expectOk (NestedOneOf.Parse("""{"value": "s"}"""))
+        expectEqual v.value (Choice1Of2 "s")
 
-    let nestedOneOfMatchesInnerFirstAlternative =
-        test "nested oneOf: inner int alternative matches" {
-            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": 3}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(Choice1Of2 3)) "value = Choice2Of2(Choice1Of2 3)"
-        }
+    [<Fact>]
+    let ``nested oneOf: inner int alternative matches`` () =
+        let v = expectOk (NestedOneOf.Parse("""{"value": 3}"""))
+        expectEqual v.value (Choice2Of2(Choice1Of2 3))
 
-    let nestedOneOfMatchesInnerSecondAlternative =
-        test "nested oneOf: inner bool alternative matches" {
-            let v = Expect.wantOk (NestedOneOf.Parse("""{"value": false}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(Choice2Of2 false)) "value = Choice2Of2(Choice2Of2 false)"
-        }
+    [<Fact>]
+    let ``nested oneOf: inner bool alternative matches`` () =
+        let v = expectOk (NestedOneOf.Parse("""{"value": false}"""))
+        expectEqual v.value (Choice2Of2(Choice2Of2 false))
 
     // Same JSON kind (number) on both branches - only per-branch validation, not shape alone, can
     // disambiguate these.
@@ -167,28 +169,24 @@ module OneOfTests =
         """
     type NumberRangeOneOf = JsonSchemaProvider<schema = numberRangeOneOfSchema>
 
-    let numberRangeOneOfPicksNonPositiveBranch =
-        test "number|number oneOf: value <= 0 picks the maximum-0 branch" {
-            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": -5.5}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 -5.5) "value = Choice1Of2 -5.5"
-        }
+    [<Fact>]
+    let ``number|number oneOf: value <= 0 picks the maximum-0 branch`` () =
+        let v = expectOk (NumberRangeOneOf.Parse("""{"value": -5.5}"""))
+        expectEqual v.value (Choice1Of2 -5.5)
 
-    let numberRangeOneOfPicksPositiveBranch =
-        test "number|number oneOf: value > 0 picks the minimum-0.1 branch" {
-            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": 3.2}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 3.2) "value = Choice2Of2 3.2"
-        }
+    [<Fact>]
+    let ``number|number oneOf: value > 0 picks the minimum-0.1 branch`` () =
+        let v = expectOk (NumberRangeOneOf.Parse("""{"value": 3.2}"""))
+        expectEqual v.value (Choice2Of2 3.2)
 
-    let numberRangeOneOfBoundaryPicksInclusiveBranch =
-        test "number|number oneOf: the maximum-0 boundary itself picks the inclusive branch" {
-            let v = Expect.wantOk (NumberRangeOneOf.Parse("""{"value": 0}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 0.0) "0 satisfies maximum: 0 but not minimum: 0.1"
-        }
+    [<Fact>]
+    let ``number|number oneOf: the maximum-0 boundary itself picks the inclusive branch`` () =
+        let v = expectOk (NumberRangeOneOf.Parse("""{"value": 0}"""))
+        expectEqual v.value (Choice1Of2 0.0)
 
-    let numberRangeOneOfGapValueFailsWholeDocumentValidation =
-        test "number|number oneOf: a value matching neither branch fails Parse validation" {
-            Expect.isError (NumberRangeOneOf.Parse("""{"value": 0.05}""")) "0.05 satisfies neither branch"
-        }
+    [<Fact>]
+    let ``number|number oneOf: a value matching neither branch fails Parse validation`` () =
+        expectError (NumberRangeOneOf.Parse("""{"value": 0.05}""")) // 0.05 satisfies neither branch
 
     [<Literal>]
     let stringPatternOneOfSchema =
@@ -208,17 +206,15 @@ module OneOfTests =
         """
     type StringPatternOneOf = JsonSchemaProvider<schema = stringPatternOneOfSchema>
 
-    let stringPatternOneOfPicksDigitsBranch =
-        test "string|string oneOf: digits-only value picks the numeric-pattern branch" {
-            let v = Expect.wantOk (StringPatternOneOf.Parse("""{"value": "123"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "123") "value = Choice1Of2 \"123\""
-        }
+    [<Fact>]
+    let ``string|string oneOf: digits-only value picks the numeric-pattern branch`` () =
+        let v = expectOk (StringPatternOneOf.Parse("""{"value": "123"}"""))
+        expectEqual v.value (Choice1Of2 "123")
 
-    let stringPatternOneOfPicksLettersBranch =
-        test "string|string oneOf: lowercase-only value picks the alphabetic-pattern branch" {
-            let v = Expect.wantOk (StringPatternOneOf.Parse("""{"value": "abc"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 "abc") "value = Choice2Of2 \"abc\""
-        }
+    [<Fact>]
+    let ``string|string oneOf: lowercase-only value picks the alphabetic-pattern branch`` () =
+        let v = expectOk (StringPatternOneOf.Parse("""{"value": "abc"}"""))
+        expectEqual v.value (Choice2Of2 "abc")
 
     // Both branches are arrays - only the item schema tells them apart.
     [<Literal>]
@@ -239,22 +235,19 @@ module OneOfTests =
         """
     type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
 
-    let arrayItemTypeOneOfPicksStringBranch =
-        test "array|array oneOf: string items pick the string-item branch" {
-            let v = Expect.wantOk (ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 [ "a"; "b" ]) "value = Choice1Of2 [\"a\";\"b\"]"
-        }
+    [<Fact>]
+    let ``array|array oneOf: string items pick the string-item branch`` () =
+        let v = expectOk (ArrayItemTypeOneOf.Parse("""{"value": ["a", "b"]}"""))
+        expectEqual v.value (Choice1Of2 [ "a"; "b" ])
 
-    let arrayItemTypeOneOfPicksIntBranch =
-        test "array|array oneOf: integer items pick the integer-item branch" {
-            let v = Expect.wantOk (ArrayItemTypeOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 [ 1; 2; 3 ]) "value = Choice2Of2 [1;2;3]"
-        }
+    [<Fact>]
+    let ``array|array oneOf: integer items pick the integer-item branch`` () =
+        let v = expectOk (ArrayItemTypeOneOf.Parse("""{"value": [1, 2, 3]}"""))
+        expectEqual v.value (Choice2Of2 [ 1; 2; 3 ])
 
-    let arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation =
-        test "array|array oneOf: an empty array matches both branches and fails Parse validation" {
-            Expect.isError (ArrayItemTypeOneOf.Parse("""{"value": []}""")) "[] satisfies both item schemas"
-        }
+    [<Fact>]
+    let ``array|array oneOf: an empty array matches both branches and fails Parse validation`` () =
+        expectError (ArrayItemTypeOneOf.Parse("""{"value": []}""")) // [] satisfies both item schemas
 
     // maxItems:2 and minItems:3 partition array length with no gap and no overlap.
     [<Literal>]
@@ -283,30 +276,27 @@ module OneOfTests =
         """
     type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
 
-    let arrayLengthOneOfPicksShortBranch =
-        test "array|array oneOf: a 2-element array picks the maxItems:2 branch" {
-            let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2(Some(1, Some 2))) "value = Choice1Of2 (Some (1, Some 2))"
-        }
+    [<Fact>]
+    let ``array|array oneOf: a 2-element array picks the maxItems:2 branch`` () =
+        let v = expectOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}"""))
+        expectEqual v.value (Choice1Of2(Some(1, Some 2)))
 
-    let arrayLengthOneOfPicksLongBranch =
-        test "array|array oneOf: a 3-element array picks the minItems:3 branch" {
-            let v = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2(1, (2, (3, [])))) "value = Choice2Of2 [1;2;3]"
-        }
+    [<Fact>]
+    let ``array|array oneOf: a 3-element array picks the minItems:3 branch`` () =
+        let v = expectOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3]}"""))
+        expectEqual v.value (Choice2Of2(1, (2, (3, []))))
 
     // -- ToList/ToTuple for arrays inside oneOf: branch i gets a "<name>Case<i>Array" helper type --
 
-    let arrayLengthOneOfEachBranchHasOwnToList =
-        test "array|array oneOf: valueCase1Array/valueCase2Array.ToList flatten their own branch" {
-            let toList (v: ArrayLengthOneOf) =
-                match v.value with
-                | Choice1Of2 short -> ArrayLengthOneOf.valueCase1Array.ToList short
-                | Choice2Of2 long -> ArrayLengthOneOf.valueCase2Array.ToList long
-            let short = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}""")) "Parse should succeed"
-            let long = Expect.wantOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3, 4]}""")) "Parse should succeed"
-            Expect.equal (toList short, toList long) ([ 1; 2 ], [ 1; 2; 3; 4 ]) "both branches flatten"
-        }
+    [<Fact>]
+    let ``array|array oneOf: valueCase1Array/valueCase2Array.ToList flatten their own branch`` () =
+        let toList (v: ArrayLengthOneOf) =
+            match v.value with
+            | Choice1Of2 short -> ArrayLengthOneOf.valueCase1Array.ToList short
+            | Choice2Of2 long -> ArrayLengthOneOf.valueCase2Array.ToList long
+        let short = expectOk (ArrayLengthOneOf.Parse("""{"value": [1, 2]}"""))
+        let long = expectOk (ArrayLengthOneOf.Parse("""{"value": [1, 2, 3, 4]}"""))
+        expectEqual (toList short, toList long) ([ 1; 2 ], [ 1; 2; 3; 4 ])
 
     [<Literal>]
     let rootStringOrExact2ArraySchema =
@@ -325,10 +315,9 @@ module OneOfTests =
         """
     type RootStringOrExact2Array = JsonSchemaProvider<schema = rootStringOrExact2ArraySchema>
 
-    let rootOneOfArrayBranchHasHelpers =
-        test "root string|array oneOf: Case2Array.ToTuple flattens the array branch" {
-            Expect.equal (RootStringOrExact2Array.Case2Array.ToTuple((1, 2))) (1, 2) "ToTuple = (1, 2)"
-        }
+    [<Fact>]
+    let ``root string|array oneOf: Case2Array.ToTuple flattens the array branch`` () =
+        expectEqual (RootStringOrExact2Array.Case2Array.ToTuple((1, 2))) (1, 2)
 
     [<Literal>]
     let arrayOfStringOrMin1ArraySchema =
@@ -355,16 +344,15 @@ module OneOfTests =
         """
     type ArrayOfStringOrMin1Array = JsonSchemaProvider<schema = arrayOfStringOrMin1ArraySchema>
 
-    let arrayItemOneOfArrayBranchHasHelpers =
-        test "array of string|array oneOf items: valuesArray.ItemCase2Array.ToList flattens each array item" {
-            let v = Expect.wantOk (ArrayOfStringOrMin1Array.Parse("""{"values": ["a", [1, 2]]}""")) "Parse should succeed"
-            let flattened =
-                v.values
-                |> List.choose (function
-                    | Choice2Of2 arr -> Some(ArrayOfStringOrMin1Array.valuesArray.ItemCase2Array.ToList arr)
-                    | Choice1Of2 _ -> None)
-            Expect.equal flattened [ [ 1; 2 ] ] "only the array item, flattened"
-        }
+    [<Fact>]
+    let ``array of string|array oneOf items: valuesArray.ItemCase2Array.ToList flattens each array item`` () =
+        let v = expectOk (ArrayOfStringOrMin1Array.Parse("""{"values": ["a", [1, 2]]}"""))
+        let flattened =
+            v.values
+            |> List.choose (function
+                | Choice2Of2 arr -> Some(ArrayOfStringOrMin1Array.valuesArray.ItemCase2Array.ToList arr)
+                | Choice1Of2 _ -> None)
+        expectEqual flattened [ [ 1; 2 ] ]
 
     // No const-discriminated schema: NJsonSchema doesn't enforce `const` at all. enum is the
     // keyword NJsonSchema does enforce for a value-only distinction between same-kind branches.
@@ -386,22 +374,19 @@ module OneOfTests =
         """
     type EnumOneOf = JsonSchemaProvider<schema = enumOneOfSchema>
 
-    let enumOneOfPicksColorBranch =
-        test "string|string oneOf: a color enum value picks the color branch" {
-            let v = Expect.wantOk (EnumOneOf.Parse("""{"value": "red"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice1Of2 "red") "value = Choice1Of2 \"red\""
-        }
+    [<Fact>]
+    let ``string|string oneOf: a color enum value picks the color branch`` () =
+        let v = expectOk (EnumOneOf.Parse("""{"value": "red"}"""))
+        expectEqual v.value (Choice1Of2 "red")
 
-    let enumOneOfPicksShapeBranch =
-        test "string|string oneOf: a shape enum value picks the shape branch" {
-            let v = Expect.wantOk (EnumOneOf.Parse("""{"value": "circle"}""")) "Parse should succeed"
-            Expect.equal v.value (Choice2Of2 "circle") "value = Choice2Of2 \"circle\""
-        }
+    [<Fact>]
+    let ``string|string oneOf: a shape enum value picks the shape branch`` () =
+        let v = expectOk (EnumOneOf.Parse("""{"value": "circle"}"""))
+        expectEqual v.value (Choice2Of2 "circle")
 
-    let enumOneOfRejectsValueInNeitherEnum =
-        test "string|string oneOf: a value in neither enum fails Parse validation" {
-            Expect.isError (EnumOneOf.Parse("""{"value": "banana"}""")) "\"banana\" is in neither enum"
-        }
+    [<Fact>]
+    let ``string|string oneOf: a value in neither enum fails Parse validation`` () =
+        expectError (EnumOneOf.Parse("""{"value": "banana"}""")) // "banana" is in neither enum
 
     [<Literal>]
     let ownerSchema =
@@ -434,15 +419,15 @@ module OneOfTests =
     // #endregion
 
     let describeOwner json =
-        let v = Expect.wantOk (Owner.Parse(json)) "Parse should succeed"
+        let v = expectOk (Owner.Parse(json))
         describe v.owner
 
-    let describeMatchesEachOwnerBranch =
-        test "string|int|object oneOf: describe matches the branch Parse picked" {
-            Expect.equal (describeOwner """{"owner": "Ada"}""") "name Ada" "string branch"
-            Expect.equal (describeOwner """{"owner": 7}""") "id 7" "int branch"
-            Expect.stringStarts (describeOwner """{"owner": {"name": "Ada", "email": "ada@example.com"}}""") "contact {" "object branch prints the JSON object"
-        }
+    [<Fact>]
+    let ``string|int|object oneOf: describe matches the branch Parse picked`` () =
+        expectEqual (describeOwner """{"owner": "Ada"}""") "name Ada"
+        expectEqual (describeOwner """{"owner": 7}""") "id 7"
+        let contact = describeOwner """{"owner": {"name": "Ada", "email": "ada@example.com"}}"""
+        Assert.StartsWith("contact {", contact)
 
     // A single branch is not wrapped in a Choice: the property gets the branch type directly.
     [<Literal>]
@@ -458,24 +443,21 @@ module OneOfTests =
         """
     type SingleBranch = JsonSchemaProvider<schema = singleBranchSchema>
 
-    let singleBranchParsesToPlainType =
-        test "single-branch oneOf: Parse gives the branch type, not a Choice" {
-            let v = Expect.wantOk (SingleBranch.Parse("""{"value": 5}""")) "Parse should succeed"
-            let n: int = v.value
-            Expect.equal n 5 "value = 5"
-        }
+    [<Fact>]
+    let ``single-branch oneOf: Parse gives the branch type, not a Choice`` () =
+        let v = expectOk (SingleBranch.Parse("""{"value": 5}"""))
+        let n: int = v.value
+        expectEqual n 5
 
-    let singleBranchCreateRoundTrips =
-        test "single-branch oneOf: Create round-trips through Parse" {
-            let created = SingleBranch.Create(value = 9)
-            let reparsed = Expect.wantOk (SingleBranch.Parse(created.ToString())) "Parse should succeed"
-            Expect.equal reparsed.value 9 "round-tripped value = 9"
-        }
+    [<Fact>]
+    let ``single-branch oneOf: Create round-trips through Parse`` () =
+        let created = SingleBranch.Create(value = 9)
+        let reparsed = expectOk (SingleBranch.Parse(created.ToString()))
+        expectEqual reparsed.value 9
 
-    let singleBranchRejectsOtherKind =
-        test "single-branch oneOf: a value outside the only branch fails Parse validation" {
-            Expect.isError (SingleBranch.Parse("""{"value": "five"}""")) "a string does not match the integer branch"
-        }
+    [<Fact>]
+    let ``single-branch oneOf: a value outside the only branch fails Parse validation`` () =
+        expectError (SingleBranch.Parse("""{"value": "five"}""")) // a string does not match the integer branch
 
     // Eight branches of the same kind, told apart only by enum. Choice nests seven levels deep.
     [<Literal>]
@@ -503,41 +485,27 @@ module OneOfTests =
     type EightEnumBranches = JsonSchemaProvider<schema = eightEnumBranchesSchema>
 
     let parseEightEnum json =
-        (Expect.wantOk (EightEnumBranches.Parse(json)) "Parse should succeed").value
+        (expectOk (EightEnumBranches.Parse(json))).value
 
-    let eightEnumBranchesPickFirst =
-        test "8-way enum oneOf: \"a\" picks the first branch" {
-            Expect.equal (parseEightEnum """{"value": "a"}""") (Choice1Of2 "a") "value = Choice1Of2 \"a\""
-        }
+    [<Fact>]
+    let ``8-way enum oneOf: "a" picks the first branch`` () =
+        expectEqual (parseEightEnum """{"value": "a"}""") (Choice1Of2 "a")
 
-    let eightEnumBranchesPickMiddle =
-        test "8-way enum oneOf: \"d\" picks the fourth branch" {
-            Expect.equal
-                (parseEightEnum """{"value": "d"}""")
-                (Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "d"))))
-                "value is the fourth branch"
-        }
+    [<Fact>]
+    let ``8-way enum oneOf: "d" picks the fourth branch`` () =
+        expectEqual (parseEightEnum """{"value": "d"}""") (Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "d"))))
 
-    let eightEnumBranchesPickSeventh =
-        test "8-way enum oneOf: \"g\" picks the seventh branch, the last Choice1Of2" {
-            Expect.equal
-                (parseEightEnum """{"value": "g"}""")
-                (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "g")))))))
-                "value is the seventh branch"
-        }
+    [<Fact>]
+    let ``8-way enum oneOf: "g" picks the seventh branch, the last Choice1Of2`` () =
+        expectEqual (parseEightEnum """{"value": "g"}""") (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice1Of2 "g")))))))
 
-    let eightEnumBranchesPickLast =
-        test "8-way enum oneOf: \"h\" picks the eighth branch, the innermost Choice2Of2" {
-            Expect.equal
-                (parseEightEnum """{"value": "h"}""")
-                (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2 "h")))))))
-                "value is the eighth branch"
-        }
+    [<Fact>]
+    let ``8-way enum oneOf: "h" picks the eighth branch, the innermost Choice2Of2`` () =
+        expectEqual (parseEightEnum """{"value": "h"}""") (Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2(Choice2Of2 "h")))))))
 
-    let eightEnumBranchesRejectValueInNoBranch =
-        test "8-way enum oneOf: a value in no enum fails Parse validation" {
-            Expect.isError (EightEnumBranches.Parse("""{"value": "z"}""")) "\"z\" is in no branch's enum"
-        }
+    [<Fact>]
+    let ``8-way enum oneOf: a value in no enum fails Parse validation`` () =
+        expectError (EightEnumBranches.Parse("""{"value": "z"}""")) // "z" is in no branch's enum
 
     // Eight branches of mixed kinds: every JSON kind except null, with integers split into ranges.
     [<Literal>]
@@ -569,7 +537,7 @@ module OneOfTests =
     type EightMixedBranches = JsonSchemaProvider<schema = eightMixedBranchesSchema>
 
     let describeMixed json =
-        let v = Expect.wantOk (EightMixedBranches.Parse(json)) "Parse should succeed"
+        let v = expectOk (EightMixedBranches.Parse(json))
         match v.value with
         | Choice1Of2 s -> $"string {s}"
         | Choice2Of2 (Choice1Of2 b) -> $"boolean {b}"
@@ -580,70 +548,29 @@ module OneOfTests =
         | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice1Of2 xs)))))) -> $"ints %A{xs}"
         | Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 (Choice2Of2 o)))))) -> $"object x={o.x}"
 
-    let eightMixedBranchesPickEachBranch =
-        test "8-way mixed oneOf: Parse picks the matching branch for each kind and range" {
-            Expect.equal (describeMixed """{"value": "s"}""") "string s" "branch 1"
-            Expect.equal (describeMixed """{"value": true}""") "boolean True" "branch 2"
-            Expect.equal (describeMixed """{"value": -3}""") "non-positive -3" "branch 3"
-            Expect.equal (describeMixed """{"value": 4}""") "digit 4" "branch 4"
-            Expect.equal (describeMixed """{"value": 42}""") "large 42" "branch 5"
-            Expect.equal (describeMixed """{"value": ["p", "q"]}""") "strings [\"p\"; \"q\"]" "branch 6"
-            Expect.equal (describeMixed """{"value": [1, 2]}""") "ints [1; 2]" "branch 7"
-            Expect.equal (describeMixed """{"value": {"x": 8}}""") "object x=8" "branch 8"
-        }
+    [<Fact>]
+    let ``8-way mixed oneOf: Parse picks the matching branch for each kind and range`` () =
+        expectEqual (describeMixed """{"value": "s"}""") "string s"
+        expectEqual (describeMixed """{"value": true}""") "boolean True"
+        expectEqual (describeMixed """{"value": -3}""") "non-positive -3"
+        expectEqual (describeMixed """{"value": 4}""") "digit 4"
+        expectEqual (describeMixed """{"value": 42}""") "large 42"
+        expectEqual (describeMixed """{"value": ["p", "q"]}""") "strings [\"p\"; \"q\"]"
+        expectEqual (describeMixed """{"value": [1, 2]}""") "ints [1; 2]"
+        expectEqual (describeMixed """{"value": {"x": 8}}""") "object x=8"
 
-    let eightMixedBranchesRejectAmbiguousEmptyArray =
-        test "8-way mixed oneOf: an empty array matches both array branches and fails Parse validation" {
-            Expect.isError (EightMixedBranches.Parse("""{"value": []}""")) "[] satisfies both array branches"
-        }
+    [<Property>]
+    let ``8-way mixed oneOf: any integer lands in the branch for its range`` (n: int) =
+        let expected =
+            if n <= 0 then $"non-positive {n}"
+            elif n <= 9 then $"digit {n}"
+            else $"large {n}"
+        expectEqual (describeMixed $"""{{"value": {n}}}""") expected
 
-    let eightMixedBranchesRejectValueInNoBranch =
-        test "8-way mixed oneOf: an object missing its required property fails Parse validation" {
-            Expect.isError (EightMixedBranches.Parse("""{"value": {"y": 1}}""")) "no branch accepts {\"y\": 1}"
-        }
+    [<Fact>]
+    let ``8-way mixed oneOf: an empty array matches both array branches and fails Parse validation`` () =
+        expectError (EightMixedBranches.Parse("""{"value": []}""")) // [] satisfies both array branches
 
-    [<Tests>]
-    let tests =
-        testList
-            "JsonSchemaProvider.Tests.OneOfTests"
-            [ parseStringBranchOfTwoWayOneOf
-              parseIntBranchOfTwoWayOneOf
-              createStringBranchRoundTrips
-              createIntBranchRoundTrips
-              parseStringBranchOfThreeWayOneOf
-              parseIntBranchOfThreeWayOneOf
-              parseBoolBranchOfThreeWayOneOf
-              parseStringBranchOfStringOrArrayOneOf
-              parseArrayBranchOfStringOrArrayOneOf
-              nestedOneOfMatchesOuterAlternative
-              nestedOneOfMatchesInnerFirstAlternative
-              nestedOneOfMatchesInnerSecondAlternative
-              numberRangeOneOfPicksNonPositiveBranch
-              numberRangeOneOfPicksPositiveBranch
-              numberRangeOneOfBoundaryPicksInclusiveBranch
-              numberRangeOneOfGapValueFailsWholeDocumentValidation
-              stringPatternOneOfPicksDigitsBranch
-              stringPatternOneOfPicksLettersBranch
-              arrayItemTypeOneOfPicksStringBranch
-              arrayItemTypeOneOfPicksIntBranch
-              arrayItemTypeOneOfAmbiguousEmptyArrayFailsWholeDocumentValidation
-              arrayLengthOneOfPicksShortBranch
-              arrayLengthOneOfPicksLongBranch
-              arrayLengthOneOfEachBranchHasOwnToList
-              rootOneOfArrayBranchHasHelpers
-              arrayItemOneOfArrayBranchHasHelpers
-              enumOneOfPicksColorBranch
-              enumOneOfPicksShapeBranch
-              enumOneOfRejectsValueInNeitherEnum
-              describeMatchesEachOwnerBranch
-              singleBranchParsesToPlainType
-              singleBranchCreateRoundTrips
-              singleBranchRejectsOtherKind
-              eightEnumBranchesPickFirst
-              eightEnumBranchesPickMiddle
-              eightEnumBranchesPickSeventh
-              eightEnumBranchesPickLast
-              eightEnumBranchesRejectValueInNoBranch
-              eightMixedBranchesPickEachBranch
-              eightMixedBranchesRejectAmbiguousEmptyArray
-              eightMixedBranchesRejectValueInNoBranch ]
+    [<Fact>]
+    let ``8-way mixed oneOf: an object missing its required property fails Parse validation`` () =
+        expectError (EightMixedBranches.Parse("""{"value": {"y": 1}}""")) // no branch accepts {"y": 1}

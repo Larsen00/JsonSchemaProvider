@@ -4,7 +4,6 @@
 #r "NJsonSchema.dll"
 #r "JsonSchemaProvider.dll"
 
-#r "nuget: Expecto"
 
 // If you only need quick provider debugging, avoid loading test source:
 // #load "Keywords/ObjectKeywordTests.fs"
