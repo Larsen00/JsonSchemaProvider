@@ -109,12 +109,15 @@ module NodeConversions =
                 FullyCompilable = keywords.common.CanBeCompiled
             }
 
-        | JsonString keywords -> {
+        // A .NET string can be null and F# can't rule that out for provided types, so a string
+        // node always needs a runtime check: null becomes JSON null, which validation rejects.
+        | JsonString _ -> {
                 CompileTimeType = typeof<string>
                 RuntimeType = typeof<string>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
-                ToJson = <@@ fun (runtimeObj: string) -> JsonValue.String runtimeObj @@>
-                FullyCompilable = keywords.common.CanBeCompiled
+                ToJson = <@@ fun (runtimeObj: string) ->
+                                if isNull runtimeObj then JsonValue.Null else JsonValue.String runtimeObj @@>
+                FullyCompilable = false
             }
 
         // #elide-end object-fully-compilable
@@ -124,9 +127,12 @@ module NodeConversions =
                 CompileTimeType = typeMap[keywords.common.Path]
                 RuntimeType = typeof<NullableJsonValue>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> NullableJsonValue jsonVal @@>
-                ToJson = <@@ fun (runtimeObj: NullableJsonValue) -> runtimeObj.JsonVal @@>
+                ToJson = <@@ fun (runtimeObj: NullableJsonValue) ->
+                                if isNull runtimeObj then JsonValue.Null else runtimeObj.JsonVal @@>
                 // #elide-end object-fully-compilable
-                FullyCompilable = isObjectFullyCompilable context typeMap keywords properties
+                // Like a string, an object value can be null, so wherever one is passed in it needs
+                // validation. The object's own Create only depends on its properties (isObjectFullyCompilable).
+                FullyCompilable = false
             }
 
         // #elide-start object-fully-compilable

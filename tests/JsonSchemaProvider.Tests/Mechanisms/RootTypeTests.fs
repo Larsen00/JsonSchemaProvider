@@ -52,7 +52,7 @@ module RootTypeTests =
 
     [<Fact>]
     let ``string root Create builds the value`` () =
-        expectEqual (StringRoot.Create "hello") "hello"
+        expectEqual (expectOk (StringRoot.Create "hello")) "hello"
 
     [<Fact>]
     let ``string root Parse builds the value`` () =
@@ -133,12 +133,12 @@ module RootTypeTests =
 
     [<Fact>]
     let ``array-of-objects root Create builds an empty list`` () =
-        expectEqual (List.length (PlaceListRoot.Create([]))) 0
+        expectEqual (List.length (expectOk (PlaceListRoot.Create([])))) 0
 
     [<Fact>]
     let ``array-of-objects root Create builds a non-empty list`` () =
-        let place = PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683)
-        let result = PlaceListRoot.Create([ place ])
+        let place = expectOk (PlaceListRoot.Item.Create(name = "Copenhagen", lat = 55.6761, lng = 12.5683))
+        let result = expectOk (PlaceListRoot.Create([ place ]))
         expectEqual (List.length result) 1
         expectEqual result.[0].name "Copenhagen"
         expectEqual result.[0].lat 55.6761
@@ -184,7 +184,7 @@ module RootTypeTests =
         expectEqual (expectOk (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice2Of2 true)))) (Choice2Of2(Choice2Of2 true))
 
     // One branch is an object - the generated class is named "Case1" (empty root name + its
-    // branch's "Case<i>" suffix). Case1.Create itself is plain, since the branch alone is FullyCompilable.
+    // branch's "Case<i>" suffix). Case1.Create gives a Result too, since its string property can be null.
     [<Literal>]
     let placeOrIdRootSchema =
         """{ "oneOf": [{ "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }, { "type": "integer" }] }"""
@@ -192,7 +192,7 @@ module RootTypeTests =
 
     [<Fact>]
     let ``oneOf root with an object branch Create builds the value from the object branch`` () =
-        let place = PlaceOrIdRoot.Case1.Create(name = "Copenhagen")
+        let place = expectOk (PlaceOrIdRoot.Case1.Create(name = "Copenhagen"))
         match expectOk (PlaceOrIdRoot.Create(value = Choice1Of2 place)) with
         | Choice1Of2 case -> expectEqual case.name "Copenhagen"
         | Choice2Of2 _ -> failwith "expected the object branch (Choice1Of2)"

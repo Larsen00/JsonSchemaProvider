@@ -68,8 +68,13 @@ module TypeProviderTests =
               }
 
               test "Create evaluates to the provided type itself when the object is fully compilable" {
-                  let root = provide nestedObject
+                  let root = provide """{ "type": "object", "properties": { "n": { "type": "integer" } } }"""
                   Expect.equal (method root "Create").ReturnType (root :> Type) ""
+              }
+
+              test "Create evaluates to a Result when the object has a string property, even an optional one" {
+                  let root = provide nestedObject
+                  Expect.isTrue (isResultOf root (method root "Create").ReturnType) ""
               }
 
               test "Create evaluates to a Result when validation is needed" {
@@ -137,7 +142,7 @@ module TypeProviderTests =
                   let root = provide """{ "type": "string" }"""
                   let create = method root "Create"
                   Expect.equal (create.GetParameters() |> Array.map (fun p -> p.Name, p.ParameterType)) [| "value", typeof<string> |] "Create parameters"
-                  Expect.equal create.ReturnType typeof<string> "Create return type"
+                  Expect.isTrue (isResultOf typeof<string> create.ReturnType) "Create return type"
                   Expect.isTrue (isResultOf typeof<string> (method root "Parse").ReturnType) "Parse"
               }
 

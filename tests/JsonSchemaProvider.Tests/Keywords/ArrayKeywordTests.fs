@@ -21,7 +21,7 @@ module ArrayKeywordTests =
 
     [<Fact>]
     let ``minItems=2 Create produces correct tuple`` () =
-        let (h1, (h2, rest)) = StringArrayMin2.Create(("a", ("b", [ "c"; "d" ])))
+        let (h1, (h2, rest)) = expectOk (StringArrayMin2.Create(("a", ("b", [ "c"; "d" ]))))
         expectEqual h1 "a"
         expectEqual h2 "b"
         expectEqual rest [ "c"; "d" ]
@@ -380,7 +380,7 @@ module ArrayKeywordTests =
 
     [<Fact>]
     let ``select from nested array should yield input value`` () =
-        let array = NestedArray.Create([ [ "a"; "b" ] ])
+        let array = expectOk (NestedArray.Create([ [ "a"; "b" ] ]))
         expectEqual (array.values[0][1]) "b"
 
     [<Literal>]
@@ -405,6 +405,6 @@ module ArrayKeywordTests =
 
     [<Fact>]
     let ``select from nested array with object items should yield input value`` () =
-        let item = NestedArrayWithObjectItems.valuesItem.Create(propA = 5)
-        let array = NestedArrayWithObjectItems.Create([ [ item ] ])
+        let item = expectOk (NestedArrayWithObjectItems.valuesItem.Create(propA = 5))
+        let array = expectOk (NestedArrayWithObjectItems.Create([ [ item ] ]))
         expectEqual (array.values.Value[0][0]).propA (Some(5))

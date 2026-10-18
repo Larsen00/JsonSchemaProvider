@@ -22,7 +22,7 @@ module ObjectKeywordTests =
 
     [<Fact>]
     let ``create method should return record`` () =
-        let flat = Flat.Create(X = "x", Z = 1)
+        let flat = expectOk (Flat.Create(X = "x", Z = 1))
         expectEqual flat.X (Some "x")
         expectEqual flat.Y None
         expectEqual flat.Z (Some 1)
@@ -78,7 +78,7 @@ module ObjectKeywordTests =
     [<Fact>]
     let ``value from nested objects should be created`` () =
         let globalPosition = CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954)
-        let created = CityPosition.Create(city = "Berlin", globalPosition = globalPosition)
+        let created = expectOk (CityPosition.Create(city = "Berlin", globalPosition = globalPosition))
         expectEqual created.globalPosition.lat 52.520007
 
     // -- number keyword nested in a property (root-level versions: NumberKeywordTests.fs) --
@@ -182,7 +182,7 @@ module ObjectKeywordTests =
 
     [<Fact>]
     let ``object property: minItems=2 Create produces correct tuple`` () =
-        let (h1, (h2, rest)) = (StringArrayMin2.Create(tags = ("a", ("b", [ "c"; "d" ])))).tags
+        let (h1, (h2, rest)) = (expectOk (StringArrayMin2.Create(tags = ("a", ("b", [ "c"; "d" ]))))).tags
         expectEqual h1 "a"
         expectEqual h2 "b"
         expectEqual rest [ "c"; "d" ]

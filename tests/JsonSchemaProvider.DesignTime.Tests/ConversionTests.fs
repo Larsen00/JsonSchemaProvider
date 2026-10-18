@@ -6,6 +6,8 @@ module ConversionTests =
     open FSharp.Data
     open JsonSchemaProvider
     open JsonSchemaProvider.DesignTime.ProviderConfiguration
+    open JsonSchemaProvider.DesignTime.SchemaConversion
+    open JsonSchemaProvider.DesignTime.NodeConversions
     open TestHelpers
 
     let private conversionOf (schemaText: string) = convertRoot (fixture schemaText)
@@ -39,6 +41,7 @@ module ConversionTests =
               test "a primitive is FullyCompilable only without validation keywords" {
                   Expect.isTrue (conversionOf """{ "type": "integer" }""").FullyCompilable "plain"
                   Expect.isFalse (conversionOf """{ "type": "integer", "minimum": 0 }""").FullyCompilable "minimum"
+                  Expect.isFalse (conversionOf """{ "type": "string" }""").FullyCompilable "a string can be null"
               } ]
 
     let objectTests =
@@ -56,14 +59,20 @@ module ConversionTests =
                   expectRoundTrip conv """{"a":1,"extra":[true]}"""
               }
 
-              test "an object is FullyCompilable only if all its properties are" {
-                  Expect.isTrue (conversionOf """{ "type": "object", "properties": { "a": { "type": "integer" } } }""").FullyCompilable "plain"
-                  Expect.isFalse
-                      (conversionOf """{ "type": "object", "properties": { "a": { "type": "integer", "minimum": 0 } } }""").FullyCompilable
-                      "property with minimum"
-                  Expect.isFalse
-                      (conversionOf """{ "type": "object", "properties": { "o": { "type": "object", "properties": { "s": { "type": "string", "pattern": "x" } } } } }""").FullyCompilable
-                      "nested property with pattern"
+              test "an object value is never FullyCompilable, since it can be null" {
+                  Expect.isFalse (conversionOf """{ "type": "object", "properties": { "a": { "type": "integer" } } }""").FullyCompilable "plain"
+              }
+
+              test "an object's own Create can't fail only if all its properties are FullyCompilable" {
+                  let ownCreateCannotFail schemaText =
+                      let f = fixture schemaText
+                      match f.Root with
+                      | JsonObject(keywords, properties) -> isObjectFullyCompilable f.Context f.TypeMap keywords properties
+                      | _ -> failwith "Root schema is not an object"
+                  Expect.isTrue (ownCreateCannotFail """{ "type": "object", "properties": { "a": { "type": "integer" } } }""") "plain"
+                  Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "a": { "type": "integer", "minimum": 0 } } }""") "property with minimum"
+                  Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "s": { "type": "string" } } }""") "string property"
+                  Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "o": { "type": "object", "properties": { "a": { "type": "integer" } } } } }""") "object property"
               } ]
 
     // (schema keywords, compile-time type, sample JSON values)

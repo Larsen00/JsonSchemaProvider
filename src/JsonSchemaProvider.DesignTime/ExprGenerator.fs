@@ -206,7 +206,7 @@ module ExprGenerator =
                 let conv = convert context typeMap schemaType
                 let record = Expr.Application(conv.ToRuntime, jsonValExpr)
 
-                if context.CompileFlags.SkipRuntimeValidation || conv.FullyCompilable then
+                if context.CompileFlags.SkipRuntimeValidation || isObjectFullyCompilable context typeMap keywords properties then
                     record
                 else
                     let path = keywords.common.Path

@@ -12,7 +12,7 @@ module SchemaFileTests =
 
     [<Fact>]
     let ``create method from an object schema loaded from file should return record`` () =
-        let flat = FlatFromFile.Create()
+        let flat = expectOk (FlatFromFile.Create())
         expectEqual flat.X None
         expectEqual flat.Y None
         expectEqual flat.Z None
@@ -34,5 +34,5 @@ module SchemaFileTests =
 
     [<Fact>]
     let ``array-root schema loaded from file Create builds the list`` () =
-        let result = StringListRootFromFile.Create([ "a"; "b"; "c" ])
+        let result = expectOk (StringListRootFromFile.Create([ "a"; "b"; "c" ]))
         expectEqual result [ "a"; "b"; "c" ]

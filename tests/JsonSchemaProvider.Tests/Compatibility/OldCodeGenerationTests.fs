@@ -23,10 +23,9 @@ module OldCodeGenerationTests =
 
     [<Fact>]
     let ``string root loaded from file Create builds the value`` () =
-        expectEqual (String.Create "hello") "hello"
+        expectEqual (expectOk (String.Create "hello")) "hello"
 
-    // const isn't compile-time-known, so this root isn't FullyCompilable and Create returns
-    // Result - unlike the unconstrained roots above.
+    // A string root always gives a Result (the string could be null); const adds nothing to that.
     [<Literal>]
     let stringConstPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/03-string-const.json"
     type StringConst = JsonSchemaProvider<schemaFile=stringConstPath>
@@ -87,7 +86,7 @@ module OldCodeGenerationTests =
 
     [<Fact>]
     let ``string array root loaded from file Create builds the value`` () =
-        expectEqual (StringArray.Create [ "a"; "b" ]) [ "a"; "b" ]
+        expectEqual (expectOk (StringArray.Create [ "a"; "b" ])) [ "a"; "b" ]
 
     // A root $ref isn't supported - NJsonSchema leaves the referencing node's Type = None, and
     // that case only handles oneOf, so it hits "Unsupported JSON schema type None" instead of

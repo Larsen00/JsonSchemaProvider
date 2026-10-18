@@ -20,6 +20,7 @@
     <Compile Include="Mechanisms/SchemaFileTests.fs" />
     <Compile Include="Mechanisms/SkipRuntimeValidationTests.fs" />
     <Compile Include="Mechanisms/NestedValidationTests.fs" />
+    <Compile Include="Mechanisms/NullInputTests.fs" />
     <!-- Compatibility/: parity against an external tool's own fixture schemas, not our own design. -->
     <Compile Include="Compatibility/OldCodeGenerationTests.fs" />
   </ItemGroup>
