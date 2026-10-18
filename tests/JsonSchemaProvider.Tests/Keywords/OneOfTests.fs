@@ -31,25 +31,25 @@ module OneOfTests =
 
     [<Fact>]
     let ``create with string branch round-trips through Parse`` () =
-        let created = StringOrInt.Create(value = Choice1Of2 "abc")
+        let created = expectOk (StringOrInt.Create(value = Choice1Of2 "abc"))
         let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
         expectEqual reparsed.value (Choice1Of2 "abc")
 
     [<Fact>]
     let ``create with int branch round-trips through Parse`` () =
-        let created = StringOrInt.Create(value = Choice2Of2 99)
+        let created = expectOk (StringOrInt.Create(value = Choice2Of2 99))
         let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
         expectEqual reparsed.value (Choice2Of2 99)
 
     [<Property>]
     let ``create with any string round-trips through Parse into the string branch`` (NonNull s) =
-        let created = StringOrInt.Create(value = Choice1Of2 s)
+        let created = expectOk (StringOrInt.Create(value = Choice1Of2 s))
         let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
         expectEqual reparsed.value (Choice1Of2 s)
 
     [<Property>]
     let ``create with any int round-trips through Parse into the int branch`` (n: int) =
-        let created = StringOrInt.Create(value = Choice2Of2 n)
+        let created = expectOk (StringOrInt.Create(value = Choice2Of2 n))
         let reparsed = expectOk (StringOrInt.Parse(created.ToString()))
         expectEqual reparsed.value (Choice2Of2 n)
 
@@ -574,3 +574,72 @@ module OneOfTests =
     [<Fact>]
     let ``8-way mixed oneOf: an object missing its required property fails Parse validation`` () =
         expectError (EightMixedBranches.Parse("""{"value": {"y": 1}}""")) // no branch accepts {"y": 1}
+
+    // integer and number overlap: every integer is also a number.
+    [<Literal>]
+    let integerOrNumberSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {"oneOf": [{"type": "integer"}, {"type": "number"}]}
+            },
+            "required": ["value"]
+        }
+        """
+    type IntegerOrNumber = JsonSchemaProvider<schema = integerOrNumberSchema>
+
+    [<Fact>]
+    let ``integer|number oneOf: Create rejects integer 5 because both branches match`` () =
+        expectError (IntegerOrNumber.Create(value = Choice1Of2 5)) // 5 is an integer and a number
+
+    [<Fact>]
+    let ``integer|number oneOf: Create rejects number 5.0 because it is serialized as the integer 5`` () =
+        expectError (IntegerOrNumber.Create(value = Choice2Of2 5.0)) // written as 5, which matches both branches
+
+    [<Fact>]
+    let ``integer|number oneOf: Create accepts 5.5 and it round-trips through Parse`` () =
+        let created = expectOk (IntegerOrNumber.Create(value = Choice2Of2 5.5))
+        let reparsed = expectOk (IntegerOrNumber.Parse(created.ToString()))
+        expectEqual reparsed.value (Choice2Of2 5.5)
+
+    [<Fact>]
+    let ``integer|number oneOf: Parse rejects 5 because both branches match`` () =
+        expectError (IntegerOrNumber.Parse("""{"value": 5}""")) // 5 is an integer and a number
+
+    [<Fact>]
+    let ``integer|number oneOf: Parse accepts 5.5 into the number branch`` () =
+        let v = expectOk (IntegerOrNumber.Parse("""{"value": 5.5}"""))
+        expectEqual v.value (Choice2Of2 5.5)
+
+    [<Literal>]
+    let bigOrSmallIntSchema =
+        """
+        {
+            "type": "object",
+            "properties": {
+                "value": {"oneOf": [{"type": "integer", "minimum": 10}, {"type": "integer", "maximum": 5}]}
+            },
+            "required": ["value"]
+        }
+        """
+    type BigOrSmallInt = JsonSchemaProvider<schema = bigOrSmallIntSchema>
+
+    // The object stores JSON, so the getter re-parses and the tag is normalized to the matching branch.
+    [<Fact>]
+    let ``create on an object normalizes a oneOf tag to the matching branch`` () =
+        let created = expectOk (BigOrSmallInt.Create(value = Choice1Of2 3))
+        expectEqual created.value (Choice2Of2 3)
+
+    [<Literal>]
+    let rootBigOrSmallIntSchema =
+        """{"oneOf": [{"type": "integer", "minimum": 10}, {"type": "integer", "maximum": 5}]}"""
+    type RootBigOrSmallInt = JsonSchemaProvider<schema = rootBigOrSmallIntSchema>
+
+    // Root Create converts the validated JSON back, so it agrees with Parse on the tag.
+    [<Fact>]
+    let ``create on a root oneOf normalizes a tag to the matching branch`` () =
+        let created = expectOk (RootBigOrSmallInt.Create(Choice1Of2 3))
+        expectEqual created (Choice2Of2 3)
+        let reparsed = expectOk (RootBigOrSmallInt.Parse("3"))
+        expectEqual reparsed (Choice2Of2 3)

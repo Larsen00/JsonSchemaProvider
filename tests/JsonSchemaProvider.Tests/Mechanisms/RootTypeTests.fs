@@ -149,19 +149,18 @@ module RootTypeTests =
         let result = expectOk (PlaceListRoot.Parse("""[{"name": "Copenhagen", "lat": 55.6761, "lng": 12.5683}]"""))
         expectEqual result.[0].name "Copenhagen"
 
-    // Both unconstrained, so this oneOf root is FullyCompilable - Create returns the bare
-    // Choice<string, int> directly, not Result.
+    // A oneOf with several branches is never FullyCompilable, so Create returns Result even here.
     [<Literal>]
     let stringOrIntRootSchema = """{ "oneOf": [{ "type": "string" }, { "type": "integer" }] }"""
     type StringOrIntRoot = JsonSchemaProvider<schema=stringOrIntRootSchema>
 
     [<Fact>]
     let ``oneOf root Create builds the value from the string branch`` () =
-        expectEqual (StringOrIntRoot.Create(value = Choice1Of2 "hello")) (Choice1Of2 "hello")
+        expectEqual (expectOk (StringOrIntRoot.Create(value = Choice1Of2 "hello"))) (Choice1Of2 "hello")
 
     [<Fact>]
     let ``oneOf root Create builds the value from the int branch`` () =
-        expectEqual (StringOrIntRoot.Create(value = Choice2Of2 42)) (Choice2Of2 42)
+        expectEqual (expectOk (StringOrIntRoot.Create(value = Choice2Of2 42))) (Choice2Of2 42)
 
     [<Fact>]
     let ``oneOf root Parse builds the value`` () =
@@ -174,18 +173,18 @@ module RootTypeTests =
 
     [<Fact>]
     let ``3-way oneOf root Create builds the value from the string branch`` () =
-        expectEqual (StringOrIntOrBoolRoot.Create(value = Choice1Of2 "x")) (Choice1Of2 "x")
+        expectEqual (expectOk (StringOrIntOrBoolRoot.Create(value = Choice1Of2 "x"))) (Choice1Of2 "x")
 
     [<Fact>]
     let ``3-way oneOf root Create builds the value from the int branch`` () =
-        expectEqual (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice1Of2 7))) (Choice2Of2(Choice1Of2 7))
+        expectEqual (expectOk (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice1Of2 7)))) (Choice2Of2(Choice1Of2 7))
 
     [<Fact>]
     let ``3-way oneOf root Create builds the value from the bool branch`` () =
-        expectEqual (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice2Of2 true))) (Choice2Of2(Choice2Of2 true))
+        expectEqual (expectOk (StringOrIntOrBoolRoot.Create(value = Choice2Of2(Choice2Of2 true)))) (Choice2Of2(Choice2Of2 true))
 
     // One branch is an object - the generated class is named "Case1" (empty root name + its
-    // branch's "Case<i>" suffix) and, being an unconstrained string property, is FullyCompilable.
+    // branch's "Case<i>" suffix). Case1.Create itself is plain, since the branch alone is FullyCompilable.
     [<Literal>]
     let placeOrIdRootSchema =
         """{ "oneOf": [{ "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }, { "type": "integer" }] }"""
@@ -194,13 +193,13 @@ module RootTypeTests =
     [<Fact>]
     let ``oneOf root with an object branch Create builds the value from the object branch`` () =
         let place = PlaceOrIdRoot.Case1.Create(name = "Copenhagen")
-        match PlaceOrIdRoot.Create(value = Choice1Of2 place) with
+        match expectOk (PlaceOrIdRoot.Create(value = Choice1Of2 place)) with
         | Choice1Of2 case -> expectEqual case.name "Copenhagen"
         | Choice2Of2 _ -> failwith "expected the object branch (Choice1Of2)"
 
     [<Fact>]
     let ``oneOf root with an object branch Create builds the value from the int branch`` () =
-        expectEqual (PlaceOrIdRoot.Create(value = Choice2Of2 5)) (Choice2Of2 5)
+        expectEqual (expectOk (PlaceOrIdRoot.Create(value = Choice2Of2 5))) (Choice2Of2 5)
 
     [<Literal>]
     let stringOrIntArrayRootSchema = """{ "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "integer" } }] }"""
@@ -208,14 +207,13 @@ module RootTypeTests =
 
     [<Fact>]
     let ``oneOf root with an array branch Create builds the value from the string branch`` () =
-        expectEqual (StringOrIntArrayRoot.Create(value = Choice1Of2 "hi")) (Choice1Of2 "hi")
+        expectEqual (expectOk (StringOrIntArrayRoot.Create(value = Choice1Of2 "hi"))) (Choice1Of2 "hi")
 
     [<Fact>]
     let ``oneOf root with an array branch Create builds the value from the array branch`` () =
-        expectEqual (StringOrIntArrayRoot.Create(value = Choice2Of2 [ 1; 2; 3 ])) (Choice2Of2 [ 1; 2; 3 ])
+        expectEqual (expectOk (StringOrIntArrayRoot.Create(value = Choice2Of2 [ 1; 2; 3 ]))) (Choice2Of2 [ 1; 2; 3 ])
 
-    // minimum:5 makes the int branch (and so the oneOf node itself) not FullyCompilable - Create
-    // returns Result here, unlike the schemas above.
+    // minimum:5 also makes the int branch itself not FullyCompilable.
     [<Literal>]
     let constrainedIntOrStringRootSchema = """{ "oneOf": [{ "type": "integer", "minimum": 5 }, { "type": "string" }] }"""
     type ConstrainedIntOrStringRoot = JsonSchemaProvider<schema=constrainedIntOrStringRootSchema>
@@ -245,12 +243,12 @@ module RootTypeTests =
 
     [<Fact>]
     let ``nested oneOf root Create builds the value from the outer string branch`` () =
-        expectEqual (NestedOneOfRoot.Create(value = Choice1Of2 "s")) (Choice1Of2 "s")
+        expectEqual (expectOk (NestedOneOfRoot.Create(value = Choice1Of2 "s"))) (Choice1Of2 "s")
 
     [<Fact>]
     let ``nested oneOf root Create builds the value from the inner int branch`` () =
-        expectEqual (NestedOneOfRoot.Create(value = Choice2Of2(Choice1Of2 3))) (Choice2Of2(Choice1Of2 3))
+        expectEqual (expectOk (NestedOneOfRoot.Create(value = Choice2Of2(Choice1Of2 3)))) (Choice2Of2(Choice1Of2 3))
 
     [<Fact>]
     let ``nested oneOf root Create builds the value from the inner bool branch`` () =
-        expectEqual (NestedOneOfRoot.Create(value = Choice2Of2(Choice2Of2 false))) (Choice2Of2(Choice2Of2 false))
+        expectEqual (expectOk (NestedOneOfRoot.Create(value = Choice2Of2(Choice2Of2 false)))) (Choice2Of2(Choice2Of2 false))

@@ -187,29 +187,30 @@ module ConversionTests =
                       expectRoundTrip conv sample
               }
 
-              test "oneOf with disjoint plain branches is FullyCompilable" {
-                  Expect.isTrue (conversionOf intOrString).FullyCompilable ""
-              } ]
+              // Branches may overlap, so several branches always need runtime validation of "exactly one".
+              test "oneOf with several plain branches is not FullyCompilable" {
+                  Expect.isFalse (conversionOf intOrString).FullyCompilable "even disjoint branches"
+              }
 
-    // Known open issue, disabled until a solution is chosen: FullyCompilable for oneOf ignores
-    // "exactly one branch", so Create skips validation for overlapping branches and can build
-    // JSON that violates the oneOf. Re-add these to oneOfTests once that is decided.
-    //
-    // // 5 matches both integer and number, so Create(Choice1Of2 5) builds JSON that violates oneOf.
-    // test "oneOf with overlapping branches is not FullyCompilable" {
-    //     let conv = conversionOf """{ "oneOf": [ { "type": "integer" }, { "type": "number" } ] }"""
-    //     Expect.isFalse conv.FullyCompilable "integer/number overlap"
-    // }
-    //
-    // // The first branch's Create(a = 1, b = 2) builds {"a":1,"b":2}, which also satisfies the second branch.
-    // test "oneOf with overlapping object branches is not FullyCompilable" {
-    //     let conv =
-    //         conversionOf
-    //             """{ "oneOf": [
-    //                    { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a"] },
-    //                    { "type": "object", "properties": { "b": { "type": "integer" } }, "required": ["b"] } ] }"""
-    //     Expect.isFalse conv.FullyCompilable "object overlap"
-    // }
+              // 5 matches both integer and number, so Create(Choice1Of2 5) would build JSON that violates oneOf.
+              test "oneOf with overlapping branches is not FullyCompilable" {
+                  let conv = conversionOf """{ "oneOf": [ { "type": "integer" }, { "type": "number" } ] }"""
+                  Expect.isFalse conv.FullyCompilable "integer/number overlap"
+              }
+
+              // The first branch's Create(a = 1, b = 2) builds {"a":1,"b":2}, which also satisfies the second branch.
+              test "oneOf with overlapping object branches is not FullyCompilable" {
+                  let conv =
+                      conversionOf
+                          """{ "oneOf": [
+                                 { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a"] },
+                                 { "type": "object", "properties": { "b": { "type": "integer" } }, "required": ["b"] } ] }"""
+                  Expect.isFalse conv.FullyCompilable "object overlap"
+              }
+
+              test "oneOf with a single plain branch is FullyCompilable" {
+                  Expect.isTrue (conversionOf """{ "oneOf": [ { "type": "integer" } ] }""").FullyCompilable "one branch cannot overlap"
+              } ]
 
     [<Tests>]
     let tests = testList "ConversionTests" [ primitiveTests; objectTests; arrayTests; oneOfTests ]

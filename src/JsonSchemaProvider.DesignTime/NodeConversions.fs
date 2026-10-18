@@ -136,9 +136,12 @@ module NodeConversions =
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
         // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
         // buildOneOfConversion has no access to - folded in here instead.
+        // With several branches, a value may match more than one (e.g. integer and number), so
+        // "exactly one" always needs runtime validation. A single branch cannot overlap itself.
         | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
-            { conv with FullyCompilable = keywords.CanBeCompiled && conv.FullyCompilable }
+            let branchesCannotOverlap = List.isEmpty tail
+            { conv with FullyCompilable = keywords.CanBeCompiled && branchesCannotOverlap && conv.FullyCompilable }
         // #elide-end object-fully-compilable
         // #elide-end convert-conversion
         // #endregion

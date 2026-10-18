@@ -224,16 +224,17 @@ module ExprGenerator =
                     args[0]
                 else 
                     let conv = convert context typeMap schemaType
-                    let jsonValExpr = Expr.Application(conv.ToJson, args[0])
+                    let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
+                    let jsonValExpr = Expr.Var jsonValVar
                     let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
                     let path = pathOf schemaType
                     let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
 
-                    // The success payload is args[0] itself (the caller's bool/int/double/string/list),
-                    // not the JsonValue used for validation - those are different types, and which one
-                    // args[0] actually is isn't resolved until here, so Result<successType, _> is built
-                    // directly with Expr.NewUnionCase, same as the Choice1/Choice2 construction above.
+                    // The success payload is the validated JSON converted back (ToRuntime), not args[0], so a
+                    // oneOf tag is normalized to the matching branch - the same value Parse would give.
+                    // Result<successType, _> is built directly with Expr.NewUnionCase, since successType
+                    // isn't resolved until here, same as the Choice1/Choice2 construction above.
                     let successType = conv.RuntimeType
                     let resultType = typedefof<Result<_, _>>.MakeGenericType(successType, typeof<string list>)
                     let cases = Reflection.FSharpType.GetUnionCases resultType
@@ -243,11 +244,15 @@ module ExprGenerator =
                     let isEmpty = <@@ List.isEmpty (%%(Expr.Var errorsVar): string list) @@>
 
                     Expr.Let(
-                        errorsVar,
-                        errorsExpr,
-                        Expr.IfThenElse(
-                            isEmpty,
-                            Expr.NewUnionCase(okCase, [ args[0] ]),
-                            Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                        jsonValVar,
+                        Expr.Application(conv.ToJson, args[0]),
+                        Expr.Let(
+                            errorsVar,
+                            errorsExpr,
+                            Expr.IfThenElse(
+                                isEmpty,
+                                Expr.NewUnionCase(okCase, [ Expr.Application(conv.ToRuntime, jsonValExpr) ]),
+                                Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                            )
                         )
                     )
