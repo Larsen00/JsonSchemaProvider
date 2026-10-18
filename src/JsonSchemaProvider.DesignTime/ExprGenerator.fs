@@ -6,7 +6,7 @@ module ExprGenerator =
     open SchemaConversion
     open ProviderConfiguration
     open NodeConversions
-    open SchemaValidationExprs
+    open JsonSchemaProvider.SchemaValidation
     open JsonSchemaProvider
     open System
     open FSharp.Quotations.Patterns

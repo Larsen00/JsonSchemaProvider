@@ -35,7 +35,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
     <PackageReference Include="FSharp.Data.Json.Core" Version="6.6.0" />
     <PackageReference Include="NJsonSchema" Version="11.5.2" />
-    <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2" />
   </ItemGroup>
   <ItemGroup>
     <!-- <Reference Include="JsonSchemaProvider">
@@ -47,6 +46,7 @@
       <HintPath Condition="Exists('..\..\src\JsonSchemaProvider.Runtime\bin\Release\netstandard2.0\JsonSchemaProvider.DesignTime.dll')">..\..\src\JsonSchemaProvider.Runtime\bin\Release\netstandard2.0\JsonSchemaProvider.DesignTime.dll</HintPath>
     </Reference> -->
     <ProjectReference Include="..\..\src\JsonSchemaProvider.Runtime\JsonSchemaProvider.fsproj" />
-    <ProjectReference Include="..\..\src\JsonSchemaProvider.DesignTime\JsonSchemaProvider.DesignTime.fsproj" />
+    <!-- Build-only, so the tests see the provider like a user: only the runtime DLL, design-time DLL loaded next to it. -->
+    <ProjectReference Include="..\..\src\JsonSchemaProvider.DesignTime\JsonSchemaProvider.DesignTime.fsproj" ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
