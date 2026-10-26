@@ -10,6 +10,7 @@
     <Compile Include="TestHelpers.fs" />
     <!-- Keywords/: black-box coverage of JSON Schema keyword families, one file per family. -->
     <Compile Include="Keywords/NumberKeywordTests.fs" />
+    <Compile Include="Keywords/IntegerRangeTests.fs" />
     <Compile Include="Keywords/StringKeywordTests.fs" />
     <Compile Include="Keywords/ArrayKeywordTests.fs" />
     <Compile Include="Keywords/ObjectKeywordTests.fs" />

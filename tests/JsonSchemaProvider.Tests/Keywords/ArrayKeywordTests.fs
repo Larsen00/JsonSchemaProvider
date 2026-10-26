@@ -291,20 +291,110 @@ module ArrayKeywordTests =
         let flattened = ArrayOfMin1ObjectArrays.ItemArray.ToList((item, []))
         expectEqual (flattened |> List.map (fun i -> i.a)) [ 1 ]
 
-    // -- uniqueItems: runtime-only, no compile-time encoding --
+    // -- uniqueItems: plain list, ToJson drops duplicates --
 
     [<Literal>]
     let uniqueItemsSchema = """{ "type": "array", "items": { "type": "integer" }, "uniqueItems": true }"""
     type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema>
 
     [<Fact>]
-    let ``uniqueItems rejects an array with a duplicate`` () =
-        expectError (UniqueItemsArray.Create([ 1; 2; 2 ])) // [1;2;2] has a duplicate
+    let ``uniqueItems Create takes a plain list and needs no Result`` () =
+        let value: int list = UniqueItemsArray.Create([ 3; 1; 2 ])
+        expectEqual value [ 3; 1; 2 ]
 
     [<Fact>]
-    let ``uniqueItems accepts an array with no duplicates`` () =
-        let result = expectOk (UniqueItemsArray.Create([ 1; 2; 3 ]))
-        expectEqual result [ 1; 2; 3 ]
+    let ``uniqueItems Create drops duplicates, keeping each first occurrence`` () =
+        expectEqual (UniqueItemsArray.Create([ 3; 1; 3; 2; 1 ])) [ 3; 1; 2 ]
+
+    [<Literal>]
+    let uniqueItemsInTupleSchema =
+        """{ "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, "minItems": 2, "maxItems": 2 }"""
+    type UniqueItemsInTuple = JsonSchemaProvider<schema=uniqueItemsInTupleSchema>
+
+    [<Fact>]
+    let ``uniqueItems arrays inside a size-bounded tuple drop their duplicates`` () =
+        expectEqual (UniqueItemsInTuple.Create(([ 1; 1; 2 ], [ 3; 3 ]))) ([ 1; 2 ], [ 3 ])
+        expectEqual (expectOk (UniqueItemsInTuple.Parse("""[[2, 1], [3]]"""))) ([ 2; 1 ], [ 3 ])
+        expectError (UniqueItemsInTuple.Parse("""[[1, 1], [3]]"""))
+
+    [<Literal>]
+    let uniqueItemsOneOfBranchSchema =
+        """{ "oneOf": [ { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, { "type": "string" } ] }"""
+    type UniqueItemsOneOfBranch = JsonSchemaProvider<schema=uniqueItemsOneOfBranchSchema>
+
+    [<Fact>]
+    let ``uniqueItems array as a oneOf branch drops duplicates before validation`` () =
+        expectEqual (expectOk (UniqueItemsOneOfBranch.Create(Choice1Of2 [ 2; 1; 2 ]))) (Choice1Of2 [ 2; 1 ])
+        expectEqual (expectOk (UniqueItemsOneOfBranch.Parse("""[2, 1]"""))) (Choice1Of2 [ 2; 1 ])
+        expectError (UniqueItemsOneOfBranch.Parse("""[1, 1]"""))
+
+    [<Fact>]
+    let ``uniqueItems Parse keeps the order`` () =
+        expectEqual (expectOk (UniqueItemsArray.Parse("""[3, 1, 2]"""))) [ 3; 1; 2 ]
+
+    [<Fact>]
+    let ``uniqueItems Parse rejects JSON with a duplicate`` () =
+        expectError (UniqueItemsArray.Parse("""[1, 2, 2]"""))
+
+    [<Literal>]
+    let uniqueStringsSchema = """{ "type": "array", "items": { "type": "string" }, "uniqueItems": true }"""
+    type UniqueStringsArray = JsonSchemaProvider<schema=uniqueStringsSchema>
+
+    [<Fact>]
+    let ``uniqueItems on strings: Create validates, and the duplicate is dropped before that`` () =
+        expectEqual (expectOk (UniqueStringsArray.Create([ "b"; "a"; "b" ]))) [ "b"; "a" ]
+
+    [<Literal>]
+    let nestedUniqueItemsSchema =
+        """{ "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, "uniqueItems": true }"""
+    type NestedUniqueItemsArray = JsonSchemaProvider<schema=nestedUniqueItemsSchema>
+
+    [<Fact>]
+    let ``nested uniqueItems: inner lists in a different order are different elements`` () =
+        expectEqual (expectOk (NestedUniqueItemsArray.Parse("""[[1, 2], [2, 1]]"""))) [ [ 1; 2 ]; [ 2; 1 ] ]
+        expectError (NestedUniqueItemsArray.Parse("""[[1, 2], [1, 2]]"""))
+
+    [<Literal>]
+    let uniqueNumbersSchema = """{ "type": "array", "items": { "type": "number" }, "uniqueItems": true }"""
+    type UniqueNumbersArray = JsonSchemaProvider<schema=uniqueNumbersSchema>
+
+    [<Fact>]
+    let ``uniqueItems on numbers: 1 and 1.0 are the same JSON number`` () =
+        expectError (UniqueNumbersArray.Parse("""[1, 1.0]"""))
+
+    [<Literal>]
+    let uniqueMin2Schema = """{ "type": "array", "items": { "type": "integer" }, "minItems": 2, "uniqueItems": true }"""
+    type UniqueMin2Array = JsonSchemaProvider<schema=uniqueMin2Schema>
+
+    [<Fact>]
+    let ``uniqueItems with minItems is a plain list checked at runtime`` () =
+        expectEqual (expectOk (UniqueMin2Array.Create([ 2; 1 ]))) [ 2; 1 ] // order is kept
+        expectError (UniqueMin2Array.Create([ 1 ]))
+        expectError (UniqueMin2Array.Create([ 1; 1 ]))
+        expectError (UniqueMin2Array.Parse("""[1, 2, 2]"""))
+
+    [<Literal>]
+    let uniqueMax2Schema = """{ "type": "array", "items": { "type": "integer" }, "maxItems": 2, "uniqueItems": true }"""
+    type UniqueMax2Array = JsonSchemaProvider<schema=uniqueMax2Schema>
+
+    [<Fact>]
+    let ``uniqueItems with maxItems keeps the option chain and Create needs no Result`` () =
+        expectEqual (UniqueMax2Array.Create(Some(1, Some 2))) (Some(1, Some 2))
+        expectEqual (UniqueMax2Array.Create(None)) None
+        expectEqual (expectOk (UniqueMax2Array.Parse("""[2, 1]"""))) (Some(2, Some 1))
+        expectError (UniqueMax2Array.Parse("""[1, 1]"""))
+
+    [<Literal>]
+    let uniqueObjectItemsSchema =
+        """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } }, "required": ["a"] }, "uniqueItems": true }"""
+    type UniqueObjectItemsArray = JsonSchemaProvider<schema=uniqueObjectItemsSchema>
+
+    [<Fact>]
+    let ``uniqueItems on object items stays a list checked at runtime`` () =
+        let item a = UniqueObjectItemsArray.Item.Create(a = a)
+        let ok = expectOk (UniqueObjectItemsArray.Create([ item 1; item 2 ]))
+        expectEqual (ok |> List.map (fun i -> i.a)) [ 1; 2 ]
+        expectError (UniqueObjectItemsArray.Create([ item 1; item 1 ]))
 
     // -- maxItems: boundary is always structurally enforced, so no rejection test exists here --
 

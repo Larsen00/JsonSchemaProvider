@@ -32,7 +32,7 @@ module SkipRuntimeValidationTests =
         let value = UnsafeObject.Create(age = 1, name = "NOT_LOWERCASE", tags = [ "dup"; "dup" ])
         expectEqual value.age 1
         expectEqual value.name "NOT_LOWERCASE"
-        expectEqual value.tags [ "dup"; "dup" ]
+        expectEqual value.tags [ "dup" ] // uniqueItems is compiled, so ToJson drops the duplicate even here
 
     [<Literal>]
     let constrainedIntegerSchema = """{ "type": "integer", "minimum": 10 }"""
@@ -76,6 +76,6 @@ module SkipRuntimeValidationTests =
         expectEqual value [ 1; 2; 3 ]
 
     [<Fact>]
-    let ``skipRuntimeValidation accepts an array with duplicate items`` () =
-        let value: int list = UnsafeArray.Create [ 1; 1; 2 ]
-        expectEqual value [ 1; 1; 2 ]
+    let ``skipRuntimeValidation makes Parse accept duplicate items`` () =
+        // no validation runs, and ToRuntime doesn't drop duplicates
+        expectEqual (expectOk (UnsafeArray.Parse("""[2, 1, 2]"""))) [ 2; 1; 2 ]

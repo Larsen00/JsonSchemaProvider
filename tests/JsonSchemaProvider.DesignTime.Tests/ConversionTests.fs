@@ -144,8 +144,48 @@ module ConversionTests =
                       Expect.isTrue (conversionOf (intArray keywords)).FullyCompilable keywords
               }
 
-              test "uniqueItems makes an array not FullyCompilable" {
-                  Expect.isFalse (conversionOf (intArray ", \"uniqueItems\": true")).FullyCompilable ""
+              test "uniqueItems alone is a FullyCompilable list whose ToJson drops duplicates" {
+                  let conv = conversionOf (intArray ", \"uniqueItems\": true")
+                  Expect.equal conv.CompileTimeType typeof<int list> "CompileTimeType"
+                  Expect.isTrue conv.FullyCompilable "every term gives a valid array"
+                  expectRoundTrip conv "[3,1,2]"
+                  Expect.equal (toJsonText conv (box [ 3; 1; 3; 2; 1 ])) (normalize "[3,1,2]") "keeps each first occurrence"
+              }
+
+              test "uniqueItems with maxItems keeps the option chain and drops duplicates" {
+                  let conv = conversionOf (intArray ", \"maxItems\": 2, \"uniqueItems\": true")
+                  Expect.equal conv.CompileTimeType typeof<(int * int option) option> "CompileTimeType"
+                  Expect.isTrue conv.FullyCompilable "dropping duplicates can't break maxItems"
+                  expectRoundTrip conv "[1,2]"
+                  Expect.equal (toJsonText conv (box (Some(1, Some 1)))) (normalize "[1]") "duplicate dropped"
+              }
+
+              test "uniqueItems with minItems is a plain list that needs runtime validation" {
+                  for keywords in [ ", \"minItems\": 2"; ", \"minItems\": 2, \"maxItems\": 2"; ", \"minItems\": 1, \"maxItems\": 3" ] do
+                      let conv = conversionOf (intArray (keywords + ", \"uniqueItems\": true"))
+                      Expect.equal conv.CompileTimeType typeof<int list> keywords
+                      Expect.isFalse conv.FullyCompilable keywords
+                      Expect.equal (toJsonText conv (box [ 1; 1 ])) (normalize "[1,1]") $"no duplicate removal{keywords}"
+              }
+
+              test "nested uniqueItems arrays that differ only in order are different items" {
+                  let conv =
+                      conversionOf """{ "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, "uniqueItems": true }"""
+                  expectRoundTrip conv "[[1,2],[2,1]]"
+                  Expect.equal (toJsonText conv (box [ [ 1; 2 ]; [ 1; 2 ] ])) (normalize "[[1,2]]") "equal inner arrays are dropped"
+              }
+
+              test "uniqueItems on number items treats 1 and 1.0 as the same" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "number" }, "uniqueItems": true }"""
+                  Expect.equal ((JsonValue.Parse(toJsonText conv (box [ 1.0; 1.0 ]))).AsArray().Length) 1 ""
+              }
+
+              test "uniqueItems on object items doesn't drop duplicates, validation rejects them" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } } }, "uniqueItems": true }"""
+                  Expect.equal conv.RuntimeType typeof<NullableJsonValue list> "RuntimeType"
+                  Expect.isFalse conv.FullyCompilable ""
+                  let item = NullableJsonValue(JsonValue.Parse """{"a":1}""")
+                  Expect.equal (toJsonText conv (box [ item; item ])) (normalize """[{"a":1},{"a":1}]""") ""
               }
 
               test "a non-compilable item makes the array not FullyCompilable" {

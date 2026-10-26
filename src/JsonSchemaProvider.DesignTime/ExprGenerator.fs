@@ -221,8 +221,13 @@ module ExprGenerator =
             fun (args: Expr list) ->
                 
                 if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaType).FullyCompilable then
-                    args[0]
-                else 
+                    match schemaType with
+                    // An array's ToJson can normalise the term (uniqueItems drops duplicates), so round-trip it.
+                    | JsonArray _ ->
+                        let conv = convert context typeMap schemaType
+                        Expr.Application(conv.ToRuntime, Expr.Application(conv.ToJson, args[0]))
+                    | _ -> args[0]
+                else
                     let conv = convert context typeMap schemaType
                     let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
                     let jsonValExpr = Expr.Var jsonValVar

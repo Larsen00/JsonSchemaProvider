@@ -169,6 +169,14 @@ module internal CommonExprs =
         |> Array.find (fun methodInfo -> methodInfo.Name = "OfArray")
         |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod(elementType)
 
+    /// <summary>Builds the generic Array.distinct MethodInfo closed over the given element type.</summary>
+    /// <param name="elementType">The array's element type.</param>
+    /// <returns>The closed MethodInfo for Array.distinct.</returns>
+    let private arrayDistinctMethodInfo (elementType: Type) : MethodInfo =
+        arrayModuleType.GetMethods()
+        |> Array.find (fun methodInfo -> methodInfo.Name = "Distinct")
+        |> fun genericMethodInfo -> genericMethodInfo.MakeGenericMethod(elementType)
+
     /// <summary>Builds the generic Array.get MethodInfo closed over the given element type.</summary>
     /// <param name="elementType">The array's element type.</param>
     /// <returns>The closed MethodInfo for Array.get.</returns>
@@ -350,6 +358,13 @@ module internal CommonExprs =
     /// <returns>An Expr evaluating to the equivalent list.</returns>
     let callListOfArray (array: Expr) (elementType: Type) : Expr =
         Expr.Call(listOfArryMethodInfo elementType, [ array ])
+
+    /// <summary>Builds an Expr that evaluates `Array.distinct array`.</summary>
+    /// <param name="array">The source array expression.</param>
+    /// <param name="elementType">The array's element type.</param>
+    /// <returns>An Expr evaluating to the array without duplicates, keeping each first occurrence in order.</returns>
+    let callArrayDistinct (array: Expr) (elementType: Type) : Expr =
+        Expr.Call(arrayDistinctMethodInfo elementType, [ array ])
 
     /// <summary>Builds an Expr that evaluates `List.map mapping list`, mapping fromType elements to toType.</summary>
     /// <param name="mapping">The mapping function expression, of type `fromType -> toType`.</param>

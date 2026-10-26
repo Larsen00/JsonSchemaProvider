@@ -430,13 +430,25 @@ module ObjectKeywordTests =
     type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema>
 
     [<Fact>]
-    let ``object property: uniqueItems rejects an array with a duplicate`` () =
-        expectError (UniqueItemsArray.Create(values = [ 1; 2; 2 ])) // [1;2;2] has a duplicate
+    let ``object property: uniqueItems drops duplicates and the object's Create needs no Result`` () =
+        let result = UniqueItemsArray.Create(values = [ 3; 1; 3; 2 ])
+        expectEqual result.values [ 3; 1; 2 ]
+
+    [<Literal>]
+    let optionalUniqueItemsSchema =
+        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true } } }"""
+    type OptionalUniqueItemsArray = JsonSchemaProvider<schema=optionalUniqueItemsSchema>
 
     [<Fact>]
-    let ``object property: uniqueItems accepts an array with no duplicates`` () =
-        let result = expectOk (UniqueItemsArray.Create(values = [ 1; 2; 3 ]))
-        expectEqual result.values [ 1; 2; 3 ]
+    let ``optional uniqueItems property: absent gives None, present drops duplicates`` () =
+        expectEqual (OptionalUniqueItemsArray.Create()).values None
+        expectEqual (OptionalUniqueItemsArray.Create(values = [ 2; 1; 2 ])).values (Some [ 2; 1 ])
+        expectEqual (expectOk (OptionalUniqueItemsArray.Parse("""{}"""))).values None
+        expectError (OptionalUniqueItemsArray.Parse("""{ "values": [1, 1] }"""))
+
+    [<Fact>]
+    let ``object property: uniqueItems Parse rejects JSON with a duplicate`` () =
+        expectError (UniqueItemsArray.Parse("""{ "values": [1, 2, 2] }"""))
 
     [<Literal>]
     let maxItemsSchema =

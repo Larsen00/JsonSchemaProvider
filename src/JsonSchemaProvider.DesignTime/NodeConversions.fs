@@ -58,6 +58,12 @@ module NodeConversions =
         { Convert = CommonExprs.freshLambda "value" runtimeType body
           CompileTimeReturnType = typedefof<_ list>.MakeGenericType inner.CompileTimeType }
 
+    // Builds `fun runtimeObj -> JsonValue.Array(Array.distinct ((toJson runtimeObj).AsArray()))`, keeping each first occurrence.
+    let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
+        CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
+            let jsonArray = CommonExprs.callJsonValueAsArray (Expr.Application(toJson, Expr.Var runtimeObjVar))
+            CommonExprs.newJsonValueArray (CommonExprs.callArrayDistinct jsonArray typeof<JsonValue>))
+
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     // #region convert-conversion
@@ -407,6 +413,17 @@ module NodeConversions =
 
         // Default case: unbounded list.
         | Unbounded _ -> defaultArrayConversion
+
+        // uniqueItems, no size bound: the plain list, with duplicates dropped on the way to JSON.
+        | UniqueUnbounded _ ->
+            { defaultArrayConversion with
+                common.ToJson = dropDuplicatesAfter defaultArrayConversion.common.ToJson defaultArrayConversion.common.RuntimeType }
+
+        // uniqueItems + maxItems: the option chain built without uniqueItems (so its tails don't
+        // drop duplicates on their own), with duplicates dropped from the whole array on the way to JSON.
+        | UniqueMaxItems _ ->
+            let chain = buildArrayConversion context typeMap innerType { arrayKeywords with specific.UniqueItems = false }
+            { chain with common.ToJson = dropDuplicatesAfter chain.common.ToJson chain.common.RuntimeType }
 
     // Shared by ExactLength (n > 1) and MinItemsPrefix: peels one head off the array and
     // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
