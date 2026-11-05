@@ -82,6 +82,17 @@ module NullInputTests =
         let v = expectOk (NestedObject.Create(inner = inner))
         expectEqual v.inner.x (Some 1)
 
+    [<Fact>]
+    let ``a null bound with let still reaches Create`` () =
+        let x = null
+        expectError (NestedObject.Create(inner = x))
+
+    // Array.zeroCreate fills a reference-type array with null, no null literal written.
+    [<Fact>]
+    let ``a null from Array.zeroCreate reaches Create`` () =
+        let inners: NestedObject.innerObj[] = Array.zeroCreate 1
+        expectError (NestedObject.Create(inner = inners[0]))
+
     // The nested object's own Create only takes an integer, so it can't fail and stays plain.
     [<Fact>]
     let ``an object of only integers keeps a plain Create`` () =
