@@ -188,6 +188,21 @@ module ConversionTests =
                   Expect.equal (toJsonText conv (box [ item; item ])) (normalize """[{"a":1},{"a":1}]""") ""
               }
 
+              // Deliberately unsupported: NJsonSchema can't tell maxItems 0 from an omitted maxItems.
+              test "maxItems 0 is ignored, giving the unbounded list" {
+                  let conv = conversionOf (intArray ", \"maxItems\": 0")
+                  Expect.equal conv.CompileTimeType typeof<int list> "CompileTimeType"
+                  Expect.isTrue conv.FullyCompilable ""
+              }
+
+              test "uniqueItems with maxItems on object items doesn't drop duplicates, validation rejects them" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } } }, "maxItems": 2, "uniqueItems": true }"""
+                  Expect.equal conv.RuntimeType typeof<(NullableJsonValue * NullableJsonValue option) option> "RuntimeType"
+                  Expect.isFalse conv.FullyCompilable ""
+                  let item = NullableJsonValue(JsonValue.Parse """{"a":1}""")
+                  Expect.equal (toJsonText conv (box (Some(item, Some item)))) (normalize """[{"a":1},{"a":1}]""") ""
+              }
+
               test "a non-compilable item makes the array not FullyCompilable" {
                   let schemaText = """{ "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 }"""
                   Expect.isFalse (conversionOf schemaText).FullyCompilable ""

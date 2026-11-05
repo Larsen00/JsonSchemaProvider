@@ -33,6 +33,27 @@ module NJsonSchemaTests =
             Expect.equal schema.MaxItems 0 "Expected default value of 0 for maxItems"
         }
 
+    let explicitMaxItemsZero = """{ "type": "array", "items": { "type": "integer" }, "maxItems": 0 }"""
+
+    let explicitMaxItemsZeroIsAlsoZero =
+        test "An explicit maxItems 0 gives the same MaxItems value as an omitted one" {
+            Expect.equal (SchemaCache.parseSchema explicitMaxItemsZero).MaxItems 0 ""
+        }
+
+    // So the keyword scan in SchemaConversion.canBeCompiled can't tell an explicit maxItems 0 from an omitted one.
+    let explicitMaxItemsZeroIsDroppedByToJson =
+        test "An explicit maxItems 0 is dropped by ToJson" {
+            Expect.isFalse ((SchemaCache.parseSchema explicitMaxItemsZero).ToJson().Contains "maxItems") ""
+        }
+
+    // Against the spec: maxItems 0 only allows []. NJsonSchema treats 0 as "no limit".
+    let explicitMaxItemsZeroIsIgnoredByValidate =
+        test "NJsonSchema's Validate ignores maxItems 0 and accepts a non-empty array" {
+            let schema = SchemaCache.parseSchema explicitMaxItemsZero
+            Expect.isTrue (Seq.isEmpty (schema.Validate "[]")) "[] is valid"
+            Expect.isTrue (Seq.isEmpty (schema.Validate "[1,2]")) "[1,2] is wrongly accepted"
+        }
+
     // ActualProperties reflects only the last allOf branch, not a union of all branches -
     // contrary to what SPEC_GAPS.md previously assumed.
     let actualPropertiesDoesNotMergePlainAllOfBranches =
@@ -172,6 +193,9 @@ module NJsonSchemaTests =
             "JsonSchemaProvider.Tests.NJsonSchemaTests"
             [ minItemsDefaultsToZeroWhenAbsent
               maxItemsDefaultsToZeroWhenAbsent
+              explicitMaxItemsZeroIsAlsoZero
+              explicitMaxItemsZeroIsDroppedByToJson
+              explicitMaxItemsZeroIsIgnoredByValidate
               actualPropertiesDoesNotMergePlainAllOfBranches
               actualPropertiesDoesNotMergeRefBasedAllOfBranches
               numericLookingStringFailsNumberType
