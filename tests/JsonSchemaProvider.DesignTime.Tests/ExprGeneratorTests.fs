@@ -36,13 +36,13 @@ module ExprGeneratorTests =
         | Some v -> Expr.Value(Nullable v, typeof<Nullable<'T>>)
         | None -> Expr.Value(null, typeof<Nullable<'T>>)
 
-    let private boundedInt = """{ "type": "integer", "minimum": 5 }"""
+    let private boundedInt = """{ "type": "integer", "minimum": 5, "exclusiveMinimum": -2147483649 }"""
 
     let private person =
         """{ "type": "object",
              "properties": {
                "name": { "type": "string" },
-               "age": { "type": "integer", "minimum": 1 },
+               "age": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 },
                "nick": { "type": "string" } },
              "required": ["name"] }"""
 
@@ -107,7 +107,7 @@ module ExprGeneratorTests =
               }
 
               test "a validated array root is checked as JSON" {
-                  let f = fixture """{ "type": "array", "items": { "type": "integer", "minimum": 1 } }"""
+                  let f = fixture """{ "type": "array", "items": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 } }"""
                   Expect.equal (create f [ Expr.Value [ 1; 2 ] ]) (box (Ok [ 1; 2 ] : Result<int list, string list>)) "valid"
                   Expect.isTrue (isErrorResult (create f [ Expr.Value [ 0 ] ])) "item below minimum"
               }

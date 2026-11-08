@@ -30,17 +30,17 @@ module SchemaConversion =
         set [ "title"; "description"; "default"; "examples"; "$comment"; "deprecated"; "$schema" ]
 
     // Keywords allowed without disqualifying a node from CanBeCompiled: structural ones, plus the
-    // array size keywords and the integer lower bounds, whose compilability depends on their values
+    // array size keywords and the integer bounds, whose compilability depends on their values
     // and combination and is decided in NodeConversions.fs (via ArrayShape.fs/IntegerShape.fs)
-    // instead. Every other keyword (maximum, pattern, minProperties, ...) is never compiled at all,
-    // so its mere presence disqualifies right here.
+    // instead. Every other keyword (multipleOf, pattern, minProperties, ...) is never compiled at
+    // all, so its mere presence disqualifies right here.
     let private knownKeywordsFor (schemaType: JsonObjectType) : Set<string> =
         match schemaType with
         | JsonObjectType.Array ->
             set [ "type"; "items"; "minItems"; "maxItems"; "uniqueItems"; "additionalItems" ]
         | JsonObjectType.Object -> set [ "type"; "properties"; "required" ]
         | JsonObjectType.String -> set [ "type" ]
-        | JsonObjectType.Integer -> set [ "type"; "minimum"; "exclusiveMinimum" ]
+        | JsonObjectType.Integer -> set [ "type"; "minimum"; "exclusiveMinimum"; "maximum"; "exclusiveMaximum" ]
         | JsonObjectType.Number -> set [ "type" ]
         | JsonObjectType.Boolean -> set [ "type" ]
         | JsonObjectType.None -> set [ "oneOf" ] // parseOneOf is the only caller that hits this case
@@ -103,7 +103,7 @@ module SchemaConversion =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
               CanBeCompiled = canBeCompiled schema }
 
-        let m x = x |> Option.ofNullable |> Option.map float
+        let m x = x |> Option.ofNullable
 
         // Draft 4's boolean exclusiveMinimum/exclusiveMaximum is rewritten to the draft 6 numeric form.
         let numericKeywords () : JsonNumber.Keywords =

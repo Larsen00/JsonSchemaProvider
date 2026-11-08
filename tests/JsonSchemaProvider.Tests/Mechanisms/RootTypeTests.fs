@@ -62,7 +62,7 @@ module RootTypeTests =
     // minimum/maximum don't compile into the type (int stays int), so this root is never
     // FullyCompilable and Create returns Result, unlike the unconstrained roots above.
     [<Literal>]
-    let constrainedIntRootSchema = """{ "type": "integer", "minimum": 5, "maximum": 10 }"""
+    let constrainedIntRootSchema = """{ "type": "integer", "minimum": 5, "exclusiveMinimum": -2147483649, "maximum": 10 }"""
     type ConstrainedIntRoot = JsonSchemaProvider<schema=constrainedIntRootSchema>
 
     [<Fact>]
@@ -215,7 +215,7 @@ module RootTypeTests =
 
     // minimum:5 also makes the int branch itself not FullyCompilable.
     [<Literal>]
-    let constrainedIntOrStringRootSchema = """{ "oneOf": [{ "type": "integer", "minimum": 5 }, { "type": "string" }] }"""
+    let constrainedIntOrStringRootSchema = """{ "oneOf": [{ "type": "integer", "minimum": 5, "exclusiveMinimum": -2147483649 }, { "type": "string" }] }"""
     type ConstrainedIntOrStringRoot = JsonSchemaProvider<schema=constrainedIntOrStringRootSchema>
 
     [<Fact>]

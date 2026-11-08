@@ -45,12 +45,13 @@ module JsonNumber =
     // same way regardless of which of the two the schema declares. JsonInteger/JsonNumber (the
     // JsonSchemaType cases built from this) still track that distinction themselves; it's not a
     // keyword, so it doesn't live here.
+    // decimal, as NJsonSchema stores them, so 64-bit integer bounds like Int64.MaxValue stay exact.
     type Specific = {
-        Minimum: float option
-        Maximum: float option
-        ExclusiveMinimum: float option
-        ExclusiveMaximum: float option
-        MultipleOf: float option
+        Minimum: decimal option
+        Maximum: decimal option
+        ExclusiveMinimum: decimal option
+        ExclusiveMaximum: decimal option
+        MultipleOf: decimal option
     }
     type Keywords = { common: Common.Keywords; specific: Specific }
 

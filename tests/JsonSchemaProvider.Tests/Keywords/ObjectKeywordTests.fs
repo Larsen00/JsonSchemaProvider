@@ -479,7 +479,7 @@ module ObjectKeywordTests =
 
     [<Literal>]
     let arrayItemConstraintSchema =
-        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer", "minimum": 1 } } }, "required": ["values"] }"""
+        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 } } }, "required": ["values"] }"""
     type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
 
     [<Fact>]

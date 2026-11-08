@@ -429,7 +429,7 @@ module ArrayKeywordTests =
     // -- a constraint on the item schema itself, independent of the array's own keywords --
 
     [<Literal>]
-    let arrayItemConstraintSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 1 } }"""
+    let arrayItemConstraintSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 } }"""
     type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
 
     [<Fact>]

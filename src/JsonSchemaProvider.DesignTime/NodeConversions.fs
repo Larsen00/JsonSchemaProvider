@@ -66,6 +66,30 @@ module NodeConversions =
             CommonExprs.newJsonValueArray (CommonExprs.callArrayDistinct jsonArray typeof<JsonValue>))
 
 
+    // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
+    let private integerConversion (integerType: IntegerType) (fullyCompilable: bool) : ProviderConfiguration.NodeConversion =
+        let sized (dotnetType: Type) (toRuntime: Expr) (toJson: Expr) : ProviderConfiguration.NodeConversion =
+            { CompileTimeType = dotnetType; RuntimeType = dotnetType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = fullyCompilable }
+
+        match integerType with
+        | IntegerType.Int8 ->
+            sized typeof<sbyte> <@@ fun (jsonVal: JsonValue) -> Checked.sbyte (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: sbyte) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.UInt8 ->
+            sized typeof<byte> <@@ fun (jsonVal: JsonValue) -> Checked.byte (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: byte) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.Int16 ->
+            sized typeof<int16> <@@ fun (jsonVal: JsonValue) -> Checked.int16 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: int16) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.UInt16 ->
+            sized typeof<uint16> <@@ fun (jsonVal: JsonValue) -> Checked.uint16 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: uint16) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.Int32 ->
+            sized typeof<int> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@> <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.UInt32 ->
+            sized typeof<uint32> <@@ fun (jsonVal: JsonValue) -> Checked.uint32 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: uint32) -> JsonValue.Number(decimal runtimeObj) @@>
+        | IntegerType.Int64 ->
+            sized typeof<int64> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger64() @@> <@@ fun (runtimeObj: int64) -> JsonValue.Number(decimal runtimeObj) @@>
+        // AsInteger64 can't hold the upper half of uint64, so this one goes through decimal.
+        | IntegerType.UInt64 ->
+            sized typeof<uint64> <@@ fun (jsonVal: JsonValue) -> Checked.uint64 (jsonVal.AsDecimal()) @@> <@@ fun (runtimeObj: uint64) -> JsonValue.Number(decimal runtimeObj) @@>
+
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     // #region convert-conversion
     // #region object-fully-compilable
@@ -101,28 +125,11 @@ module NodeConversions =
 
         // #elide-start convert-conversion
         | JsonInteger keywords ->
-            let intConversion : ProviderConfiguration.NodeConversion = {
-                CompileTimeType = typeof<int>
-                RuntimeType = typeof<int>
-                ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
-                ToJson = <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
-                FullyCompilable = keywords.common.CanBeCompiled
-            }
-
             match classifyIntegerShape context.CompileFlags keywords with
-            // Bounds without a matching F# type: plain int, checked at runtime.
-            | UnsupportedIntegerKeywords _ -> { intConversion with FullyCompilable = false }
+            | UnsupportedIntegerKeywords _ -> integerConversion IntegerType.Int32 false
 
-            // Checked, so an out-of-range number throws like AsInteger does instead of wrapping around.
-            | NonNegativeInteger _ -> {
-                    CompileTimeType = typeof<uint32>
-                    RuntimeType = typeof<uint32>
-                    ToRuntime = <@@ fun (jsonVal: JsonValue) -> Checked.uint32 (jsonVal.AsInteger64()) @@>
-                    ToJson = <@@ fun (runtimeObj: uint32) -> JsonValue.Number(decimal runtimeObj) @@>
-                    FullyCompilable = keywords.common.CanBeCompiled
-                }
-
-            | AnyInteger _ -> intConversion
+            | SizedInteger(_, integerType, typeEnforcesBounds) ->
+                integerConversion integerType (keywords.common.CanBeCompiled && typeEnforcesBounds)
 
         | JsonNumber keywords -> {
                 CompileTimeType = typeof<double>

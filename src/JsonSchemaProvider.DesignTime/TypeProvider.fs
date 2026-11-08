@@ -52,6 +52,7 @@ module TypeProvider =
 
             let plainPropertyCompileTimeType = (convert context typeMap schemaType).CompileTimeType
 
+            // TODO: AddXmlDoc on integer properties whose bounds don't fit their type, suggesting minimum/maximum.
             ProvidedProperty(
                 propertyName = name,
                 propertyType = optionalOrPlainType (not <| Map.find name keywords.specific.Required) plainPropertyCompileTimeType,

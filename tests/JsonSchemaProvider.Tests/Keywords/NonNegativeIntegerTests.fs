@@ -167,7 +167,7 @@ module NonNegativeIntegerTests =
     // Every other integer bound has no matching F# type, so these stay int with a validating Create.
 
     [<Literal>]
-    let minimumOneSchema = """{ "type": "integer", "minimum": 1 }"""
+    let minimumOneSchema = """{ "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 }"""
     type MinimumOne = JsonSchemaProvider<schema=minimumOneSchema>
 
     [<Fact>]
@@ -176,7 +176,7 @@ module NonNegativeIntegerTests =
         expectError (MinimumOne.Create 0)
 
     [<Literal>]
-    let exclusiveZeroSchema = """{ "type": "integer", "exclusiveMinimum": 0 }"""
+    let exclusiveZeroSchema = """{ "type": "integer", "minimum": -2147483648, "exclusiveMinimum": 0 }"""
     type ExclusiveZero = JsonSchemaProvider<schema=exclusiveZeroSchema>
 
     [<Fact>]
@@ -185,15 +185,16 @@ module NonNegativeIntegerTests =
         expectEqual (expectOk (ExclusiveZero.Create 1)) 1
 
     // Draft 4: "exclusiveMinimum": true makes "minimum": 0 exclusive, so 0 itself is not allowed.
+    // Draft 4 has no second lower bound to keep it int, so this one is uint32.
     [<Literal>]
     let draft4ExclusiveZeroSchema =
         """{ "$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "minimum": 0, "exclusiveMinimum": true }"""
     type Draft4ExclusiveZero = JsonSchemaProvider<schema=draft4ExclusiveZeroSchema>
 
     [<Fact>]
-    let ``draft 4 exclusive minimum 0 stays int and Create rejects 0`` () =
-        expectError (Draft4ExclusiveZero.Create 0)
-        expectEqual (expectOk (Draft4ExclusiveZero.Create 1)) 1
+    let ``draft 4 exclusive minimum 0 gives uint32 and Create rejects 0`` () =
+        expectError (Draft4ExclusiveZero.Create 0u)
+        expectEqual (expectOk (Draft4ExclusiveZero.Create 1u)) 1u
 
     [<Literal>]
     let ignoredSchema = """{ "type": "integer", "minimum": 0 }"""

@@ -16,7 +16,7 @@ module NestedValidationTests =
         "properties": {
             "age": {
                 "type": "integer",
-                "minimum": 5,
+                "minimum": 5, "exclusiveMinimum": -2147483649,
                 "maximum": 10
             }
         },
@@ -62,7 +62,7 @@ module NestedValidationTests =
     // against root-level enforcement.
     [<Literal>]
     let nestedAgeSchema =
-        """{ "type": "object", "properties": { "person": { "type": "object", "properties": { "age": { "type": "integer", "minimum": 5, "maximum": 10 } }, "required": ["age"] } }, "required": ["person"] }"""
+        """{ "type": "object", "properties": { "person": { "type": "object", "properties": { "age": { "type": "integer", "minimum": 5, "exclusiveMinimum": -2147483649, "maximum": 10 } }, "required": ["age"] } }, "required": ["person"] }"""
     type NestedAge = JsonSchemaProvider<schema=nestedAgeSchema>
 
     [<Fact>]
@@ -78,7 +78,7 @@ module NestedValidationTests =
     // is exercised, not just the one-level-deep case above.
     [<Literal>]
     let twoLevelNestedSchema =
-        """{ "type": "object", "properties": { "person": { "type": "object", "properties": { "address": { "type": "object", "properties": { "zip": { "type": "integer", "minimum": 1000, "maximum": 9999 } }, "required": ["zip"] } }, "required": ["address"] } }, "required": ["person"] }"""
+        """{ "type": "object", "properties": { "person": { "type": "object", "properties": { "address": { "type": "object", "properties": { "zip": { "type": "integer", "minimum": 1000, "exclusiveMinimum": -2147483649, "maximum": 9999 } }, "required": ["zip"] } }, "required": ["address"] } }, "required": ["person"] }"""
     type TwoLevelNested = JsonSchemaProvider<schema=twoLevelNestedSchema>
 
     [<Fact>]
@@ -99,7 +99,7 @@ module NestedValidationTests =
           "type": "object",
           "properties": {
             "small": { "type": "object", "properties": { "value": { "type": "integer", "minimum": 0, "maximum": 10 } }, "required": ["value"] },
-            "large": { "type": "object", "properties": { "value": { "type": "integer", "minimum": 100, "maximum": 200 } }, "required": ["value"] }
+            "large": { "type": "object", "properties": { "value": { "type": "integer", "minimum": 100, "exclusiveMinimum": -2147483649, "maximum": 200 } }, "required": ["value"] }
           },
           "required": ["small", "large"]
         }"""

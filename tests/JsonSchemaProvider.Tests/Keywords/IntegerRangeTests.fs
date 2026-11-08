@@ -16,7 +16,7 @@ module IntegerRangeTests =
 
     [<Literal>]
     let boundedPropertySchema =
-        """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }, "required": ["n"] }"""
+        """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "multipleOf": 1 } }, "required": ["n"] }"""
     type BoundedProperty = JsonSchemaProvider<schema=boundedPropertySchema>
 
     [<Literal>]
@@ -47,7 +47,7 @@ module IntegerRangeTests =
         expectNotAnInt (fun () -> tooSmall.n)
 
     [<Literal>]
-    let boundedRootSchema = """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }"""
+    let boundedRootSchema = """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "multipleOf": 1 }"""
     type BoundedRoot = JsonSchemaProvider<schema=boundedRootSchema>
 
     [<Literal>]

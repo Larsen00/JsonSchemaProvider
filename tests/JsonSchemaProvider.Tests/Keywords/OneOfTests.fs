@@ -618,7 +618,7 @@ module OneOfTests =
         {
             "type": "object",
             "properties": {
-                "value": {"oneOf": [{"type": "integer", "minimum": 10}, {"type": "integer", "maximum": 5}]}
+                "value": {"oneOf": [{"type": "integer", "minimum": 10, "exclusiveMinimum": -2147483649}, {"type": "integer", "maximum": 5}]}
             },
             "required": ["value"]
         }
@@ -633,7 +633,7 @@ module OneOfTests =
 
     [<Literal>]
     let rootBigOrSmallIntSchema =
-        """{"oneOf": [{"type": "integer", "minimum": 10}, {"type": "integer", "maximum": 5}]}"""
+        """{"oneOf": [{"type": "integer", "minimum": 10, "exclusiveMinimum": -2147483649}, {"type": "integer", "maximum": 5}]}"""
     type RootBigOrSmallInt = JsonSchemaProvider<schema = rootBigOrSmallIntSchema>
 
     // Root Create converts the validated JSON back, so it agrees with Parse on the tag.

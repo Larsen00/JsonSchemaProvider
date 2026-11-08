@@ -80,8 +80,64 @@ module ConversionTests =
               }
 
               test "an integer with any other lower bound stays int and is validated" {
-                  let conv = conversionOf """{ "type": "integer", "minimum": 1 }"""
+                  let conv = conversionOf """{ "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 }"""
                   Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
+              }
+
+              test "a positive lower bound gives a validated uint32, a negative one a validated int" {
+                  let positive = conversionOf """{ "type": "integer", "minimum": 1 }"""
+                  Expect.equal positive.CompileTimeType typeof<uint32> "positive CompileTimeType"
+                  Expect.isFalse positive.FullyCompilable "positive FullyCompilable"
+                  let negative = conversionOf """{ "type": "integer", "minimum": -1 }"""
+                  Expect.equal negative.CompileTimeType typeof<int> "negative CompileTimeType"
+                  Expect.isFalse negative.FullyCompilable "negative FullyCompilable"
+              }
+
+              test "bounds that are exactly a type's range give that type, FullyCompilable, and round-trip its extremes" {
+                  for bounds, expected, extremes in
+                      [ "-128, \"maximum\": 127", typeof<sbyte>, [ "-128"; "127" ]
+                        "0, \"maximum\": 255", typeof<byte>, [ "0"; "255" ]
+                        "-32768, \"maximum\": 32767", typeof<int16>, [ "-32768"; "32767" ]
+                        "0, \"maximum\": 65535", typeof<uint16>, [ "0"; "65535" ]
+                        "0, \"maximum\": 4294967295", typeof<uint32>, [ "0"; "4294967295" ]
+                        "-9223372036854775808, \"maximum\": 9223372036854775807", typeof<int64>, [ "-9223372036854775808"; "9223372036854775807" ]
+                        "0, \"maximum\": 18446744073709551615", typeof<uint64>, [ "0"; "18446744073709551615" ] ] do
+                      let conv = conversionOf $"""{{ "type": "integer", "minimum": {bounds} }}"""
+                      Expect.equal conv.CompileTimeType expected $"CompileTimeType of {expected.Name}"
+                      Expect.equal conv.RuntimeType expected $"RuntimeType of {expected.Name}"
+                      Expect.isTrue conv.FullyCompilable $"FullyCompilable of {expected.Name}"
+                      for extreme in extremes do
+                          expectRoundTrip conv extreme
+              }
+
+              test "a redundant looser bound picks the smaller type, validated against the stricter one" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": 0, "maximum": 11, "exclusiveMaximum": 256 }"""
+                  Expect.equal conv.CompileTimeType typeof<byte> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
+              }
+
+              test "bounds beyond 32 bits widen to 64 bits" {
+                  Expect.equal (conversionOf """{ "type": "integer", "minimum": 0, "maximum": 5000000000 }""").CompileTimeType typeof<uint64> "unsigned"
+                  Expect.equal (conversionOf """{ "type": "integer", "minimum": -5000000000 }""").CompileTimeType typeof<int64> "signed"
+              }
+
+              test "multipleOf alone keeps int but needs validation" {
+                  let conv = conversionOf """{ "type": "integer", "multipleOf": 2 }"""
+                  Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
+              }
+
+              test "a one-sided bound at the Int64 limit gives int64 and is FullyCompilable" {
+                  for schemaText in [ """{ "type": "integer", "maximum": 9223372036854775807 }"""; """{ "type": "integer", "minimum": -9223372036854775808 }""" ] do
+                      let conv = conversionOf schemaText
+                      Expect.equal conv.CompileTimeType typeof<int64> $"CompileTimeType of {schemaText}"
+                      Expect.isTrue conv.FullyCompilable $"FullyCompilable of {schemaText}"
+              }
+
+              test "bounds no integer type holds fall back to the validated 64-bit type" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": -1, "maximum": 9223372036854775808 }"""
+                  Expect.equal conv.CompileTimeType typeof<int64> "CompileTimeType"
                   Expect.isFalse conv.FullyCompilable "FullyCompilable"
               } ]
 

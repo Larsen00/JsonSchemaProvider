@@ -12,7 +12,7 @@ module SkipRuntimeValidationTests =
         {
           "type": "object",
           "properties": {
-            "age": { "type": "integer", "minimum": 18 },
+            "age": { "type": "integer", "minimum": 18, "exclusiveMinimum": -2147483649 },
             "name": { "type": "string", "pattern": "^[a-z]+$" },
             "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }
           },
@@ -35,7 +35,7 @@ module SkipRuntimeValidationTests =
         expectEqual value.tags [ "dup" ] // uniqueItems is compiled, so ToJson drops the duplicate even here
 
     [<Literal>]
-    let constrainedIntegerSchema = """{ "type": "integer", "minimum": 10 }"""
+    let constrainedIntegerSchema = """{ "type": "integer", "minimum": 10, "exclusiveMinimum": -2147483649 }"""
     type UnsafeInteger = JsonSchemaProvider<schema = constrainedIntegerSchema, skipRuntimeValidation = true>
 
     [<Fact>]
