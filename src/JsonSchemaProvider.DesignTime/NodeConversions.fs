@@ -11,6 +11,7 @@ module NodeConversions =
     open JsonSchemaProvider
     open System.Collections.Concurrent
     open ArrayShape
+    open IntegerShape
 
     type TypeMap = Map<string, ProvidedTypeDefinition>
 
@@ -99,13 +100,29 @@ module NodeConversions =
             }
 
         // #elide-start convert-conversion
-        | JsonInteger keywords -> {
+        | JsonInteger keywords ->
+            let intConversion : ProviderConfiguration.NodeConversion = {
                 CompileTimeType = typeof<int>
                 RuntimeType = typeof<int>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
                 ToJson = <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
                 FullyCompilable = keywords.common.CanBeCompiled
             }
+
+            match classifyIntegerShape context.CompileFlags keywords with
+            // Bounds without a matching F# type: plain int, checked at runtime.
+            | UnsupportedIntegerKeywords _ -> { intConversion with FullyCompilable = false }
+
+            // Checked, so an out-of-range number throws like AsInteger does instead of wrapping around.
+            | NonNegativeInteger _ -> {
+                    CompileTimeType = typeof<uint32>
+                    RuntimeType = typeof<uint32>
+                    ToRuntime = <@@ fun (jsonVal: JsonValue) -> Checked.uint32 (jsonVal.AsInteger64()) @@>
+                    ToJson = <@@ fun (runtimeObj: uint32) -> JsonValue.Number(decimal runtimeObj) @@>
+                    FullyCompilable = keywords.common.CanBeCompiled
+                }
+
+            | AnyInteger _ -> intConversion
 
         | JsonNumber keywords -> {
                 CompileTimeType = typeof<double>

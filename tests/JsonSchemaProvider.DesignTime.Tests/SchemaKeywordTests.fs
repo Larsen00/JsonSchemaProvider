@@ -62,7 +62,7 @@ module SchemaKeywordTests =
               }
 
               test "a numeric validation keyword disqualifies the node" {
-                  expectCompilable """{ "type": "integer", "minimum": 0 }""" false
+                  expectCompilable """{ "type": "integer", "maximum": 10 }""" false
                   expectCompilable """{ "type": "number", "multipleOf": 0.5 }""" false
               }
 
@@ -78,12 +78,18 @@ module SchemaKeywordTests =
                   expectCompilable """{ "type": "object", "patternProperties": { "^x": { "type": "string" } } }""" false
               }
 
+              test "integer lower bounds keep the integer node itself compilable" {
+                  expectCompilable """{ "type": "integer", "minimum": 5 }""" true
+                  expectCompilable """{ "type": "integer", "exclusiveMinimum": -1 }""" true
+                  expectCompilable """{ "type": "number", "minimum": 0 }""" false
+              }
+
               test "array size keywords keep the array node itself compilable" {
                   expectCompilable """{ "type": "array", "items": { "type": "integer" }, "minItems": 1, "maxItems": 3, "uniqueItems": true }""" true
               }
 
               test "a property's keyword only disqualifies that property, not its parent" {
-                  let schemaText = """{ "type": "object", "properties": { "a": { "type": "integer", "minimum": 0 } } }"""
+                  let schemaText = """{ "type": "object", "properties": { "a": { "type": "integer", "maximum": 10 } } }"""
                   let keywords, properties = objectOf schemaText
                   Expect.isTrue keywords.common.CanBeCompiled "parent object"
                   Expect.isFalse (canBeCompiled (snd properties.Head)) "property a"
@@ -122,6 +128,20 @@ module SchemaKeywordTests =
                   Expect.equal k.specific.Minimum (Some 1.0) "minimum"
                   Expect.equal k.specific.Maximum (Some 10.0) "maximum"
                   Expect.equal k.specific.MultipleOf (Some 2.0) "multipleOf"
+              }
+
+              test "a draft 4 boolean exclusiveMinimum is moved over to the draft 6 form" {
+                  let k = numberKeywords """{ "type": "integer", "minimum": 0, "exclusiveMinimum": true, "maximum": 9, "exclusiveMaximum": true }"""
+                  Expect.equal k.specific.Minimum None "minimum"
+                  Expect.equal k.specific.ExclusiveMinimum (Some 0.0) "exclusiveMinimum"
+                  Expect.equal k.specific.Maximum None "maximum"
+                  Expect.equal k.specific.ExclusiveMaximum (Some 9.0) "exclusiveMaximum"
+              }
+
+              test "a draft 6 numeric exclusiveMinimum is captured as is" {
+                  let k = numberKeywords """{ "type": "integer", "exclusiveMinimum": -1 }"""
+                  Expect.equal k.specific.Minimum None "minimum"
+                  Expect.equal k.specific.ExclusiveMinimum (Some -1.0) "exclusiveMinimum"
               }
 
               test "integer and number stay distinct" {

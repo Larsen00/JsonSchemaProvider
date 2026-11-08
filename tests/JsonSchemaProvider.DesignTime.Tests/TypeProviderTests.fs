@@ -78,12 +78,12 @@ module TypeProviderTests =
               }
 
               test "Create evaluates to a Result when validation is needed" {
-                  let root = provide """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": 0 } } }"""
+                  let root = provide """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": 1 } } }"""
                   Expect.isTrue (isResultOf root (method root "Create").ReturnType) ""
               }
 
               test "SkipRuntimeValidation drops the Result from Create but not from Parse" {
-                  let root = provideWith { defaultFlags with SkipRuntimeValidation = true } """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": 0 } } }"""
+                  let root = provideWith { defaultFlags with SkipRuntimeValidation = true } """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": 1 } } }"""
                   Expect.equal (method root "Create").ReturnType (root :> Type) "Create"
                   Expect.isTrue (isResultOf root (method root "Parse").ReturnType) "Parse"
               }
@@ -101,7 +101,7 @@ module TypeProviderTests =
                           """{ "type": "object",
                                "properties": {
                                  "plain": { "type": "object", "properties": { "a": { "type": "integer" } } },
-                                 "checked": { "type": "object", "properties": { "a": { "type": "integer", "minimum": 0 } } } } }"""
+                                 "checked": { "type": "object", "properties": { "a": { "type": "integer", "minimum": 1 } } } } }"""
                   let plain = nested root "plainObj"
                   let checkedType = nested root "checkedObj"
                   Expect.equal (method plain "Create").ReturnType plain "plain"

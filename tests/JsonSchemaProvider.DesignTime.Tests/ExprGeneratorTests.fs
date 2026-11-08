@@ -42,7 +42,7 @@ module ExprGeneratorTests =
         """{ "type": "object",
              "properties": {
                "name": { "type": "string" },
-               "age": { "type": "integer", "minimum": 0 },
+               "age": { "type": "integer", "minimum": 1 },
                "nick": { "type": "string" } },
              "required": ["name"] }"""
 
@@ -107,9 +107,9 @@ module ExprGeneratorTests =
               }
 
               test "a validated array root is checked as JSON" {
-                  let f = fixture """{ "type": "array", "items": { "type": "integer", "minimum": 0 } }"""
+                  let f = fixture """{ "type": "array", "items": { "type": "integer", "minimum": 1 } }"""
                   Expect.equal (create f [ Expr.Value [ 1; 2 ] ]) (box (Ok [ 1; 2 ] : Result<int list, string list>)) "valid"
-                  Expect.isTrue (isErrorResult (create f [ Expr.Value [ -1 ] ])) "negative item"
+                  Expect.isTrue (isErrorResult (create f [ Expr.Value [ 0 ] ])) "item below minimum"
               }
 
               test "an object omits absent optional properties" {

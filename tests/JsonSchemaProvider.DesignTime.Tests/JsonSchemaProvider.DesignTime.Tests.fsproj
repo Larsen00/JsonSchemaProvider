@@ -9,6 +9,7 @@
     <Compile Include="SchemaConversionTests.fs" />
     <Compile Include="SchemaKeywordTests.fs" />
     <Compile Include="ArrayShapeTests.fs" />
+    <Compile Include="IntegerShapeTests.fs" />
     <Compile Include="NodeConversionsTests.fs" />
     <Compile Include="ConversionTests.fs" />
     <Compile Include="ExprGeneratorTests.fs" />

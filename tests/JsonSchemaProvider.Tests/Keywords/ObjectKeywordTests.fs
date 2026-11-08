@@ -479,12 +479,12 @@ module ObjectKeywordTests =
 
     [<Literal>]
     let arrayItemConstraintSchema =
-        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer", "minimum": 0 } } }, "required": ["values"] }"""
+        """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer", "minimum": 1 } } }, "required": ["values"] }"""
     type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
 
     [<Fact>]
     let ``object property: an item schema's own constraint is enforced against every element`` () =
-        expectError (ArrayItemConstraint.Create(values = [ 1; -1; 3 ])) // -1 violates the item schema's minimum
+        expectError (ArrayItemConstraint.Create(values = [ 1; 0; 3 ])) // 0 violates the item schema's minimum
 
     [<Fact>]
     let ``object property: an array whose every element satisfies the item schema is accepted`` () =

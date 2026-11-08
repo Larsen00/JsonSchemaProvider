@@ -29,18 +29,18 @@ module SchemaConversion =
     let private alwaysIgnoredKeywords =
         set [ "title"; "description"; "default"; "examples"; "$comment"; "deprecated"; "$schema" ]
 
-    // Keywords allowed without disqualifying a node from CanBeCompiled: structural ones, plus -
-    // for arrays only - minItems/maxItems/uniqueItems/additionalItems, whose compilability is
-    // combination-dependent and decided in NodeConversions.fs instead. Every other type's
-    // validation keywords (minimum, pattern, minProperties, ...) are never compiled at all, so
-    // their mere presence disqualifies right here.
+    // Keywords allowed without disqualifying a node from CanBeCompiled: structural ones, plus the
+    // array size keywords and the integer lower bounds, whose compilability depends on their values
+    // and combination and is decided in NodeConversions.fs (via ArrayShape.fs/IntegerShape.fs)
+    // instead. Every other keyword (maximum, pattern, minProperties, ...) is never compiled at all,
+    // so its mere presence disqualifies right here.
     let private knownKeywordsFor (schemaType: JsonObjectType) : Set<string> =
         match schemaType with
         | JsonObjectType.Array ->
             set [ "type"; "items"; "minItems"; "maxItems"; "uniqueItems"; "additionalItems" ]
         | JsonObjectType.Object -> set [ "type"; "properties"; "required" ]
         | JsonObjectType.String -> set [ "type" ]
-        | JsonObjectType.Integer
+        | JsonObjectType.Integer -> set [ "type"; "minimum"; "exclusiveMinimum" ]
         | JsonObjectType.Number -> set [ "type" ]
         | JsonObjectType.Boolean -> set [ "type" ]
         | JsonObjectType.None -> set [ "oneOf" ] // parseOneOf is the only caller that hits this case
@@ -105,13 +105,14 @@ module SchemaConversion =
 
         let m x = x |> Option.ofNullable |> Option.map float
 
+        // Draft 4's boolean exclusiveMinimum/exclusiveMaximum is rewritten to the draft 6 numeric form.
         let numericKeywords () : JsonNumber.Keywords =
             { common = common
               specific =
-                { Minimum = schema.Minimum |> m
-                  Maximum = schema.Maximum |> m
-                  ExclusiveMinimum = schema.ExclusiveMinimum |> m
-                  ExclusiveMaximum = schema.ExclusiveMaximum |> m
+                { Minimum = if schema.IsExclusiveMinimum then None else schema.Minimum |> m
+                  Maximum = if schema.IsExclusiveMaximum then None else schema.Maximum |> m
+                  ExclusiveMinimum = if schema.IsExclusiveMinimum then schema.Minimum |> m else schema.ExclusiveMinimum |> m
+                  ExclusiveMaximum = if schema.IsExclusiveMaximum then schema.Maximum |> m else schema.ExclusiveMaximum |> m
                   MultipleOf = schema.MultipleOf |> m } }
 
         match schema.Type with

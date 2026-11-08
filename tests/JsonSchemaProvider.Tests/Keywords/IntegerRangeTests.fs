@@ -1,6 +1,7 @@
 namespace JsonSchemaProvider.Tests
 
-// An integer node maps to int (32-bit), but a JSON integer can be any size. Bounding the node to
+// An integer node maps to int (32-bit), unless its smallest allowed value is 0 (see
+// NonNegativeIntegerTests), but a JSON integer can be any size. Bounding the node to
 // the Int32 range with minimum/maximum makes validation reject everything int can't hold; without
 // the bounds, Parse throws on an out-of-range integer instead of returning Error.
 module IntegerRangeTests =

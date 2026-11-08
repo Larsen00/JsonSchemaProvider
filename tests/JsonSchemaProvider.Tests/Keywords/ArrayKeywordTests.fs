@@ -429,12 +429,12 @@ module ArrayKeywordTests =
     // -- a constraint on the item schema itself, independent of the array's own keywords --
 
     [<Literal>]
-    let arrayItemConstraintSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0 } }"""
+    let arrayItemConstraintSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 1 } }"""
     type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
 
     [<Fact>]
     let ``an item schema's own constraint is enforced against every element`` () =
-        expectError (ArrayItemConstraint.Create([ 1; -1; 3 ])) // -1 violates the item schema's minimum
+        expectError (ArrayItemConstraint.Create([ 1; 0; 3 ])) // 0 violates the item schema's minimum
 
     [<Fact>]
     let ``an array whose every element satisfies the item schema is accepted`` () =

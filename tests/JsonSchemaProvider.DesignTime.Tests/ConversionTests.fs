@@ -38,10 +38,51 @@ module ConversionTests =
                   Expect.equal (toRuntime (conversionOf """{ "type": "string" }""") "\"x\"") (box "x") "string"
               }
 
-              test "a primitive is FullyCompilable only without validation keywords" {
+              test "a primitive is FullyCompilable only without validation keywords its F# type can't encode" {
                   Expect.isTrue (conversionOf """{ "type": "integer" }""").FullyCompilable "plain"
-                  Expect.isFalse (conversionOf """{ "type": "integer", "minimum": 0 }""").FullyCompilable "minimum"
+                  Expect.isFalse (conversionOf """{ "type": "integer", "minimum": 1 }""").FullyCompilable "minimum"
                   Expect.isFalse (conversionOf """{ "type": "string" }""").FullyCompilable "a string can be null"
+              }
+
+              test "a non-negative integer maps to uint32 and is FullyCompilable" {
+                  for schemaText in [ """{ "type": "integer", "minimum": 0 }"""; """{ "type": "integer", "exclusiveMinimum": -1 }""" ] do
+                      let conv = conversionOf schemaText
+                      Expect.equal conv.CompileTimeType typeof<uint32> $"CompileTimeType of {schemaText}"
+                      Expect.equal conv.RuntimeType typeof<uint32> $"RuntimeType of {schemaText}"
+                      Expect.isTrue conv.FullyCompilable $"FullyCompilable of {schemaText}"
+              }
+
+              test "a non-negative integer round-trips across the whole uint32 range" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": 0 }"""
+                  expectRoundTrip conv "0"
+                  expectRoundTrip conv "3000000000"
+                  expectRoundTrip conv "4294967295"
+                  Expect.equal (toRuntime conv "7") (box 7u) "ToRuntime"
+              }
+
+              test "a non-negative integer with another numeric keyword keeps uint32 but is validated" {
+                  for keyword in [ "\"maximum\": 10"; "\"exclusiveMaximum\": 10"; "\"multipleOf\": 2" ] do
+                      let conv = conversionOf $"""{{ "type": "integer", "minimum": 0, {keyword} }}"""
+                      Expect.equal conv.CompileTimeType typeof<uint32> $"CompileTimeType with {keyword}"
+                      Expect.isFalse conv.FullyCompilable $"FullyCompilable with {keyword}"
+              }
+
+              test "a non-negative integer with a stray keyword keeps uint32 but is validated" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": 0, "enum": [1, 2] }"""
+                  Expect.equal conv.CompileTimeType typeof<uint32> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
+              }
+
+              test "IgnoreSpecificKeywords keeps a non-negative integer as int and validated" {
+                  let conv = convertRoot (fixtureWith { defaultFlags with IgnoreSpecificKeywords = true } """{ "type": "integer", "minimum": 0 }""")
+                  Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
+              }
+
+              test "an integer with any other lower bound stays int and is validated" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": 1 }"""
+                  Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
               } ]
 
     let objectTests =
@@ -70,7 +111,7 @@ module ConversionTests =
                       | JsonObject(keywords, properties) -> isObjectFullyCompilable f.Context f.TypeMap keywords properties
                       | _ -> failwith "Root schema is not an object"
                   Expect.isTrue (ownCreateCannotFail """{ "type": "object", "properties": { "a": { "type": "integer" } } }""") "plain"
-                  Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "a": { "type": "integer", "minimum": 0 } } }""") "property with minimum"
+                  Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "a": { "type": "integer", "minimum": 1 } } }""") "property with minimum"
                   Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "s": { "type": "string" } } }""") "string property"
                   Expect.isFalse (ownCreateCannotFail """{ "type": "object", "properties": { "o": { "type": "object", "properties": { "a": { "type": "integer" } } } } }""") "object property"
               } ]
@@ -204,7 +245,7 @@ module ConversionTests =
               }
 
               test "a non-compilable item makes the array not FullyCompilable" {
-                  let schemaText = """{ "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 }"""
+                  let schemaText = """{ "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 2, "maxItems": 2 }"""
                   Expect.isFalse (conversionOf schemaText).FullyCompilable ""
               }
 

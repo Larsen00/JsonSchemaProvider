@@ -29,6 +29,7 @@
     <Compile Include="SchemaValidationExprs.fs" />
     <Compile Include="SchemaConversion.fs" />
     <Compile Include="ArrayShape.fs" />
+    <Compile Include="IntegerShape.fs" />
     <Compile Include="NodeConversions.fs" />
     <Compile Include="ExprGenerator.fs" />
     <Compile Include="TypeProvider.fs" />
