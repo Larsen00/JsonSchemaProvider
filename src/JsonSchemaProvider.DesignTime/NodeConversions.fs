@@ -126,6 +126,9 @@ module NodeConversions =
         // #elide-start convert-conversion
         | JsonInteger keywords ->
             match classifyIntegerShape context.CompileFlags keywords with
+            | InvalidIntegerBounds _ ->
+                failwith "A lower bound (minimum or exclusiveMinimum) is above an upper bound (maximum or exclusiveMaximum), so no integer is valid - Please check your schema."
+
             | UnsupportedIntegerKeywords _ -> integerConversion IntegerType.Int32 false
 
             | SizedInteger(_, integerType, typeEnforcesBounds) ->

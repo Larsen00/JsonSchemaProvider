@@ -17,6 +17,7 @@ module IntegerShapeTests =
     // "Unsupported", or the picked type plus "enforced" when the type alone enforces the bounds.
     let private shapeName (shape: IntegerShape) =
         match shape with
+        | InvalidIntegerBounds _ -> "InvalidBounds"
         | UnsupportedIntegerKeywords _ -> "Unsupported"
         | SizedInteger(_, integerType, true) -> $"%A{integerType} enforced"
         | SizedInteger(_, integerType, false) -> $"%A{integerType} validated"
@@ -135,8 +136,19 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": 0, \"exclusiveMinimum\": -5, \"maximum\": 255" "Int16 validated"
               }
 
-              test "minimum above maximum is a validated type no term satisfies" {
-                  expectShape ", \"minimum\": 10, \"maximum\": 5" "UInt8 validated"
+              test "a lower bound above an upper bound is InvalidBounds" {
+                  expectShape ", \"minimum\": 10, \"maximum\": 5" "InvalidBounds"
+                  expectShape ", \"minimum\": 0, \"exclusiveMinimum\": 5000, \"maximum\": 10" "InvalidBounds"
+                  expectShape ", \"exclusiveMinimum\": 5, \"exclusiveMaximum\": 6" "InvalidBounds"
+              }
+
+              test "equal lower and upper bounds are a valid range" {
+                  expectShape ", \"minimum\": 5, \"maximum\": 5" "UInt8 validated"
+              }
+
+              test "InvalidBounds wins over IgnoreSpecificKeywords" {
+                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+                  Expect.equal (shapeName (classifyWith flags (integer ", \"minimum\": 10, \"maximum\": 5"))) "InvalidBounds" ""
               }
 
               test "draft 4 boolean exclusiveMaximum counts towards an enforced type" {

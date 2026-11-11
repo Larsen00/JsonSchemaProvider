@@ -67,6 +67,10 @@ module ConversionTests =
                       Expect.isFalse conv.FullyCompilable $"FullyCompilable with {keyword}"
               }
 
+              test "an empty integer range fails at design time" {
+                  Expect.throws (fun () -> conversionOf """{ "type": "integer", "minimum": 10, "maximum": 5 }""" |> ignore) "minimum above maximum"
+              }
+
               test "a non-negative integer with multipleOf keeps uint32 but is validated" {
                   let conv = conversionOf """{ "type": "integer", "minimum": 0, "multipleOf": 2 }"""
                   Expect.equal conv.CompileTimeType typeof<uint32> "CompileTimeType"

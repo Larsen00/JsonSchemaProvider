@@ -30,6 +30,8 @@ module IntegerShape =
 
     // The shapes an integer can have depending on its keywords.
     type IntegerShape =
+        // A lower bound above an upper bound: no integer is valid, so the provider reports a compile error.
+        | InvalidIntegerBounds of JsonNumber.Keywords
         // ignoreSpecificKeywords with bounds present: int, runtime-validated.
         | UnsupportedIntegerKeywords of JsonNumber.Keywords
         // The integer type picked from the bounds; validated at runtime unless the type alone enforces them.
@@ -84,6 +86,9 @@ module IntegerShape =
 
         match lowers, uppers with
         | [], [] -> SizedInteger(keywords, IntegerType.Int32, true)
+
+        // Checked before the flag, like minItems > maxItems for arrays.
+        | _ :: _, _ :: _ when List.max lowers > List.min uppers -> InvalidIntegerBounds keywords
 
         | _ when compileFlags.IgnoreSpecificKeywords -> UnsupportedIntegerKeywords keywords
 
