@@ -15,6 +15,7 @@
     <Compile Include="ExprGeneratorTests.fs" />
     <Compile Include="TypeProviderTests.fs" />
     <Compile Include="NJsonSchemaTests.fs" />
+    <Compile Include="Draft2020KeywordTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>

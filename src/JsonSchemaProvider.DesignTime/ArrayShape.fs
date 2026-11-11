@@ -46,7 +46,8 @@ module ArrayShape =
         | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
             InvalidBounds(innerType, arrayKeywords)
 
-        | keys when compileFlags.IgnoreSpecificKeywords || not keys.AllowAdditionalItems || keys.HasAdditionalItemsSchema ->
+        // A keyword outside knownKeywordsFor (contains, prefixItems, enum, ...) gets no compiled shape either.
+        | keys when compileFlags.IgnoreSpecificKeywords || not arrayKeywords.common.CanBeCompiled || not keys.AllowAdditionalItems || keys.HasAdditionalItemsSchema ->
             UnsupportedKeywords(innerType, arrayKeywords)
 
         // Removing duplicates can push the array below minItems, so that combination is validated instead.
