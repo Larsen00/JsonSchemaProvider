@@ -16,10 +16,6 @@ module IntegerShape =
         | Int64
         | UInt64
 
-    let private allIntegerTypes =
-        [ IntegerType.Int8; IntegerType.UInt8; IntegerType.Int16; IntegerType.UInt16
-          IntegerType.Int32; IntegerType.UInt32; IntegerType.Int64; IntegerType.UInt64 ]
-
     // Smallest and largest term of each integer type.
     let private rangeOf (integerType: IntegerType) : decimal * decimal =
         match integerType with
@@ -50,27 +46,35 @@ module IntegerShape =
     let private tryMin (bounds: decimal list) = if List.isEmpty bounds then None else Some(List.min bounds)
     let private tryMax (bounds: decimal list) = if List.isEmpty bounds then None else Some(List.max bounds)
 
-    // The type whose range is exactly the loosest bounds, else the 32- or 64-bit type every bound fits in (unsigned when lower >= 0).
-    let private chooseIntegerType (lowers: decimal list) (uppers: decimal list) : IntegerType =
-        let exact =
-            match tryMin lowers, tryMax uppers with
-            | Some lower, Some upper -> allIntegerTypes |> List.tryFind (fun integerType -> rangeOf integerType = (lower, upper))
-            | _ -> None
+    let private allFitIn (integerType: IntegerType) (bounds: decimal list) : bool =
+        let typeMin, typeMax = rangeOf integerType
+        List.forall (fun bound -> typeMin <= bound && bound <= typeMax) bounds
 
-        let fits integerType =
-            let typeMin, typeMax = rangeOf integerType
-            List.forall (fun bound -> typeMin <= bound && bound <= typeMax) (lowers @ uppers)
+    // The smallest type every bound fits in: unsigned when the loosest lower bound is >= 0, else signed.
+    // With both a lower and an upper bound every size is a candidate; with only one the smallest is 32 bits,
+    // since the open side would otherwise exclude valid numbers just above a small type's range.
+    let private chooseIntegerType (lowers: decimal list) (uppers: decimal list) : IntegerType =
+        let unsigned =
+            match tryMin lowers with
+            | Some lower -> lower >= 0m
+            | None -> false
+
+        let ladder =
+            if unsigned then
+                [ IntegerType.UInt8; IntegerType.UInt16; IntegerType.UInt32; IntegerType.UInt64 ]
+            else
+                [ IntegerType.Int8; IntegerType.Int16; IntegerType.Int32; IntegerType.Int64 ]
+
+        let bothSides = not (List.isEmpty lowers || List.isEmpty uppers)
+        let candidates = if bothSides then ladder else List.skip 2 ladder
 
         // The 64-bit type is the fallback when even it can't hold a bound; values beyond it throw like int's do.
-        let narrow, wide =
-            match tryMin lowers with
-            | Some lower when lower >= 0m -> IntegerType.UInt32, IntegerType.UInt64
-            | _ -> IntegerType.Int32, IntegerType.Int64
-
-        exact |> Option.defaultWith (fun () -> if fits narrow then narrow else wide)
+        candidates
+        |> List.tryFind (fun integerType -> allFitIn integerType (lowers @ uppers))
+        |> Option.defaultValue (List.last candidates)
 
     // Helper function that turns a set of integer keywords into an IntegerShape value.
-    // The loosest bounds pick the type, the strictest are validated (e.g. maximum 11 with exclusiveMaximum 256 gives byte).
+    // The loosest bounds pick the type, the strictest are validated (e.g. minimum 0, maximum 11 and exclusiveMaximum 256 give byte).
     let classifyIntegerShape
         (compileFlags: ProviderConfiguration.CompileFlags)
         (keywords: JsonNumber.Keywords)

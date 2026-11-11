@@ -57,9 +57,9 @@ module NonNegativeIntegerTests =
     type Bounded = JsonSchemaProvider<schema=boundedSchema>
 
     [<Fact>]
-    let ``minimum 0 with maximum keeps uint32 and Create validates the maximum`` () =
-        expectEqual (expectOk (Bounded.Create 10u)) 10u
-        expectError (Bounded.Create 11u)
+    let ``minimum 0 with maximum shrinks to byte and Create validates the maximum`` () =
+        expectEqual (expectOk (Bounded.Create 10uy)) 10uy
+        expectError (Bounded.Create 11uy)
 
     [<Literal>]
     let multipleOfSchema = """{ "type": "integer", "minimum": 0, "multipleOf": 2 }"""

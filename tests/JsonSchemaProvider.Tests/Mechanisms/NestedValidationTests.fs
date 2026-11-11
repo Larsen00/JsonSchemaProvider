@@ -107,10 +107,10 @@ module NestedValidationTests =
 
     [<Fact>]
     let ``two sibling nested classes each validate against their own sub-schema, not each other's`` () =
-        let smallValue = expectOk (SiblingConstraints.smallObj.Create(value = 5u))
-        expectEqual smallValue.value 5u
+        let smallValue = expectOk (SiblingConstraints.smallObj.Create(value = 5uy))
+        expectEqual smallValue.value 5uy
 
-        expectError (SiblingConstraints.smallObj.Create(value = 150u)) // outside small's range, even though within large's
+        expectError (SiblingConstraints.smallObj.Create(value = 150uy)) // outside small's range, even though within large's
 
         let largeValue = expectOk (SiblingConstraints.largeObj.Create(value = 150))
         expectEqual largeValue.value 150
@@ -125,9 +125,9 @@ module NestedValidationTests =
 
     [<Fact>]
     let ``a class reached through an array item's own Create enforces constraints`` () =
-        expectError (ArrayItemConstraints.scoresItem.Create(points = 150u)) // above maximum
-        let item = expectOk (ArrayItemConstraints.scoresItem.Create(points = 50u))
-        expectEqual item.points 50u
+        expectError (ArrayItemConstraints.scoresItem.Create(points = 150uy)) // above maximum
+        let item = expectOk (ArrayItemConstraints.scoresItem.Create(points = 50uy))
+        expectEqual item.points 50uy
 
     // Parse on nested classes: each must validate against its own sub-schema, like Create above.
     [<Fact>]
@@ -156,7 +156,7 @@ module NestedValidationTests =
     [<Fact>]
     let ``two sibling nested classes each validate against their own sub-schema in Parse`` () =
         let smallValue = expectOk (SiblingConstraints.smallObj.Parse("""{"value": 5}"""))
-        expectEqual smallValue.value 5u
+        expectEqual smallValue.value 5uy
         expectError (SiblingConstraints.smallObj.Parse("""{"value": 150}""")) // outside small's range, even though within large's
 
         let largeValue = expectOk (SiblingConstraints.largeObj.Parse("""{"value": 150}"""))
@@ -167,4 +167,4 @@ module NestedValidationTests =
     let ``a class reached through an array item validates its own constraints in Parse`` () =
         expectError (ArrayItemConstraints.scoresItem.Parse("""{"points": 150}""")) // above maximum
         let item = expectOk (ArrayItemConstraints.scoresItem.Parse("""{"points": 50}"""))
-        expectEqual item.points 50u
+        expectEqual item.points 50uy

@@ -8,6 +8,15 @@ module IntegerTypeTests =
     open Xunit
     open JsonSchemaProvider
 
+    // ignoreSpecificKeywords always gives int, also for bounds outside int.
+    [<Literal>]
+    let ignoredWideSchema = """{ "type": "integer", "maximum": 1000000000000 }"""
+    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true>
+
+    [<Fact>]
+    let ``ignoreSpecificKeywords with a bound outside int still gives a validated int`` () =
+        expectEqual (expectOk (IgnoredWide.Create 5)) 5
+
     [<Literal>]
     let byteSchema = """{ "type": "integer", "minimum": 0, "maximum": 255 }"""
     type ByteRoot = JsonSchemaProvider<schema=byteSchema>
@@ -54,7 +63,7 @@ module IntegerTypeTests =
     [<Fact>]
     let ``sized integers work as oneOf branches`` () =
         expectEqual (expectOk (SizedOneOf.Parse("5"))) (Choice1Of2 5uy)
-        expectEqual (expectOk (SizedOneOf.Parse("-3"))) (Choice2Of2 -3)
+        expectEqual (expectOk (SizedOneOf.Parse("-3"))) (Choice2Of2 -3y)
         expectError (SizedOneOf.Parse("300"))
 
     [<Literal>]
@@ -148,6 +157,25 @@ module IntegerTypeTests =
     let ``a redundant looser bound gives byte and Create validates the stricter bound`` () =
         expectEqual (expectOk (RedundantBound.Create 11uy)) 11uy
         expectError (RedundantBound.Create 12uy)
+
+    [<Literal>]
+    let percentSchema = """{ "type": "integer", "minimum": 1, "maximum": 100 }"""
+    type Percent = JsonSchemaProvider<schema=percentSchema>
+
+    [<Fact>]
+    let ``a range inside byte gives byte and Create validates both bounds`` () =
+        expectEqual (expectOk (Percent.Create 100uy)) 100uy
+        expectError (Percent.Create 0uy)
+        expectError (Percent.Create 101uy)
+
+    [<Literal>]
+    let smallSignedSchema = """{ "type": "integer", "minimum": -1, "maximum": 1000 }"""
+    type SmallSigned = JsonSchemaProvider<schema=smallSignedSchema>
+
+    [<Fact>]
+    let ``a signed range inside int16 gives int16`` () =
+        expectEqual (expectOk (SmallSigned.Parse("-1"))) -1s
+        expectError (SmallSigned.Create 1001s)
 
     [<Literal>]
     let wideUnsignedSchema = """{ "type": "integer", "minimum": 0, "maximum": 10000000000 }"""

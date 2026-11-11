@@ -51,9 +51,21 @@ module IntegerShapeTests =
 
               test "an upper bound alone gives Int32" { expectShape ", \"maximum\": 10" "Int32 validated" }
 
-              test "a bounded non-negative range that matches no type exactly gives a validated UInt32" {
-                  expectShape ", \"minimum\": 0, \"maximum\": 10" "UInt32 validated"
-                  expectShape ", \"minimum\": 0, \"exclusiveMaximum\": 10" "UInt32 validated"
+              test "a bounded range gives the smallest type it fits in, validated unless it is the type's range" {
+                  expectShape ", \"minimum\": 0, \"maximum\": 10" "UInt8 validated"
+                  expectShape ", \"minimum\": 0, \"exclusiveMaximum\": 10" "UInt8 validated"
+                  expectShape ", \"minimum\": 1, \"maximum\": 100" "UInt8 validated"
+                  expectShape ", \"minimum\": 0, \"maximum\": 1000" "UInt16 validated"
+                  expectShape ", \"minimum\": 0, \"maximum\": 100000" "UInt32 validated"
+                  expectShape ", \"minimum\": -1, \"maximum\": 100" "Int8 validated"
+                  expectShape ", \"minimum\": -1, \"maximum\": 1000" "Int16 validated"
+                  expectShape ", \"minimum\": -40000, \"maximum\": 0" "Int32 validated"
+              }
+
+              test "a one-sided bound starts at 32 bits" {
+                  expectShape ", \"minimum\": 5" "UInt32 validated"
+                  expectShape ", \"maximum\": 10" "Int32 validated"
+                  expectShape ", \"minimum\": -1" "Int32 validated"
               }
 
               test "multipleOf does not change the type" {
@@ -72,7 +84,7 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": 0, \"maximum\": 18446744073709551615" "UInt64 enforced"
               }
 
-              test "exclusive bounds count towards an exact match" {
+              test "exclusive bounds matching a type's range give an enforced type" {
                   expectShape ", \"exclusiveMinimum\": -1, \"exclusiveMaximum\": 256" "UInt8 enforced"
               }
 
@@ -100,7 +112,7 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": 0, \"exclusiveMinimum\": 5000000000" "UInt64 validated"
               }
 
-              test "a bound one off Int64 MaxValue is not an exact match (decimal, not float)" {
+              test "a bound one off Int64 MaxValue is validated (decimal, not float)" {
                   expectShape ", \"minimum\": -9223372036854775808, \"maximum\": 9223372036854775806" "Int64 validated"
               }
 
@@ -118,16 +130,16 @@ module IntegerShapeTests =
                   expectShape ", \"maximum\": 2147483647" "Int32 enforced"
               }
 
-              test "a looser lower bound outside a type's range keeps it from being an exact match" {
+              test "a looser lower bound below zero picks a signed type even when the strict bounds fit byte" {
                   // The strict bounds are exactly byte's range, but the loosest lower bound is -4.
-                  expectShape ", \"minimum\": 0, \"exclusiveMinimum\": -5, \"maximum\": 255" "Int32 validated"
+                  expectShape ", \"minimum\": 0, \"exclusiveMinimum\": -5, \"maximum\": 255" "Int16 validated"
               }
 
               test "minimum above maximum is a validated type no term satisfies" {
-                  expectShape ", \"minimum\": 10, \"maximum\": 5" "UInt32 validated"
+                  expectShape ", \"minimum\": 10, \"maximum\": 5" "UInt8 validated"
               }
 
-              test "draft 4 boolean exclusiveMaximum counts towards an exact match" {
+              test "draft 4 boolean exclusiveMaximum counts towards an enforced type" {
                   expectShape ", \"minimum\": 0, \"maximum\": 256, \"exclusiveMaximum\": true" "UInt8 enforced"
               }
 
@@ -148,6 +160,11 @@ module IntegerShapeTests =
               test "IgnoreSpecificKeywords turns bounds into Unsupported" {
                   let flags = { defaultFlags with IgnoreSpecificKeywords = true }
                   Expect.equal (shapeName (classifyWith flags (integer ", \"minimum\": 0"))) "Unsupported" ""
+              }
+
+              test "IgnoreSpecificKeywords keeps int even for bounds outside int" {
+                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+                  Expect.equal (shapeName (classifyWith flags (integer ", \"maximum\": 1000000000000"))) "Unsupported" ""
               }
 
               test "IgnoreSpecificKeywords leaves an integer without numeric keywords an enforced Int32" {

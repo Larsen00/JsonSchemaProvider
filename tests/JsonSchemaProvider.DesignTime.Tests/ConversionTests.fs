@@ -60,11 +60,17 @@ module ConversionTests =
                   Expect.equal (toRuntime conv "7") (box 7u) "ToRuntime"
               }
 
-              test "a non-negative integer with another numeric keyword keeps uint32 but is validated" {
-                  for keyword in [ "\"maximum\": 10"; "\"exclusiveMaximum\": 10"; "\"multipleOf\": 2" ] do
+              test "a non-negative integer with an upper bound shrinks to byte and is validated" {
+                  for keyword in [ "\"maximum\": 10"; "\"exclusiveMaximum\": 10" ] do
                       let conv = conversionOf $"""{{ "type": "integer", "minimum": 0, {keyword} }}"""
-                      Expect.equal conv.CompileTimeType typeof<uint32> $"CompileTimeType with {keyword}"
+                      Expect.equal conv.CompileTimeType typeof<byte> $"CompileTimeType with {keyword}"
                       Expect.isFalse conv.FullyCompilable $"FullyCompilable with {keyword}"
+              }
+
+              test "a non-negative integer with multipleOf keeps uint32 but is validated" {
+                  let conv = conversionOf """{ "type": "integer", "minimum": 0, "multipleOf": 2 }"""
+                  Expect.equal conv.CompileTimeType typeof<uint32> "CompileTimeType"
+                  Expect.isFalse conv.FullyCompilable "FullyCompilable"
               }
 
               test "a non-negative integer with a stray keyword keeps uint32 but is validated" {
