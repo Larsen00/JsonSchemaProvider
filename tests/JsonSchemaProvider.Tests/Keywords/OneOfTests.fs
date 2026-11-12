@@ -397,7 +397,7 @@ module OneOfTests =
                 "owner": {
                     "oneOf": [
                         {"type": "string"},
-                        {"type": "integer"},
+                        {"type": "number"},
                         {
                             "type": "object",
                             "properties": {"name": {"type": "string"}, "email": {"type": "string"}}
@@ -408,10 +408,10 @@ module OneOfTests =
             "required": ["owner"]
         }
         """
-    type Owner = JsonSchemaProvider<schema = ownerSchema, allowUnboundedIntegers=true>
+    type Owner = JsonSchemaProvider<schema = ownerSchema>
 
     // #region oneof-describe
-    let describe (owner: Choice<string, Choice<int, Owner.ownerCase3>>) =
+    let describe (owner: Choice<string, Choice<float, Owner.ownerCase3>>) =
         match owner with
         | Choice1Of2 name -> $"name {name}"
         | Choice2Of2 (Choice1Of2 id) -> $"id {id}"

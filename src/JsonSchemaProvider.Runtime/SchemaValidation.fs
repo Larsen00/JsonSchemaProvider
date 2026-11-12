@@ -18,13 +18,14 @@ module SchemaValidation =
 
         scan ()
 
-    // Reported instead of validating, since NJsonSchema would throw rather than give an error.
+    // Reported instead of NJsonSchema's exception; a number node with an integer literal this large hits it too.
     let private outsideInt64Message (number: System.Numerics.BigInteger) : string =
         $"The JSON contains the integer %s{number.ToString()}, which is outside the int64 range (-9223372036854775808 to 9223372036854775807). "
         + "NJsonSchema can't validate integers that large, so the JSON can't be checked against the schema.\n"
         + "Pick ONE of these fixes:\n"
-        + "  A) Give the integer bounds that are exactly its type's range, e.g. \"minimum\": 0, \"maximum\": 18446744073709551615 for uint64. "
-        + "Then the type enforces the bounds by itself, so Create needs no validation and accepts the number. Parse always validates, so it still can't.\n"
+        + "  A) Build the value with Create on a node that needs no validation: an integer whose bounds are exactly its type's range "
+        + "(e.g. \"minimum\": 0, \"maximum\": 18446744073709551615 for uint64), or a number without validation keywords. "
+        + "Parse always validates, so it can't take this number.\n"
         + "  B) Or set skipRuntimeValidation=true. Warning: then no JSON is validated against the schema, "
         + "and JSON of the wrong shape can raise when it is converted."
 
@@ -37,12 +38,15 @@ module SchemaValidation =
             if path = "#" then rootschema
             else SchemaCache.resolveByPath rootschema path
 
-        match tryFindIntegerOutsideInt64 jsonText with
-        | Some number -> [ outsideInt64Message number ]
-        | None ->
+        // Only a real throw is reported: a large integer the schema doesn't describe (an extra property) validates fine.
+        try
             subschema.Validate jsonText
             |> Seq.map (fun validationError -> validationError.ToString())
             |> Seq.toList
+        with :? System.InvalidCastException ->
+            match tryFindIntegerOutsideInt64 jsonText with
+            | Some number -> [ outsideInt64Message number ]
+            | None -> reraise ()
 
     // Validates a JsonValue against the schema and returns a Result indicating success or failure.
     let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =

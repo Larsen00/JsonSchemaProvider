@@ -15,8 +15,8 @@ module NestedValidationTests =
         "type": "object",
         "properties": {
             "age": {
-                "type": "integer",
-                "minimum": 5, "exclusiveMinimum": -2147483649,
+                "type": "number",
+                "minimum": 5,
                 "maximum": 10
             }
         },
@@ -27,8 +27,8 @@ module NestedValidationTests =
     type Age = JsonSchemaProvider<schema=ageSchema>
 
     let message =
-        match Age.Create(age = 7) with
-        | Ok person -> sprintf "Age: %d" person.age
+        match Age.Create(age = 7.0) with
+        | Ok person -> sprintf "Age: %g" person.age
         | Error errors -> sprintf "Invalid: %A" errors
     // #endregion
 
@@ -38,21 +38,21 @@ module NestedValidationTests =
 
     [<Fact>]
     let ``in-range value is accepted by Create`` () =
-        let record = expectOk (Age.Create(age = 7))
-        expectEqual record.age 7
+        let record = expectOk (Age.Create(age = 7.0))
+        expectEqual record.age 7.0
 
     [<Fact>]
     let ``in-range value is accepted by Parse`` () =
         let record = expectOk (Age.Parse("""{"age": 7}"""))
-        expectEqual record.age 7
+        expectEqual record.age 7.0
 
     [<Fact>]
     let ``below-minimum value is rejected by root Create`` () =
-        expectError (Age.Create(age = 3)) // below minimum
+        expectError (Age.Create(age = 3.0)) // below minimum
 
     [<Fact>]
     let ``above-maximum value is rejected by root Create`` () =
-        expectError (Age.Create(age = 20)) // above maximum
+        expectError (Age.Create(age = 20.0)) // above maximum
 
     [<Fact>]
     let ``below-minimum value is rejected by Parse`` () =

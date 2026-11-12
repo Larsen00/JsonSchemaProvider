@@ -157,6 +157,27 @@ module IntegerTypeTests =
     let ``a too-large integer nested in an object is reported by the same Error`` () =
         expectNJsonSchemaLimit "18446744073709551615" (UInt64Property.Parse("""{"id": 18446744073709551615, "name": "x"}"""))
 
+    // NJsonSchema throws on the integer literal in a number node too, so it gets the same Error.
+    [<Literal>]
+    let numberSchema = """{ "type": "number" }"""
+    type NumberRoot = JsonSchemaProvider<schema=numberSchema>
+
+    [<Fact>]
+    let ``a number node with an integer literal outside int64 gets the same Error, and Create accepts the value`` () =
+        expectNJsonSchemaLimit "18446744073709551616" (NumberRoot.Parse("18446744073709551616"))
+        expectEqual (expectOk (NumberRoot.Parse("1.8446744073709552E+19"))) 1.8446744073709552E+19
+        expectEqual (NumberRoot.Create 1.8446744073709552E+19) 1.8446744073709552E+19
+
+    // NJsonSchema doesn't look at a property the schema doesn't describe, so a large integer there validates.
+    [<Literal>]
+    let extraPropertySchema =
+        """{ "type": "object", "properties": { "level": { "type": "integer", "minimum": 0, "maximum": 255 } } }"""
+    type ExtraProperty = JsonSchemaProvider<schema=extraPropertySchema>
+
+    [<Fact>]
+    let ``a large integer in an extra property is not an Error`` () =
+        expectEqual (expectOk (ExtraProperty.Parse("""{"level": 1, "other": 18446744073709551616}"""))).level (Some 1uy)
+
     [<Literal>]
     let uint64Schema = """{ "type": "integer", "minimum": 0, "maximum": 18446744073709551615 }"""
     type UInt64Root = JsonSchemaProvider<schema=uint64Schema>
