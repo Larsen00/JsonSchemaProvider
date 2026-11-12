@@ -71,6 +71,35 @@ module ConversionTests =
                   Expect.throws (fun () -> conversionOf """{ "type": "integer", "minimum": 10, "maximum": 5 }""" |> ignore) "minimum above maximum"
               }
 
+              test "without allowUnboundedIntegers an unbounded integer fails with both fixes in the message" {
+                  let message = Expect.throwsC (fun () -> convertRoot (fixtureWith strictFlags """{ "type": "integer" }""") |> ignore) (fun ex -> ex.Message)
+                  Expect.stringContains message "The integer at the schema root has no lower or upper bound" "names the node and the problem"
+                  Expect.stringContains message "Pick ONE of these fixes" "says the fixes are alternatives"
+                  Expect.stringContains message "A) Add a lower bound (\"minimum\" or \"exclusiveMinimum\")" "fix A: bounds, exclusive ones too"
+                  Expect.stringContains message "For int: \"minimum\": -2147483648, \"maximum\": 2147483647" "fix A: the int range"
+                  Expect.stringContains message "B) Or set allowUnboundedIntegers=true" "fix B: the flag"
+              }
+
+              test "the unbounded-integer error names the missing bound, the nested path and the hinted type's limit" {
+                  let messageOf schemaText = Expect.throwsC (fun () -> convertRoot (fixtureWith strictFlags schemaText) |> ignore) (fun ex -> ex.Message)
+                  let lowerOnly = messageOf """{ "type": "array", "items": { "type": "integer", "minimum": 0 } }"""
+                  Expect.stringContains lowerOnly "The integer at 'items' has no upper bound" "lower bound only"
+                  Expect.stringContains lowerOnly "Add \"maximum\" or \"exclusiveMaximum\"" "lower bound only fix"
+                  Expect.stringContains lowerOnly "For uint32: \"maximum\": 4294967295" "minimum 0 picks uint32, so the hint is uint32's maximum"
+                  let upperOnly = messageOf """{ "type": "array", "items": { "type": "integer", "exclusiveMaximum": 0 } }"""
+                  Expect.stringContains upperOnly "The integer at 'items' has no lower bound" "upper bound only"
+                  Expect.stringContains upperOnly "Add \"minimum\" or \"exclusiveMinimum\"" "upper bound only fix"
+                  Expect.stringContains upperOnly "For int: \"minimum\": -2147483648" "upper bound only hint"
+                  let tooWide = messageOf """{ "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 18446744073709551616 } }"""
+                  Expect.stringContains tooWide "has bounds outside the range of uint64" "range too wide"
+              }
+
+              test "without allowUnboundedIntegers the int range gives an int that needs no validation" {
+                  let conv = convertRoot (fixtureWith strictFlags """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }""")
+                  Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
+                  Expect.isTrue conv.FullyCompilable "FullyCompilable"
+              }
+
               test "a non-negative integer with multipleOf keeps uint32 but is validated" {
                   let conv = conversionOf """{ "type": "integer", "minimum": 0, "multipleOf": 2 }"""
                   Expect.equal conv.CompileTimeType typeof<uint32> "CompileTimeType"

@@ -90,6 +90,36 @@ module NodeConversions =
         | IntegerType.UInt64 ->
             sized typeof<uint64> <@@ fun (jsonVal: JsonValue) -> Checked.uint64 (jsonVal.AsDecimal()) @@> <@@ fun (runtimeObj: uint64) -> JsonValue.Number(decimal runtimeObj) @@>
 
+    // The compile error for an unbounded integer; the hinted limits belong to the type the existing bounds pick.
+    let unboundedIntegerMessage (path: string) (reason: UnboundedReason) : string =
+        let location = if path = "#" then "at the schema root" else $"at '%s{path.TrimStart('#', '/')}'"
+        let lowerOf integerType = string (fst (rangeOf integerType))
+        let upperOf integerType = string (snd (rangeOf integerType))
+
+        let problem, fix =
+            match reason with
+            | NoBounds ->
+                "has no lower or upper bound, so valid numbers can overflow its F# type (int)",
+                "Add a lower bound (\"minimum\" or \"exclusiveMinimum\") and an upper bound (\"maximum\" or \"exclusiveMaximum\") to it.\n"
+                + $"     For int: \"minimum\": %s{lowerOf IntegerType.Int32}, \"maximum\": %s{upperOf IntegerType.Int32}"
+            | NoLowerBound integerType ->
+                $"has no lower bound, so valid numbers can overflow its F# type (%s{fsharpName integerType})",
+                "Add \"minimum\" or \"exclusiveMinimum\" to it.\n"
+                + $"     For %s{fsharpName integerType}: \"minimum\": %s{lowerOf integerType}"
+            | NoUpperBound integerType ->
+                $"has no upper bound, so valid numbers can overflow its F# type (%s{fsharpName integerType})",
+                "Add \"maximum\" or \"exclusiveMaximum\" to it.\n"
+                + $"     For %s{fsharpName integerType}: \"maximum\": %s{upperOf integerType}"
+            | RangeTooWide integerType ->
+                $"has bounds outside the range of %s{fsharpName integerType}, so valid numbers can overflow it",
+                $"Narrow the bounds so they fit in %s{fsharpName integerType}."
+
+        $"\nThe integer %s{location} %s{problem}.\n"
+        + "Pick ONE of these fixes:\n"
+        + $"  A) %s{fix}\n"
+        + "  B) Or set allowUnboundedIntegers=true. This turns the check off for every integer in the schema,\n"
+        + "     and numbers outside the type then throw at runtime."
+
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     // #region convert-conversion
     // #region object-fully-compilable
@@ -128,6 +158,8 @@ module NodeConversions =
             match classifyIntegerShape context.CompileFlags keywords with
             | InvalidIntegerBounds _ ->
                 failwith "A lower bound (minimum or exclusiveMinimum) is above an upper bound (maximum or exclusiveMaximum), so no integer is valid - Please check your schema."
+
+            | UnboundedInteger(_, reason) -> failwith (unboundedIntegerMessage keywords.common.Path reason)
 
             | UnsupportedIntegerKeywords _ -> integerConversion IntegerType.Int32 false
 

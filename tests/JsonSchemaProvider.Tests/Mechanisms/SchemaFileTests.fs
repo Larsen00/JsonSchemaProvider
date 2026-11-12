@@ -8,7 +8,7 @@ module SchemaFileTests =
 
     [<Literal>]
     let flatSchemaPath = __SOURCE_DIRECTORY__ + "/../schemas/FlatSchema.json"
-    type FlatFromFile = JsonSchemaProvider<schemaFile=flatSchemaPath>
+    type FlatFromFile = JsonSchemaProvider<schemaFile=flatSchemaPath, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``create method from an object schema loaded from file should return record`` () =
@@ -19,7 +19,7 @@ module SchemaFileTests =
 
     [<Literal>]
     let requiredPropertiesSchemaPath = __SOURCE_DIRECTORY__ + "/../schemas/RequiredPropertiesSchema.json"
-    type RequiredPropertiesFromFile = JsonSchemaProvider<schemaFile=requiredPropertiesSchemaPath>
+    type RequiredPropertiesFromFile = JsonSchemaProvider<schemaFile=requiredPropertiesSchemaPath, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``required properties loaded from file should not be parsed into Option`` () =

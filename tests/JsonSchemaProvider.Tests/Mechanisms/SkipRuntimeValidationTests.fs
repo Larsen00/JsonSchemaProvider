@@ -18,7 +18,7 @@ module SkipRuntimeValidationTests =
           },
           "required": ["age", "name", "tags"]
         }"""
-    type UnsafeObject = JsonSchemaProvider<schema = constrainedObjectSchema, skipRuntimeValidation = true>
+    type UnsafeObject = JsonSchemaProvider<schema = constrainedObjectSchema, skipRuntimeValidation = true, allowUnboundedIntegers = true>
 
     [<Fact>]
     let ``skipRuntimeValidation preserves normal object creation`` () =
@@ -36,7 +36,7 @@ module SkipRuntimeValidationTests =
 
     [<Literal>]
     let constrainedIntegerSchema = """{ "type": "integer", "minimum": 10, "exclusiveMinimum": -2147483649 }"""
-    type UnsafeInteger = JsonSchemaProvider<schema = constrainedIntegerSchema, skipRuntimeValidation = true>
+    type UnsafeInteger = JsonSchemaProvider<schema = constrainedIntegerSchema, skipRuntimeValidation = true, allowUnboundedIntegers = true>
 
     [<Fact>]
     let ``skipRuntimeValidation accepts an integer below minimum`` () =
@@ -68,7 +68,7 @@ module SkipRuntimeValidationTests =
 
     [<Literal>]
     let constrainedArraySchema = """{ "type": "array", "items": { "type": "integer" }, "uniqueItems": true }"""
-    type UnsafeArray = JsonSchemaProvider<schema = constrainedArraySchema, skipRuntimeValidation = true>
+    type UnsafeArray = JsonSchemaProvider<schema = constrainedArraySchema, skipRuntimeValidation = true, allowUnboundedIntegers = true>
 
     [<Fact>]
     let ``skipRuntimeValidation preserves valid primitive arrays`` () =

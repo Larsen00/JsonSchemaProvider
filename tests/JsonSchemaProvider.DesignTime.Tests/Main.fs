@@ -15,6 +15,7 @@ module Main =
                   SchemaKeywordTests.tests
                   ArrayShapeTests.tests
                   IntegerShapeTests.tests
+                  IntegerShapeTests.strictTests
                   NodeConversionsTests.tests
                   ConversionTests.tests
                   ExprGeneratorTests.tests

@@ -4,6 +4,30 @@ namespace JsonSchemaProvider
 module SchemaValidation =
     open FSharp.Data
 
+    // The first integer in jsonText outside int64. Newtonsoft reads one as a BigInteger, which NJsonSchema's Validate throws on.
+    let private tryFindIntegerOutsideInt64 (jsonText: string) : System.Numerics.BigInteger option =
+        use reader = new Newtonsoft.Json.JsonTextReader(new System.IO.StringReader(jsonText))
+        reader.DateParseHandling <- Newtonsoft.Json.DateParseHandling.None
+
+        let rec scan () =
+            if not (reader.Read()) then None
+            else
+                match reader.Value with
+                | :? System.Numerics.BigInteger as number -> Some number
+                | _ -> scan ()
+
+        scan ()
+
+    // Reported instead of validating, since NJsonSchema would throw rather than give an error.
+    let private outsideInt64Message (number: System.Numerics.BigInteger) : string =
+        $"The JSON contains the integer %s{number.ToString()}, which is outside the int64 range (-9223372036854775808 to 9223372036854775807). "
+        + "NJsonSchema can't validate integers that large, so the JSON can't be checked against the schema.\n"
+        + "Pick ONE of these fixes:\n"
+        + "  A) Give the integer bounds that are exactly its type's range, e.g. \"minimum\": 0, \"maximum\": 18446744073709551615 for uint64. "
+        + "Then the type enforces the bounds by itself, so Create needs no validation and accepts the number. Parse always validates, so it still can't.\n"
+        + "  B) Or set skipRuntimeValidation=true. Warning: then no JSON is validated against the schema, "
+        + "and JSON of the wrong shape can raise when it is converted."
+
     // Returns the schema errors for jsonText, empty when it's valid.
     let collectValidationErrors (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : string list =
         let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
@@ -13,9 +37,12 @@ module SchemaValidation =
             if path = "#" then rootschema
             else SchemaCache.resolveByPath rootschema path
 
-        subschema.Validate jsonText
-        |> Seq.map (fun validationError -> validationError.ToString())
-        |> Seq.toList
+        match tryFindIntegerOutsideInt64 jsonText with
+        | Some number -> [ outsideInt64Message number ]
+        | None ->
+            subschema.Validate jsonText
+            |> Seq.map (fun validationError -> validationError.ToString())
+            |> Seq.toList
 
     // Validates a JsonValue against the schema and returns a Result indicating success or failure.
     let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =

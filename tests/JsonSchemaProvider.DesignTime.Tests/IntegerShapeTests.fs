@@ -18,6 +18,10 @@ module IntegerShapeTests =
     let private shapeName (shape: IntegerShape) =
         match shape with
         | InvalidIntegerBounds _ -> "InvalidBounds"
+        | UnboundedInteger(_, NoBounds) -> "NoBounds"
+        | UnboundedInteger(_, NoLowerBound integerType) -> $"NoLowerBound %A{integerType}"
+        | UnboundedInteger(_, NoUpperBound integerType) -> $"NoUpperBound %A{integerType}"
+        | UnboundedInteger(_, RangeTooWide integerType) -> $"RangeTooWide %A{integerType}"
         | UnsupportedIntegerKeywords _ -> "Unsupported"
         | SizedInteger(_, integerType, true) -> $"%A{integerType} enforced"
         | SizedInteger(_, integerType, false) -> $"%A{integerType} validated"
@@ -27,6 +31,89 @@ module IntegerShapeTests =
 
     let private expectShape (keywords: string) (expected: string) =
         Expect.equal (shapeName (classify (integer keywords))) expected keywords
+
+    let private expectStrictShape (keywords: string) (expected: string) =
+        Expect.equal (shapeName (classifyWith strictFlags (integer keywords))) expected keywords
+
+    let private int32Range = ", \"minimum\": -2147483648, \"maximum\": 2147483647"
+
+    // Without allowUnboundedIntegers: only types that hold every valid instance compile.
+    [<Tests>]
+    let strictTests =
+        testList
+            "IntegerShapeTests (strict)"
+            [ test "no numeric keywords is NoBounds" { expectStrictShape "" "NoBounds" }
+
+              // The reason carries the type the existing bound picks, which the error's hint is for.
+              test "only a lower bound is NoUpperBound with the type that bound picks" {
+                  expectStrictShape ", \"minimum\": 0" "NoUpperBound UInt32"
+                  expectStrictShape ", \"exclusiveMinimum\": -1" "NoUpperBound UInt32"
+                  expectStrictShape ", \"minimum\": -1" "NoUpperBound Int32"
+                  expectStrictShape ", \"minimum\": -9223372036854775808" "NoUpperBound Int64"
+              }
+
+              test "only an upper bound is NoLowerBound with the type that bound picks" {
+                  expectStrictShape ", \"maximum\": 10" "NoLowerBound Int32"
+                  expectStrictShape ", \"maximum\": 9223372036854775807" "NoLowerBound Int64"
+              }
+
+              test "adding the hinted limit gives an enforced type" {
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 4294967295" "UInt32 enforced"
+                  expectStrictShape ", \"minimum\": -2147483648, \"maximum\": 10" "Int32 validated"
+                  expectStrictShape ", \"minimum\": -2147483648, \"maximum\": 2147483647" "Int32 enforced"
+              }
+
+              test "a draft 4 boolean exclusiveMinimum is not an upper bound" {
+                  expectStrictShape ", \"minimum\": 0, \"exclusiveMinimum\": true" "NoUpperBound UInt32"
+              }
+
+              test "the int range gives an enforced Int32" { expectStrictShape int32Range "Int32 enforced" }
+
+              test "exclusive bounds count as bounds" {
+                  expectStrictShape ", \"exclusiveMinimum\": -2147483649, \"exclusiveMaximum\": 2147483648" "Int32 enforced"
+                  expectStrictShape ", \"exclusiveMinimum\": -1, \"exclusiveMaximum\": 256" "UInt8 enforced"
+                  expectStrictShape ", \"minimum\": 0, \"exclusiveMaximum\": 100" "UInt8 validated"
+              }
+
+              test "both bounds pick the same type as with the flag" {
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 255" "UInt8 enforced"
+                  expectStrictShape ", \"minimum\": 1, \"maximum\": 100" "UInt8 validated"
+                  expectStrictShape ", \"minimum\": -1, \"maximum\": 1000" "Int16 validated"
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 4294967295" "UInt32 enforced"
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 5000000000" "UInt64 validated"
+                  expectStrictShape ", \"minimum\": -9223372036854775808, \"maximum\": 9223372036854775807" "Int64 enforced"
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 18446744073709551615" "UInt64 enforced"
+              }
+
+              test "a valid range no integer type holds is RangeTooWide" {
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 18446744073709551616" "RangeTooWide UInt64"
+                  expectStrictShape ", \"minimum\": -1, \"maximum\": 9223372036854775808" "RangeTooWide Int64"
+                  expectStrictShape ", \"minimum\": -9223372036854775809, \"maximum\": 0" "RangeTooWide Int64"
+              }
+
+              test "the strictest bounds decide whether the valid range fits" {
+                  // The looser maximum is outside uint64, but the valid range 0..10 fits.
+                  expectStrictShape ", \"minimum\": 0, \"maximum\": 10, \"exclusiveMaximum\": 1e20" "UInt64 validated"
+              }
+
+              test "InvalidBounds wins over the missing-bound checks" {
+                  expectStrictShape ", \"minimum\": 10, \"maximum\": 5" "InvalidBounds"
+              }
+
+              test "IgnoreSpecificKeywords needs bounds inside int" {
+                  let flags = { strictFlags with IgnoreSpecificKeywords = true }
+                  let shape keywords = shapeName (classifyWith flags (integer keywords))
+                  Expect.equal (shape int32Range) "Unsupported" "int range"
+                  Expect.equal (shape ", \"minimum\": 0, \"maximum\": 255") "Unsupported" "byte range"
+                  Expect.equal (shape ", \"minimum\": 0, \"maximum\": 4294967295") "RangeTooWide Int32" "uint32 range"
+                  Expect.equal (shape "") "NoBounds" "no bounds"
+                  Expect.equal (shape ", \"minimum\": 0") "NoUpperBound Int32" "lower bound only, the hint is for int"
+              }
+
+              test "SkipRuntimeValidation does not lift the strict rule" {
+                  let flags = { strictFlags with SkipRuntimeValidation = true }
+                  Expect.equal (shapeName (classifyWith flags (integer ""))) "NoBounds" ""
+              } ]
 
     [<Tests>]
     let tests =

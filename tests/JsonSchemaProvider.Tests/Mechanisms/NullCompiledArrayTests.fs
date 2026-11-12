@@ -15,7 +15,7 @@ module NullCompiledArrayTests =
 
     [<Literal>]
     let intTuple3Schema = """{ "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 }"""
-    type IntTuple3 = JsonSchemaProvider<schema = intTuple3Schema>
+    type IntTuple3 = JsonSchemaProvider<schema = intTuple3Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``fully compilable tuple Create is plain`` () =
@@ -42,7 +42,7 @@ module NullCompiledArrayTests =
     [<Literal>]
     let compiledArraysObjectSchema =
         """{ "type": "object", "properties": { "t": { "type": "array", "items": { "type": "integer" }, "minItems": 3, "maxItems": 3 }, "l": { "type": "array", "items": { "type": "integer" } } }, "required": ["t", "l"] }"""
-    type CompiledArraysObject = JsonSchemaProvider<schema = compiledArraysObjectSchema>
+    type CompiledArraysObject = JsonSchemaProvider<schema = compiledArraysObjectSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``object of fully compilable arrays has a plain Create and serialises normally`` () =
@@ -63,7 +63,7 @@ module NullCompiledArrayTests =
 
     [<Literal>]
     let intSingleSchema = """{ "type": "array", "items": { "type": "integer" }, "minItems": 1, "maxItems": 1 }"""
-    type IntSingle = JsonSchemaProvider<schema = intSingleSchema>
+    type IntSingle = JsonSchemaProvider<schema = intSingleSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``single-item Create of Unchecked.defaultof is just 0`` () =
@@ -74,7 +74,7 @@ module NullCompiledArrayTests =
 
     [<Literal>]
     let intListSchema = """{ "type": "array", "items": { "type": "integer" } }"""
-    type IntList = JsonSchemaProvider<schema = intListSchema>
+    type IntList = JsonSchemaProvider<schema = intListSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``list Create throws NullReferenceException for a null list`` () =

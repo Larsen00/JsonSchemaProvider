@@ -42,7 +42,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let intArrayMin1Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 1 }"""
-    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema>
+    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=1 Create produces correct pair`` () =
@@ -68,7 +68,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let intArrayMin1Max2Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2 }"""
-    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema>
+    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=1, maxItems=2: exactly minItems elements gives None for the rest`` () =
@@ -91,7 +91,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let intArrayMax2Schema = """{ "type": "array", "items": {"type": "integer"}, "maxItems": 2 }"""
-    type IntArrayMax2 = JsonSchemaProvider<schema = intArrayMax2Schema>
+    type IntArrayMax2 = JsonSchemaProvider<schema = intArrayMax2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``maxItems=2, no minItems: no elements gives None`` () =
@@ -114,7 +114,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let intArrayMax1Schema = """{ "type": "array", "items": {"type": "integer"}, "maxItems": 1 }"""
-    type IntArrayMax1 = JsonSchemaProvider<schema = intArrayMax1Schema>
+    type IntArrayMax1 = JsonSchemaProvider<schema = intArrayMax1Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``maxItems=1: no elements gives None`` () =
@@ -138,8 +138,8 @@ module ArrayKeywordTests =
     // Flagging rather than changing it, since fixing it is a test-design decision, not a rename.
     [<Literal>]
     let intArrayExact2Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2 }"""
-    type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema>
-    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema>
+    type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema, allowUnboundedIntegers=true>
+    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=maxItems=2, no flag: Create produces the exact tuple`` () =
@@ -163,7 +163,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let intArrayExact1Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1 }"""
-    type IntArrayExact1 = JsonSchemaProvider<schema = intArrayExact1Schema>
+    type IntArrayExact1 = JsonSchemaProvider<schema = intArrayExact1Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=maxItems=1: ToList gives a singleton list`` () =
@@ -180,11 +180,11 @@ module ArrayKeywordTests =
     // n >= 3 has more than one level of nesting to flatten.
     [<Literal>]
     let intArrayExact3Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 }"""
-    type IntArrayExact3 = JsonSchemaProvider<schema = intArrayExact3Schema>
+    type IntArrayExact3 = JsonSchemaProvider<schema = intArrayExact3Schema, allowUnboundedIntegers=true>
 
     [<Literal>]
     let intArrayExact4Schema = """{ "type": "array", "items": {"type": "integer"}, "minItems": 4, "maxItems": 4 }"""
-    type IntArrayExact4 = JsonSchemaProvider<schema = intArrayExact4Schema>
+    type IntArrayExact4 = JsonSchemaProvider<schema = intArrayExact4Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=maxItems=3: ToList flattens (h, (h, t)) down to a plain list`` () =
@@ -248,7 +248,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let arrayOfExact3Schema =
         """{ "type": "array", "items": { "type": "array", "items": {"type": "integer"}, "minItems": 3, "maxItems": 3 } }"""
-    type ArrayOfExact3 = JsonSchemaProvider<schema = arrayOfExact3Schema>
+    type ArrayOfExact3 = JsonSchemaProvider<schema = arrayOfExact3Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``array of exact-3 arrays: List.map ItemArray.ToTuple flattens each inner array`` () =
@@ -263,7 +263,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let arrayOfMax2OfExact2Schema =
         """{ "type": "array", "items": { "type": "array", "maxItems": 2, "items": { "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2 } } }"""
-    type ArrayOfMax2OfExact2 = JsonSchemaProvider<schema = arrayOfMax2OfExact2Schema>
+    type ArrayOfMax2OfExact2 = JsonSchemaProvider<schema = arrayOfMax2OfExact2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``three array levels: ItemArray.ToList and ItemArray.ItemArray.ToTuple each flatten their own level`` () =
@@ -273,7 +273,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let min1ObjectArraySchema =
         """{ "type": "array", "minItems": 1, "items": { "type": "object", "properties": { "a": {"type": "integer"} }, "required": ["a"] } }"""
-    type Min1ObjectArray = JsonSchemaProvider<schema = min1ObjectArraySchema>
+    type Min1ObjectArray = JsonSchemaProvider<schema = min1ObjectArraySchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``minItems=1 array of objects: ToList flattens (h, tail list) of provided-type items`` () =
@@ -283,7 +283,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let arrayOfMin1ObjectArraysSchema =
         """{ "type": "array", "items": { "type": "array", "minItems": 1, "items": { "type": "object", "properties": { "a": {"type": "integer"} }, "required": ["a"] } } }"""
-    type ArrayOfMin1ObjectArrays = JsonSchemaProvider<schema = arrayOfMin1ObjectArraysSchema>
+    type ArrayOfMin1ObjectArrays = JsonSchemaProvider<schema = arrayOfMin1ObjectArraysSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``array of arrays of objects: the Item class and the ItemArray helper don't clash`` () =
@@ -295,7 +295,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let uniqueItemsSchema = """{ "type": "array", "items": { "type": "integer" }, "uniqueItems": true }"""
-    type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema>
+    type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems Create takes a plain list and needs no Result`` () =
@@ -309,7 +309,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let uniqueItemsInTupleSchema =
         """{ "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, "minItems": 2, "maxItems": 2 }"""
-    type UniqueItemsInTuple = JsonSchemaProvider<schema=uniqueItemsInTupleSchema>
+    type UniqueItemsInTuple = JsonSchemaProvider<schema=uniqueItemsInTupleSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems arrays inside a size-bounded tuple drop their duplicates`` () =
@@ -320,7 +320,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let uniqueItemsOneOfBranchSchema =
         """{ "oneOf": [ { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, { "type": "string" } ] }"""
-    type UniqueItemsOneOfBranch = JsonSchemaProvider<schema=uniqueItemsOneOfBranchSchema>
+    type UniqueItemsOneOfBranch = JsonSchemaProvider<schema=uniqueItemsOneOfBranchSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems array as a oneOf branch drops duplicates before validation`` () =
@@ -347,7 +347,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let nestedUniqueItemsSchema =
         """{ "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true }, "uniqueItems": true }"""
-    type NestedUniqueItemsArray = JsonSchemaProvider<schema=nestedUniqueItemsSchema>
+    type NestedUniqueItemsArray = JsonSchemaProvider<schema=nestedUniqueItemsSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``nested uniqueItems: inner lists in a different order are different elements`` () =
@@ -364,7 +364,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let uniqueMin2Schema = """{ "type": "array", "items": { "type": "integer" }, "minItems": 2, "uniqueItems": true }"""
-    type UniqueMin2Array = JsonSchemaProvider<schema=uniqueMin2Schema>
+    type UniqueMin2Array = JsonSchemaProvider<schema=uniqueMin2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems with minItems is a plain list checked at runtime`` () =
@@ -375,7 +375,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let uniqueMax2Schema = """{ "type": "array", "items": { "type": "integer" }, "maxItems": 2, "uniqueItems": true }"""
-    type UniqueMax2Array = JsonSchemaProvider<schema=uniqueMax2Schema>
+    type UniqueMax2Array = JsonSchemaProvider<schema=uniqueMax2Schema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems with maxItems keeps the option chain and Create needs no Result`` () =
@@ -387,7 +387,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let uniqueObjectItemsSchema =
         """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } }, "required": ["a"] }, "uniqueItems": true }"""
-    type UniqueObjectItemsArray = JsonSchemaProvider<schema=uniqueObjectItemsSchema>
+    type UniqueObjectItemsArray = JsonSchemaProvider<schema=uniqueObjectItemsSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``uniqueItems on object items stays a list checked at runtime`` () =
@@ -400,7 +400,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let maxItemsSchema = """{ "type": "array", "items": { "type": "integer" }, "maxItems": 2 }"""
-    type MaxItemsArray = JsonSchemaProvider<schema=maxItemsSchema>
+    type MaxItemsArray = JsonSchemaProvider<schema=maxItemsSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``maxItems accepts an array at the limit`` () =
@@ -430,7 +430,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let arrayItemConstraintSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 } }"""
-    type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
+    type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``an item schema's own constraint is enforced against every element`` () =
@@ -456,7 +456,7 @@ module ArrayKeywordTests =
     [<Literal>]
     let integerArray =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"} } }, "required": ["values"] }"""
-    type IntegerArray = JsonSchemaProvider<schema=integerArray>
+    type IntegerArray = JsonSchemaProvider<schema=integerArray, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``select from integer array should yield input value`` () =
@@ -491,7 +491,7 @@ module ArrayKeywordTests =
             }
           }
         }"""
-    type NestedArrayWithObjectItems = JsonSchemaProvider<schema=nestedArrayWithObjectItems>
+    type NestedArrayWithObjectItems = JsonSchemaProvider<schema=nestedArrayWithObjectItems, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``select from nested array with object items should yield input value`` () =

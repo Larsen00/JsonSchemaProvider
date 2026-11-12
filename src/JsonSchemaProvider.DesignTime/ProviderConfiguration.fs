@@ -40,6 +40,7 @@ module ProviderConfiguration =
     type CompileFlags = {
         SkipRuntimeValidation: bool // unsafe: invalid JSON may fail later at runtime
         IgnoreSpecificKeywords: bool // fall back to runtime validation for these keywords
+        AllowUnboundedIntegers: bool // unsafe: integers whose type can't hold every valid instance may overflow
     }
 
     // Shared data for one generation run, passed through every generation function.

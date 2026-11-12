@@ -11,7 +11,7 @@ module IntegerTypeTests =
     // ignoreSpecificKeywords always gives int, also for bounds outside int.
     [<Literal>]
     let ignoredWideSchema = """{ "type": "integer", "maximum": 1000000000000 }"""
-    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true>
+    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``ignoreSpecificKeywords with a bound outside int still gives a validated int`` () =
@@ -94,7 +94,7 @@ module IntegerTypeTests =
 
     [<Literal>]
     let noKeywordsSchema = """{ "type": "integer" }"""
-    type NoKeywords = JsonSchemaProvider<schema=noKeywordsSchema>
+    type NoKeywords = JsonSchemaProvider<schema=noKeywordsSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``no keywords gives int and Create needs no Result`` () =
@@ -111,11 +111,11 @@ module IntegerTypeTests =
 
     [<Literal>]
     let int64MaximumSchema = """{ "type": "integer", "maximum": 9223372036854775807 }"""
-    type Int64Maximum = JsonSchemaProvider<schema=int64MaximumSchema>
+    type Int64Maximum = JsonSchemaProvider<schema=int64MaximumSchema, allowUnboundedIntegers=true>
 
     [<Literal>]
     let int64MinimumSchema = """{ "type": "integer", "minimum": -9223372036854775808 }"""
-    type Int64Minimum = JsonSchemaProvider<schema=int64MinimumSchema>
+    type Int64Minimum = JsonSchemaProvider<schema=int64MinimumSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``a one-sided bound at the Int64 limit gives int64 and Create needs no Result`` () =
@@ -132,11 +132,30 @@ module IntegerTypeTests =
         expectEqual (Int64Root.Create Int64.MinValue) Int64.MinValue
         expectEqual (expectOk (Int64Root.Parse("9223372036854775807"))) Int64.MaxValue
 
-    // NJsonSchema's Validate throws on any integer above Int64.MaxValue (it can't convert the
-    // BigInteger Newtonsoft parses it into), so Parse throws there instead of returning Error.
+    // NJsonSchema's Validate throws on any integer outside int64 (it can't convert the BigInteger
+    // Newtonsoft parses it into), so the provider checks for one first and returns an Error explaining it.
+    let private expectNJsonSchemaLimit (number: string) (result: Result<'T, string list>) =
+        match result with
+        | Error [ message ] ->
+            Assert.Contains($"The JSON contains the integer {number}, which is outside the int64 range", message)
+            Assert.Contains("Pick ONE of these fixes", message)
+            Assert.Contains("\"maximum\": 18446744073709551615 for uint64", message)
+            Assert.Contains("B) Or set skipRuntimeValidation=true", message)
+        | other -> failwithf "Expected one NJsonSchema-limit Error, got %A" other
+
     [<Fact>]
-    let ``Parse throws above Int64 MaxValue because NJsonSchema's validation does`` () =
-        Assert.Throws<InvalidCastException>(fun () -> Int64Root.Parse("9223372036854775808") |> ignore) |> ignore
+    let ``Parse outside int64 is an Error explaining NJsonSchema's limit`` () =
+        expectNJsonSchemaLimit "9223372036854775808" (Int64Root.Parse("9223372036854775808"))
+        expectNJsonSchemaLimit "-9223372036854775809" (Int64Root.Parse("-9223372036854775809"))
+
+    [<Literal>]
+    let uint64PropertySchema =
+        """{ "type": "object", "properties": { "id": { "type": "integer", "minimum": 0, "maximum": 18446744073709551615 }, "name": { "type": "string" } } }"""
+    type UInt64Property = JsonSchemaProvider<schema=uint64PropertySchema>
+
+    [<Fact>]
+    let ``a too-large integer nested in an object is reported by the same Error`` () =
+        expectNJsonSchemaLimit "18446744073709551615" (UInt64Property.Parse("""{"id": 18446744073709551615, "name": "x"}"""))
 
     [<Literal>]
     let uint64Schema = """{ "type": "integer", "minimum": 0, "maximum": 18446744073709551615 }"""
@@ -147,7 +166,17 @@ module IntegerTypeTests =
         expectEqual (UInt64Root.Create UInt64.MaxValue) UInt64.MaxValue
         expectEqual (expectOk (UInt64Root.Parse("9223372036854775807"))) 9223372036854775807UL
         // Same NJsonSchema limitation as above: the upper half can be created but not parsed.
-        Assert.Throws<InvalidCastException>(fun () -> UInt64Root.Parse("18446744073709551615") |> ignore) |> ignore
+        expectNJsonSchemaLimit "18446744073709551615" (UInt64Root.Parse("18446744073709551615"))
+
+    // One below UInt64.MaxValue, so the type doesn't enforce the bound and Create validates.
+    [<Literal>]
+    let validatedUInt64Schema = """{ "type": "integer", "minimum": 0, "maximum": 18446744073709551614 }"""
+    type ValidatedUInt64 = JsonSchemaProvider<schema=validatedUInt64Schema>
+
+    [<Fact>]
+    let ``a validating Create in the upper half of uint64 hits the same NJsonSchema limit`` () =
+        expectEqual (expectOk (ValidatedUInt64.Create 5UL)) 5UL
+        expectNJsonSchemaLimit "18446744073709551614" (ValidatedUInt64.Create 18446744073709551614UL)
 
     [<Literal>]
     let redundantBoundSchema = """{ "type": "integer", "minimum": 0, "maximum": 11, "exclusiveMaximum": 256 }"""
@@ -188,7 +217,7 @@ module IntegerTypeTests =
 
     [<Literal>]
     let wideSignedSchema = """{ "type": "integer", "minimum": -10000000000 }"""
-    type WideSigned = JsonSchemaProvider<schema=wideSignedSchema>
+    type WideSigned = JsonSchemaProvider<schema=wideSignedSchema, allowUnboundedIntegers=true>
 
     [<Fact>]
     let ``a signed range beyond 32 bits widens to int64`` () =
