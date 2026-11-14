@@ -13,9 +13,9 @@ module TestHelpers =
     open JsonSchemaProvider.DesignTime.ProviderConfiguration
     open JsonSchemaProvider.DesignTime.NodeConversions
 
-    // Most tests use unbounded integers to test other things, so they allow them; strictFlags is the provider's default.
-    let defaultFlags : CompileFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false; AllowUnboundedIntegers = true }
-    let strictFlags : CompileFlags = { defaultFlags with AllowUnboundedIntegers = false }
+    // defaultFlags is the provider's default (unbounded integers allowed); strictFlags sets requireIntegerBounds.
+    let defaultFlags : CompileFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false; RequireIntegerBounds = false }
+    let strictFlags : CompileFlags = { defaultFlags with RequireIntegerBounds = true }
 
     // Same hash/source pairing as TypeProvider.run, so generated validation code finds the schema.
     let contextWith (flags: CompileFlags) (schemaText: string) : GenerationContext =

@@ -1,18 +1,18 @@
 namespace JsonSchemaProvider.Tests
 
-// Without allowUnboundedIntegers an integer node only compiles when its F# type holds every valid
+// With requireIntegerBounds=true an integer node only compiles when its F# type holds every valid
 // instance, so a number outside the type is a Parse Error instead of an exception. These are the
-// strict versions of the allowUnboundedIntegers=true tests in Keywords/, with the int (or uint32)
-// range written out. An unbounded integer without the flag is a compile error, covered by the
+// strict versions of the default (requireIntegerBounds=false) tests in Keywords/, with the int (or uint32)
+// range written out. An unbounded integer with the flag is a compile error, covered by the
 // design-time tests since it can't be written here.
-module AllowUnboundedIntegersTests =
+module RequireIntegerBoundsTests =
     open System
     open Xunit
     open JsonSchemaProvider
 
     [<Literal>]
     let rootSchema = """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }"""
-    type Root = JsonSchemaProvider<schema = rootSchema>
+    type Root = JsonSchemaProvider<schema = rootSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``an int-ranged root Create needs no Result`` () =
@@ -28,7 +28,7 @@ module AllowUnboundedIntegersTests =
     [<Literal>]
     let propertySchema =
         """{ "type": "object", "properties": { "n": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, "m": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }, "required": ["n"] }"""
-    type Property = JsonSchemaProvider<schema = propertySchema>
+    type Property = JsonSchemaProvider<schema = propertySchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``int-ranged properties, required and optional, need no Result`` () =
@@ -44,7 +44,7 @@ module AllowUnboundedIntegersTests =
 
     [<Literal>]
     let itemsSchema = """{ "type": "array", "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }"""
-    type Items = JsonSchemaProvider<schema = itemsSchema>
+    type Items = JsonSchemaProvider<schema = itemsSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``int-ranged items give an int list and Parse returns Error outside int`` () =
@@ -55,7 +55,7 @@ module AllowUnboundedIntegersTests =
     [<Literal>]
     let tupleSchema =
         """{ "type": "array", "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, "minItems": 2, "maxItems": 2 }"""
-    type Tuple = JsonSchemaProvider<schema = tupleSchema>
+    type Tuple = JsonSchemaProvider<schema = tupleSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``int-ranged items work inside an exact-length array`` () =
@@ -65,7 +65,7 @@ module AllowUnboundedIntegersTests =
     [<Literal>]
     let maxItemsSchema =
         """{ "type": "array", "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, "maxItems": 2 }"""
-    type MaxItems = JsonSchemaProvider<schema = maxItemsSchema>
+    type MaxItems = JsonSchemaProvider<schema = maxItemsSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``int-ranged items work in a maxItems option chain`` () =
@@ -76,7 +76,7 @@ module AllowUnboundedIntegersTests =
     [<Literal>]
     let uniqueItemsSchema =
         """{ "type": "array", "items": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, "uniqueItems": true }"""
-    type UniqueItems = JsonSchemaProvider<schema = uniqueItemsSchema>
+    type UniqueItems = JsonSchemaProvider<schema = uniqueItemsSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``int-ranged items keep uniqueItems dropping duplicates`` () =
@@ -84,7 +84,7 @@ module AllowUnboundedIntegersTests =
 
     [<Literal>]
     let oneOfSchema = """{ "oneOf": [ { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }, { "type": "string" } ] }"""
-    type OneOf = JsonSchemaProvider<schema = oneOfSchema>
+    type OneOf = JsonSchemaProvider<schema = oneOfSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``an int-ranged integer works as a oneOf branch and a number outside int matches no branch`` () =
@@ -95,7 +95,7 @@ module AllowUnboundedIntegersTests =
     [<Literal>]
     let nestedSchema =
         """{ "type": "object", "properties": { "inner": { "type": "object", "properties": { "n": { "type": "integer", "minimum": -2147483648, "maximum": 2147483647 } }, "required": ["n"] } }, "required": ["inner"] }"""
-    type Nested = JsonSchemaProvider<schema = nestedSchema>
+    type Nested = JsonSchemaProvider<schema = nestedSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``an int-ranged property of a nested object makes the nested Create need no Result`` () =
@@ -104,7 +104,7 @@ module AllowUnboundedIntegersTests =
 
     [<Literal>]
     let multipleOfSchema = """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647, "multipleOf": 2 }"""
-    type MultipleOf = JsonSchemaProvider<schema = multipleOfSchema>
+    type MultipleOf = JsonSchemaProvider<schema = multipleOfSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``an int-ranged integer with multipleOf keeps int and Create validates multipleOf`` () =
@@ -113,7 +113,7 @@ module AllowUnboundedIntegersTests =
 
     [<Literal>]
     let nonNegativeSchema = """{ "type": "integer", "minimum": 0, "maximum": 4294967295 }"""
-    type NonNegative = JsonSchemaProvider<schema = nonNegativeSchema>
+    type NonNegative = JsonSchemaProvider<schema = nonNegativeSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``the uint32 range is the strict version of minimum 0 alone`` () =
@@ -124,7 +124,7 @@ module AllowUnboundedIntegersTests =
 
     [<Literal>]
     let nonNegativeItemsSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }"""
-    type NonNegativeItems = JsonSchemaProvider<schema = nonNegativeItemsSchema>
+    type NonNegativeItems = JsonSchemaProvider<schema = nonNegativeItemsSchema, requireIntegerBounds = true>
 
     [<Fact>]
     let ``uint32-ranged items give a uint32 list and Parse returns Error above uint32`` () =
@@ -134,7 +134,7 @@ module AllowUnboundedIntegersTests =
     // ignoreSpecificKeywords always gives int, so the strict rule only lets through bounds inside int.
     [<Literal>]
     let ignoredSchema = """{ "type": "integer", "minimum": 0, "maximum": 2147483647 }"""
-    type Ignored = JsonSchemaProvider<schema = ignoredSchema, ignoreSpecificKeywords = true>
+    type Ignored = JsonSchemaProvider<schema = ignoredSchema, ignoreSpecificKeywords = true, requireIntegerBounds = true>
 
     [<Fact>]
     let ``ignoreSpecificKeywords with bounds inside int gives a validated int`` () =

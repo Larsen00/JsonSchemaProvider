@@ -3,8 +3,8 @@ namespace JsonSchemaProvider.Tests
 // An integer whose smallest allowed value is exactly 0 (minimum 0 or exclusiveMinimum -1) maps
 // to uint32, so a negative value can't be passed to Create at all. Create needs no Result unless
 // other keywords (maximum, multipleOf, enum, ...) sit alongside, which are then validated.
-// Without a maximum this needs allowUnboundedIntegers=true; the strict versions with maximum
-// 4294967295 are in Mechanisms/AllowUnboundedIntegersTests.
+// Without a maximum this compiles only by default (requireIntegerBounds=false); the strict versions with maximum
+// 4294967295 are in Mechanisms/RequireIntegerBoundsTests.
 module NonNegativeIntegerTests =
     open System
     open Xunit
@@ -12,11 +12,11 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let minimumRootSchema = """{ "type": "integer", "minimum": 0 }"""
-    type MinimumRoot = JsonSchemaProvider<schema=minimumRootSchema, allowUnboundedIntegers=true>
+    type MinimumRoot = JsonSchemaProvider<schema=minimumRootSchema>
 
     [<Literal>]
     let exclusiveMinimumRootSchema = """{ "type": "integer", "exclusiveMinimum": -1 }"""
-    type ExclusiveMinimumRoot = JsonSchemaProvider<schema=exclusiveMinimumRootSchema, allowUnboundedIntegers=true>
+    type ExclusiveMinimumRoot = JsonSchemaProvider<schema=exclusiveMinimumRootSchema>
 
     [<Fact>]
     let ``minimum 0 root Create takes a uint32 and needs no Result`` () =
@@ -65,7 +65,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let multipleOfSchema = """{ "type": "integer", "minimum": 0, "multipleOf": 2 }"""
-    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema, allowUnboundedIntegers=true>
+    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema>
 
     [<Fact>]
     let ``minimum 0 with multipleOf keeps uint32 and Create validates multipleOf`` () =
@@ -75,7 +75,7 @@ module NonNegativeIntegerTests =
     [<Literal>]
     let propertySchema =
         """{ "type": "object", "properties": { "count": { "type": "integer", "minimum": 0 }, "limit": { "type": "integer", "exclusiveMinimum": -1 } }, "required": ["count"] }"""
-    type Property = JsonSchemaProvider<schema=propertySchema, allowUnboundedIntegers=true>
+    type Property = JsonSchemaProvider<schema=propertySchema>
 
     [<Fact>]
     let ``required non-negative property is a uint32`` () =
@@ -95,7 +95,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let itemsSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0 } }"""
-    type Items = JsonSchemaProvider<schema=itemsSchema, allowUnboundedIntegers=true>
+    type Items = JsonSchemaProvider<schema=itemsSchema>
 
     [<Fact>]
     let ``non-negative items give a uint32 list`` () =
@@ -105,7 +105,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let tupleSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0 }, "minItems": 2, "maxItems": 2 }"""
-    type Tuple = JsonSchemaProvider<schema=tupleSchema, allowUnboundedIntegers=true>
+    type Tuple = JsonSchemaProvider<schema=tupleSchema>
 
     [<Fact>]
     let ``non-negative items work inside a compiled array shape`` () =
@@ -113,7 +113,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let oneOfSchema = """{ "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "string" } ] }"""
-    type OneOf = JsonSchemaProvider<schema=oneOfSchema, allowUnboundedIntegers=true>
+    type OneOf = JsonSchemaProvider<schema=oneOfSchema>
 
     [<Fact>]
     let ``non-negative integer works as a oneOf branch`` () =
@@ -122,7 +122,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let overlappingOneOfSchema = """{ "oneOf": [ { "type": "integer", "minimum": 0 }, { "type": "integer" } ] }"""
-    type OverlappingOneOf = JsonSchemaProvider<schema=overlappingOneOfSchema, allowUnboundedIntegers=true>
+    type OverlappingOneOf = JsonSchemaProvider<schema=overlappingOneOfSchema>
 
     [<Fact>]
     let ``oneOf with overlapping uint32 and int branches rejects values matching both`` () =
@@ -131,7 +131,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let maxItemsSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0 }, "maxItems": 2 }"""
-    type MaxItems = JsonSchemaProvider<schema=maxItemsSchema, allowUnboundedIntegers=true>
+    type MaxItems = JsonSchemaProvider<schema=maxItemsSchema>
 
     [<Fact>]
     let ``non-negative items work in a maxItems option chain`` () =
@@ -141,7 +141,7 @@ module NonNegativeIntegerTests =
     [<Literal>]
     let nestedSchema =
         """{ "type": "object", "properties": { "inner": { "type": "object", "properties": { "n": { "type": "integer", "minimum": 0 } }, "required": ["n"] } }, "required": ["inner"] }"""
-    type Nested = JsonSchemaProvider<schema=nestedSchema, allowUnboundedIntegers=true>
+    type Nested = JsonSchemaProvider<schema=nestedSchema>
 
     [<Fact>]
     let ``non-negative property of a nested object makes the nested Create need no Result`` () =
@@ -150,7 +150,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let enumSchema = """{ "type": "integer", "minimum": 0, "enum": [1, 2] }"""
-    type Enum = JsonSchemaProvider<schema=enumSchema, allowUnboundedIntegers=true>
+    type Enum = JsonSchemaProvider<schema=enumSchema>
 
     [<Fact>]
     let ``a stray keyword keeps uint32 but Create validates`` () =
@@ -160,7 +160,7 @@ module NonNegativeIntegerTests =
     // Skipping validation lets a negative number reach the checked conversion, which throws.
     [<Literal>]
     let skippedSchema = """{ "type": "integer", "minimum": 0 }"""
-    type Skipped = JsonSchemaProvider<schema=skippedSchema, skipRuntimeValidation=true, allowUnboundedIntegers=true>
+    type Skipped = JsonSchemaProvider<schema=skippedSchema, skipRuntimeValidation=true>
 
     [<Fact>]
     let ``skipRuntimeValidation Parse throws on a negative number`` () =
@@ -170,7 +170,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let minimumOneSchema = """{ "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 }"""
-    type MinimumOne = JsonSchemaProvider<schema=minimumOneSchema, allowUnboundedIntegers=true>
+    type MinimumOne = JsonSchemaProvider<schema=minimumOneSchema>
 
     [<Fact>]
     let ``minimum 1 stays int and Create validates`` () =
@@ -179,7 +179,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let exclusiveZeroSchema = """{ "type": "integer", "minimum": -2147483648, "exclusiveMinimum": 0 }"""
-    type ExclusiveZero = JsonSchemaProvider<schema=exclusiveZeroSchema, allowUnboundedIntegers=true>
+    type ExclusiveZero = JsonSchemaProvider<schema=exclusiveZeroSchema>
 
     [<Fact>]
     let ``exclusiveMinimum 0 stays int and Create rejects 0`` () =
@@ -191,7 +191,7 @@ module NonNegativeIntegerTests =
     [<Literal>]
     let draft4ExclusiveZeroSchema =
         """{ "$schema": "http://json-schema.org/draft-04/schema#", "type": "integer", "minimum": 0, "exclusiveMinimum": true }"""
-    type Draft4ExclusiveZero = JsonSchemaProvider<schema=draft4ExclusiveZeroSchema, allowUnboundedIntegers=true>
+    type Draft4ExclusiveZero = JsonSchemaProvider<schema=draft4ExclusiveZeroSchema>
 
     [<Fact>]
     let ``draft 4 exclusive minimum 0 gives uint32 and Create rejects 0`` () =
@@ -200,7 +200,7 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let ignoredSchema = """{ "type": "integer", "minimum": 0 }"""
-    type Ignored = JsonSchemaProvider<schema=ignoredSchema, ignoreSpecificKeywords=true, allowUnboundedIntegers=true>
+    type Ignored = JsonSchemaProvider<schema=ignoredSchema, ignoreSpecificKeywords=true>
 
     [<Fact>]
     let ``ignoreSpecificKeywords keeps minimum 0 as int and Create validates`` () =

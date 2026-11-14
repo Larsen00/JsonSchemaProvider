@@ -2,7 +2,7 @@ namespace JsonSchemaProvider.Tests
 
 // A JSON integer can be any size. Bounding the node to the Int32 range with minimum/maximum gives
 // int and makes validation reject everything int can't hold. Without the bounds the provider
-// reports a compile error unless allowUnboundedIntegers=true, which gives int and makes Parse throw
+// gives int by default (requireIntegerBounds=false), which makes Parse throw
 // on an out-of-range integer instead of returning Error.
 module IntegerRangeTests =
     open System
@@ -22,7 +22,7 @@ module IntegerRangeTests =
     [<Literal>]
     let unboundedPropertySchema =
         """{ "type": "object", "properties": { "n": { "type": "integer" } }, "required": ["n"] }"""
-    type UnboundedProperty = JsonSchemaProvider<schema=unboundedPropertySchema, allowUnboundedIntegers=true>
+    type UnboundedProperty = JsonSchemaProvider<schema=unboundedPropertySchema>
 
     [<Fact>]
     let ``bounded property Parse accepts Int32 MaxValue and MinValue`` () =
@@ -52,7 +52,7 @@ module IntegerRangeTests =
 
     [<Literal>]
     let unboundedRootSchema = """{ "type": "integer" }"""
-    type UnboundedRoot = JsonSchemaProvider<schema=unboundedRootSchema, allowUnboundedIntegers=true>
+    type UnboundedRoot = JsonSchemaProvider<schema=unboundedRootSchema>
 
     [<Fact>]
     let ``bounded root Parse accepts Int32 MaxValue and MinValue`` () =
@@ -80,7 +80,7 @@ module IntegerRangeTests =
 
     [<Literal>]
     let unboundedItemsSchema = """{ "type": "array", "items": { "type": "integer" } }"""
-    type UnboundedItems = JsonSchemaProvider<schema=unboundedItemsSchema, allowUnboundedIntegers=true>
+    type UnboundedItems = JsonSchemaProvider<schema=unboundedItemsSchema>
 
     [<Fact>]
     let ``bounded items Parse accepts Int32 MaxValue and MinValue`` () =

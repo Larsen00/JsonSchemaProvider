@@ -70,7 +70,7 @@ module NullInputTests =
     [<Literal>]
     let nestedObjectSchema =
         """{ "type": "object", "properties": { "inner": {"type": "object", "properties": { "x": {"type": "integer"} }} }, "required": ["inner"] }"""
-    type NestedObject = JsonSchemaProvider<schema=nestedObjectSchema, allowUnboundedIntegers=true>
+    type NestedObject = JsonSchemaProvider<schema=nestedObjectSchema>
 
     [<Fact>]
     let ``object Create gives Error for null in a required nested object`` () =
@@ -102,7 +102,7 @@ module NullInputTests =
     [<Literal>]
     let objectListSchema =
         """{ "type": "array", "items": {"type": "object", "properties": { "x": {"type": "integer"} }} }"""
-    type ObjectList = JsonSchemaProvider<schema=objectListSchema, allowUnboundedIntegers=true>
+    type ObjectList = JsonSchemaProvider<schema=objectListSchema>
 
     [<Fact>]
     let ``list root Create gives Error for a null object element`` () =

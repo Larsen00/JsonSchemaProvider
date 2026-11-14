@@ -57,7 +57,7 @@ module OldCodeGenerationTests =
 
     [<Literal>]
     let integerPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/05-integer.json"
-    type Integer = JsonSchemaProvider<schemaFile=integerPath, allowUnboundedIntegers=true>
+    type Integer = JsonSchemaProvider<schemaFile=integerPath>
 
     [<Fact>]
     let ``integer root loaded from file Create builds the value`` () =
@@ -111,7 +111,7 @@ module OldCodeGenerationTests =
 
     [<Literal>]
     let objectWithoutRequiredPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/11-object-without-required.json"
-    type ObjectWithoutRequired = JsonSchemaProvider<schemaFile=objectWithoutRequiredPath, allowUnboundedIntegers=true>
+    type ObjectWithoutRequired = JsonSchemaProvider<schemaFile=objectWithoutRequiredPath>
 
     [<Fact>]
     let ``object without required properties loaded from file Create builds the record`` () =

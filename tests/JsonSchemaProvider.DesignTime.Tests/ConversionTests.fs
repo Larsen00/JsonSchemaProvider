@@ -71,13 +71,13 @@ module ConversionTests =
                   Expect.throws (fun () -> conversionOf """{ "type": "integer", "minimum": 10, "maximum": 5 }""" |> ignore) "minimum above maximum"
               }
 
-              test "without allowUnboundedIntegers an unbounded integer fails with both fixes in the message" {
+              test "with requireIntegerBounds an unbounded integer fails with both fixes in the message" {
                   let message = Expect.throwsC (fun () -> convertRoot (fixtureWith strictFlags """{ "type": "integer" }""") |> ignore) (fun ex -> ex.Message)
                   Expect.stringContains message "The integer at the schema root has no lower or upper bound" "names the node and the problem"
                   Expect.stringContains message "Pick ONE of these fixes" "says the fixes are alternatives"
                   Expect.stringContains message "A) Add a lower bound (\"minimum\" or \"exclusiveMinimum\")" "fix A: bounds, exclusive ones too"
                   Expect.stringContains message "For int: \"minimum\": -2147483648, \"maximum\": 2147483647" "fix A: the int range"
-                  Expect.stringContains message "B) Or set allowUnboundedIntegers=true" "fix B: the flag"
+                  Expect.stringContains message "B) Or remove requireIntegerBounds=true" "fix B: the flag"
               }
 
               test "the unbounded-integer error names the missing bound, the nested path and the hinted type's limit" {
@@ -94,7 +94,7 @@ module ConversionTests =
                   Expect.stringContains tooWide "has bounds outside the range of uint64" "range too wide"
               }
 
-              test "without allowUnboundedIntegers the int range gives an int that needs no validation" {
+              test "with requireIntegerBounds the int range gives an int that needs no validation" {
                   let conv = convertRoot (fixtureWith strictFlags """{ "type": "integer", "minimum": -2147483648, "maximum": 2147483647 }""")
                   Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
                   Expect.isTrue conv.FullyCompilable "FullyCompilable"

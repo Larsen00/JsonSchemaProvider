@@ -22,7 +22,7 @@ module RootTypeTests =
 
     [<Literal>]
     let intRootSchema = """{ "type": "integer" }"""
-    type IntRoot = JsonSchemaProvider<schema=intRootSchema, allowUnboundedIntegers=true>
+    type IntRoot = JsonSchemaProvider<schema=intRootSchema>
 
     [<Fact>]
     let ``integer root Create builds the value`` () =
@@ -152,7 +152,7 @@ module RootTypeTests =
     // A oneOf with several branches is never FullyCompilable, so Create returns Result even here.
     [<Literal>]
     let stringOrIntRootSchema = """{ "oneOf": [{ "type": "string" }, { "type": "integer" }] }"""
-    type StringOrIntRoot = JsonSchemaProvider<schema=stringOrIntRootSchema, allowUnboundedIntegers=true>
+    type StringOrIntRoot = JsonSchemaProvider<schema=stringOrIntRootSchema>
 
     [<Fact>]
     let ``oneOf root Create builds the value from the string branch`` () =
@@ -169,7 +169,7 @@ module RootTypeTests =
 
     [<Literal>]
     let stringOrIntOrBoolRootSchema = """{ "oneOf": [{ "type": "string" }, { "type": "integer" }, { "type": "boolean" }] }"""
-    type StringOrIntOrBoolRoot = JsonSchemaProvider<schema=stringOrIntOrBoolRootSchema, allowUnboundedIntegers=true>
+    type StringOrIntOrBoolRoot = JsonSchemaProvider<schema=stringOrIntOrBoolRootSchema>
 
     [<Fact>]
     let ``3-way oneOf root Create builds the value from the string branch`` () =
@@ -188,7 +188,7 @@ module RootTypeTests =
     [<Literal>]
     let placeOrIdRootSchema =
         """{ "oneOf": [{ "type": "object", "properties": { "name": { "type": "string" } }, "required": ["name"] }, { "type": "integer" }] }"""
-    type PlaceOrIdRoot = JsonSchemaProvider<schema=placeOrIdRootSchema, allowUnboundedIntegers=true>
+    type PlaceOrIdRoot = JsonSchemaProvider<schema=placeOrIdRootSchema>
 
     [<Fact>]
     let ``oneOf root with an object branch Create builds the value from the object branch`` () =
@@ -203,7 +203,7 @@ module RootTypeTests =
 
     [<Literal>]
     let stringOrIntArrayRootSchema = """{ "oneOf": [{ "type": "string" }, { "type": "array", "items": { "type": "integer" } }] }"""
-    type StringOrIntArrayRoot = JsonSchemaProvider<schema=stringOrIntArrayRootSchema, allowUnboundedIntegers=true>
+    type StringOrIntArrayRoot = JsonSchemaProvider<schema=stringOrIntArrayRootSchema>
 
     [<Fact>]
     let ``oneOf root with an array branch Create builds the value from the string branch`` () =
@@ -216,7 +216,7 @@ module RootTypeTests =
     // minimum:5 also makes the int branch itself not FullyCompilable.
     [<Literal>]
     let constrainedIntOrStringRootSchema = """{ "oneOf": [{ "type": "integer", "minimum": 5, "exclusiveMinimum": -2147483649 }, { "type": "string" }] }"""
-    type ConstrainedIntOrStringRoot = JsonSchemaProvider<schema=constrainedIntOrStringRootSchema, allowUnboundedIntegers=true>
+    type ConstrainedIntOrStringRoot = JsonSchemaProvider<schema=constrainedIntOrStringRootSchema>
 
     [<Fact>]
     let ``constrained oneOf root Create accepts an in-range int branch value`` () =
@@ -239,7 +239,7 @@ module RootTypeTests =
     // string | (int | bool) - same shape as OneOfTests.fs's nestedOneOfSchema but at the root.
     [<Literal>]
     let nestedOneOfRootSchema = """{ "oneOf": [{ "type": "string" }, { "oneOf": [{ "type": "integer" }, { "type": "boolean" }] }] }"""
-    type NestedOneOfRoot = JsonSchemaProvider<schema=nestedOneOfRootSchema, allowUnboundedIntegers=true>
+    type NestedOneOfRoot = JsonSchemaProvider<schema=nestedOneOfRootSchema>
 
     [<Fact>]
     let ``nested oneOf root Create builds the value from the outer string branch`` () =

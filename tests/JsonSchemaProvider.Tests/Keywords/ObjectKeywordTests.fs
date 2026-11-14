@@ -11,7 +11,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let flatSchema =
         """{ "type": "object", "properties": { "X": {"type": "string"}, "Y": {"type": "string"}, "Z": {"type": "integer"} } }"""
-    type Flat = JsonSchemaProvider<schema=flatSchema, allowUnboundedIntegers=true>
+    type Flat = JsonSchemaProvider<schema=flatSchema>
 
     [<Fact>]
     let ``valid record should be parsed`` () =
@@ -49,7 +49,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let requiredPropertiesSchema =
         """{ "type": "object", "properties": { "X": {"type": "string"}, "Y": {"type": "string"}, "Z": {"type": "integer"} }, "required": ["X", "Y", "Z"] }"""
-    type RequiredProperties = JsonSchemaProvider<schema=requiredPropertiesSchema, allowUnboundedIntegers=true>
+    type RequiredProperties = JsonSchemaProvider<schema=requiredPropertiesSchema>
 
     [<Fact>]
     let ``required properties should not be parsed into Option`` () =
@@ -104,7 +104,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let multipleOfSchema =
         """{ "type": "object", "properties": { "value": { "type": "integer", "multipleOf": 5 } }, "required": ["value"] }"""
-    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema, allowUnboundedIntegers=true>
+    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema>
 
     [<Fact>]
     let ``object property: multipleOf rejects a non-multiple value`` () =
@@ -204,7 +204,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let intArrayMin1Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "minItems": 1 } }, "required": ["values"] }"""
-    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema, allowUnboundedIntegers=true>
+    type IntArrayMin1 = JsonSchemaProvider<schema = intArrayMin1Schema>
 
     [<Fact>]
     let ``object property: minItems=1 Create produces correct pair`` () =
@@ -229,7 +229,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let intArrayMin1Max2Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 2 } }, "required": ["values"] }"""
-    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema, allowUnboundedIntegers=true>
+    type IntArrayMin1Max2 = JsonSchemaProvider<schema = intArrayMin1Max2Schema>
 
     [<Fact>]
     let ``object property: minItems=1, maxItems=2: exactly minItems elements gives None for the rest`` () =
@@ -251,7 +251,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let intArrayMax2Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "maxItems": 2 } }, "required": ["values"] }"""
-    type IntArrayMax2 = JsonSchemaProvider<schema = intArrayMax2Schema, allowUnboundedIntegers=true>
+    type IntArrayMax2 = JsonSchemaProvider<schema = intArrayMax2Schema>
 
     [<Fact>]
     let ``object property: maxItems=2, no minItems: no elements gives None`` () =
@@ -273,7 +273,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let intArrayMax1Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "maxItems": 1 } }, "required": ["values"] }"""
-    type IntArrayMax1 = JsonSchemaProvider<schema = intArrayMax1Schema, allowUnboundedIntegers=true>
+    type IntArrayMax1 = JsonSchemaProvider<schema = intArrayMax1Schema>
 
     [<Fact>]
     let ``object property: maxItems=1: no elements gives None`` () =
@@ -293,8 +293,8 @@ module ObjectKeywordTests =
     [<Literal>]
     let intArrayExact2Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2 } }, "required": ["values"] }"""
-    type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema, allowUnboundedIntegers=true>
-    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema, allowUnboundedIntegers=true>
+    type IntArrayExact2 = JsonSchemaProvider<schema = intArrayExact2Schema>
+    type IntArrayExact2WithFlag = JsonSchemaProvider<schema = intArrayExact2Schema>
 
     [<Fact>]
     let ``object property: minItems=maxItems=2, no flag: Create produces the exact tuple`` () =
@@ -358,7 +358,7 @@ module ObjectKeywordTests =
           },
           "required": ["meta", "rows"]
         }"""
-    type NestedClassArray = JsonSchemaProvider<schema = nestedClassArraySchema, allowUnboundedIntegers=true>
+    type NestedClassArray = JsonSchemaProvider<schema = nestedClassArraySchema>
 
     [<Fact>]
     let ``nested class: minItems=maxItems=3: metaObj.valuesArray.ToTuple rebuilds the flat tuple`` () =
@@ -393,7 +393,7 @@ module ObjectKeywordTests =
           },
           "required": ["values", "points"]
         }"""
-    type PropertyArrayOfArrays = JsonSchemaProvider<schema = propertyArrayOfArraysSchema, allowUnboundedIntegers=true>
+    type PropertyArrayOfArrays = JsonSchemaProvider<schema = propertyArrayOfArraysSchema>
 
     [<Fact>]
     let ``object property: array of exact-3 arrays: valuesArray.ItemArray.ToTuple flattens each inner array`` () =
@@ -427,7 +427,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let uniqueItemsSchema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true } }, "required": ["values"] }"""
-    type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema, allowUnboundedIntegers=true>
+    type UniqueItemsArray = JsonSchemaProvider<schema=uniqueItemsSchema>
 
     [<Fact>]
     let ``object property: uniqueItems drops duplicates and the object's Create needs no Result`` () =
@@ -437,7 +437,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let optionalUniqueItemsSchema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer" }, "uniqueItems": true } } }"""
-    type OptionalUniqueItemsArray = JsonSchemaProvider<schema=optionalUniqueItemsSchema, allowUnboundedIntegers=true>
+    type OptionalUniqueItemsArray = JsonSchemaProvider<schema=optionalUniqueItemsSchema>
 
     [<Fact>]
     let ``optional uniqueItems property: absent gives None, present drops duplicates`` () =
@@ -453,7 +453,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let maxItemsSchema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer" }, "maxItems": 2 } }, "required": ["values"] }"""
-    type MaxItemsArray = JsonSchemaProvider<schema=maxItemsSchema, allowUnboundedIntegers=true>
+    type MaxItemsArray = JsonSchemaProvider<schema=maxItemsSchema>
 
     [<Fact>]
     let ``object property: maxItems accepts an array at the limit`` () =
@@ -480,7 +480,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let arrayItemConstraintSchema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": { "type": "integer", "minimum": 1, "exclusiveMinimum": -2147483649 } } }, "required": ["values"] }"""
-    type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema, allowUnboundedIntegers=true>
+    type ArrayItemConstraint = JsonSchemaProvider<schema=arrayItemConstraintSchema>
 
     [<Fact>]
     let ``object property: an item schema's own constraint is enforced against every element`` () =
@@ -496,7 +496,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let minPropertiesSchema =
         """{ "type": "object", "properties": { "a": {"type": "integer"}, "b": {"type": "integer"}, "c": {"type": "integer"} }, "minProperties": 2 }"""
-    type MinPropertiesObject = JsonSchemaProvider<schema=minPropertiesSchema, allowUnboundedIntegers=true>
+    type MinPropertiesObject = JsonSchemaProvider<schema=minPropertiesSchema>
 
     [<Fact>]
     let ``minProperties rejects an object built with too few properties set`` () =
@@ -510,7 +510,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let maxPropertiesSchema =
         """{ "type": "object", "properties": { "a": {"type": "integer"}, "b": {"type": "integer"}, "c": {"type": "integer"} }, "maxProperties": 2 }"""
-    type MaxPropertiesObject = JsonSchemaProvider<schema=maxPropertiesSchema, allowUnboundedIntegers=true>
+    type MaxPropertiesObject = JsonSchemaProvider<schema=maxPropertiesSchema>
 
     [<Fact>]
     let ``maxProperties rejects an object built with too many properties set`` () =
@@ -526,7 +526,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let additionalPropertiesSchema =
         """{ "type": "object", "properties": { "a": {"type": "integer"} }, "additionalProperties": false }"""
-    type AdditionalPropertiesObject = JsonSchemaProvider<schema=additionalPropertiesSchema, allowUnboundedIntegers=true>
+    type AdditionalPropertiesObject = JsonSchemaProvider<schema=additionalPropertiesSchema>
 
     [<Fact>]
     let ``additionalProperties=false rejects an undeclared property via Parse`` () =
@@ -554,7 +554,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let optionalExact1Schema =
         """{ "type": "object", "properties": { "one": { "type": "array", "items": {"type": "integer"}, "minItems": 1, "maxItems": 1 } } }"""
-    type OptionalExact1 = JsonSchemaProvider<schema = optionalExact1Schema, allowUnboundedIntegers=true>
+    type OptionalExact1 = JsonSchemaProvider<schema = optionalExact1Schema>
 
     [<Fact>]
     let ``optional exact-length-1 array property: omitted argument leaves the property out`` () =

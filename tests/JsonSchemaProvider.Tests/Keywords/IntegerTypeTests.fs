@@ -11,7 +11,7 @@ module IntegerTypeTests =
     // ignoreSpecificKeywords always gives int, also for bounds outside int.
     [<Literal>]
     let ignoredWideSchema = """{ "type": "integer", "maximum": 1000000000000 }"""
-    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true, allowUnboundedIntegers=true>
+    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true>
 
     [<Fact>]
     let ``ignoreSpecificKeywords with a bound outside int still gives a validated int`` () =
@@ -94,7 +94,7 @@ module IntegerTypeTests =
 
     [<Literal>]
     let noKeywordsSchema = """{ "type": "integer" }"""
-    type NoKeywords = JsonSchemaProvider<schema=noKeywordsSchema, allowUnboundedIntegers=true>
+    type NoKeywords = JsonSchemaProvider<schema=noKeywordsSchema>
 
     [<Fact>]
     let ``no keywords gives int and Create needs no Result`` () =
@@ -111,11 +111,11 @@ module IntegerTypeTests =
 
     [<Literal>]
     let int64MaximumSchema = """{ "type": "integer", "maximum": 9223372036854775807 }"""
-    type Int64Maximum = JsonSchemaProvider<schema=int64MaximumSchema, allowUnboundedIntegers=true>
+    type Int64Maximum = JsonSchemaProvider<schema=int64MaximumSchema>
 
     [<Literal>]
     let int64MinimumSchema = """{ "type": "integer", "minimum": -9223372036854775808 }"""
-    type Int64Minimum = JsonSchemaProvider<schema=int64MinimumSchema, allowUnboundedIntegers=true>
+    type Int64Minimum = JsonSchemaProvider<schema=int64MinimumSchema>
 
     [<Fact>]
     let ``a one-sided bound at the Int64 limit gives int64 and Create needs no Result`` () =
@@ -238,7 +238,7 @@ module IntegerTypeTests =
 
     [<Literal>]
     let wideSignedSchema = """{ "type": "integer", "minimum": -10000000000 }"""
-    type WideSigned = JsonSchemaProvider<schema=wideSignedSchema, allowUnboundedIntegers=true>
+    type WideSigned = JsonSchemaProvider<schema=wideSignedSchema>
 
     [<Fact>]
     let ``a signed range beyond 32 bits widens to int64`` () =

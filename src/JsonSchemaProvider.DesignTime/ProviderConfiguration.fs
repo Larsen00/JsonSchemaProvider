@@ -39,8 +39,8 @@ module ProviderConfiguration =
     // User-set flags from the provider's static parameters.
     type CompileFlags = {
         SkipRuntimeValidation: bool // unsafe: invalid JSON may fail later at runtime
-        IgnoreSpecificKeywords: bool // fall back to runtime validation for these keywords
-        AllowUnboundedIntegers: bool // unsafe: integers whose type can't hold every valid instance may overflow
+        IgnoreSpecificKeywords: bool // fall back to runtime validation for every type-specific keyword
+        RequireIntegerBounds: bool // strict: integers must have bounds that fit their type, so Parse can't overflow
     }
 
     // Shared data for one generation run, passed through every generation function.

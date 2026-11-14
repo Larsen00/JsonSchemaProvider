@@ -37,7 +37,7 @@ module IntegerShapeTests =
 
     let private int32Range = ", \"minimum\": -2147483648, \"maximum\": 2147483647"
 
-    // Without allowUnboundedIntegers: only types that hold every valid instance compile.
+    // With requireIntegerBounds: only types that hold every valid instance compile.
     [<Tests>]
     let strictTests =
         testList

@@ -47,7 +47,7 @@ module NodeConversionsTests =
     let boolKeywordsAt (path: string) : JsonSchemaProvider.JsonBoolean.Keywords = { common = keywordsAt path }
 
 
-    let noFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false; AllowUnboundedIntegers = true }
+    let noFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false; RequireIntegerBounds = false }
 
     // A function, not a single top-level value: convert now caches by the node's own Path, and
     // several tests below reuse the same Path ("#") for structurally different JsonSchemaType shapes

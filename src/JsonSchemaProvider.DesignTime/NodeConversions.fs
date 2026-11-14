@@ -117,7 +117,7 @@ module NodeConversions =
         $"\nThe integer %s{location} %s{problem}.\n"
         + "Pick ONE of these fixes:\n"
         + $"  A) %s{fix}\n"
-        + "  B) Or set allowUnboundedIntegers=true. This turns the check off for every integer in the schema,\n"
+        + "  B) Or remove requireIntegerBounds=true. This turns the check off for every integer in the schema,\n"
         + "     and numbers outside the type then throw at runtime."
 
     // Wrapper function to "conversion" that uses a cache to avoid recomputation

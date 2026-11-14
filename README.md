@@ -159,7 +159,7 @@ items only; arrays of objects, and `uniqueItems` combined with `minItems`, are c
 
 ### Refined integers
 
-A JSON integer can be any size, but an F# integer type can't. So an integer needs a lower bound
+A JSON integer can be any size, but an F# integer type can't. So an integer should have a lower bound
 (`minimum` or `exclusiveMinimum`) and an upper bound (`maximum` or `exclusiveMaximum`). The bounds
 pick the smallest type that holds them, unsigned if the lower bound is at least 0. If the bounds
 match the type's range exactly, `Create` needs no `Result`:
@@ -170,22 +170,24 @@ match the type's range exactly, `Create` needs no `Result`:
 | -2147483648 to 2147483647 | `int` | `int` |
 | 0 to 100 | `byte` | `Result<byte, string list>` |
 | 1 to 65535 | `uint16` | `Result<uint16, string list>` |
-| none, or only one side | compile error | |
+| none | `int` | `int` (`Parse` can raise on overflow) |
+| only one side | 32-bit type or larger | as above; `Parse` can raise on overflow |
 
-An integer without both bounds is a compile error that says what to add:
+By default an integer without both bounds still compiles: no bounds gives `int`, and one
+bound gives a 32-bit type (`minimum 0` gives `uint32`) or larger. A valid number outside that type
+then makes `Parse` throw.
+
+With `requireIntegerBounds = true` the type must hold every valid number, so `Parse` can't
+overflow. An integer without both bounds is then a compile error that says what to add:
 
 ```
 The integer at 'properties/age' has no upper bound, so valid numbers can overflow its F# type (uint32).
 Pick ONE of these fixes:
   A) Add "maximum" or "exclusiveMaximum" to it.
      For uint32: "maximum": 4294967295
-  B) Or set allowUnboundedIntegers=true. This turns the check off for every integer in the schema,
+  B) Or remove requireIntegerBounds=true. This turns the check off for every integer in the schema,
      and numbers outside the type then throw at runtime.
 ```
-
-With `allowUnboundedIntegers = true` a missing bound is allowed: no bounds gives `int`, and one
-bound gives a 32-bit type (`minimum 0` gives `uint32`) or larger. A valid number outside that type
-then makes `Parse` throw.
 
 When there are several bounds on one side, the loosest one picks the type and the stricter one is
 checked at runtime. So you can choose the type yourself: `minimum 0, maximum 10, exclusiveMaximum 256`
@@ -253,7 +255,7 @@ Compile errors:
 - Every node needs a `type` or a `oneOf`, so `{}` and a bare `anyOf`/`allOf` fail.
 - `"type": "null"` and type arrays like `["string", "null"]` aren't supported.
 - Tuple-form `items` fails with an unhelpful null-reference error.
-- An integer without both a lower and an upper bound, unless `allowUnboundedIntegers = true`.
+- With `requireIntegerBounds = true`, an integer without both a lower and an upper bound.
 
 Compiles, but beware:
 
@@ -262,7 +264,7 @@ Compiles, but beware:
 - `maxItems: 0` is treated as absent.
 - `Create` relabels a value passed with the wrong `Choice` constructor instead of rejecting it.
 - Two `oneOf` branches that are both arrays of objects get item types with the same name.
-- With `allowUnboundedIntegers = true`, `Parse` can raise on numbers too big for the integer type.
+- Unless `requireIntegerBounds = true`, `Parse` can raise on numbers too big for the integer type.
 - NJsonSchema can't validate an integer outside the `int64` range, so anything that validates it
   evaluates to an `Error`, even for a valid value. That covers `Parse` and a validating `Create`, for
   the upper half of `uint64` and for an integer literal that large in a `number` node.
@@ -277,8 +279,8 @@ Compiles, but beware:
 | `schema` | `""` | The schema as a string literal. |
 | `schemaFile` | `""` | Path to a schema file. Set exactly one of the two. |
 | `skipRuntimeValidation` | `false` | No runtime validation: `Create` never returns a `Result`, and `Parse` only checks the JSON syntax. For trusted data only. |
-| `ignoreSpecificKeywords` | `false` | Plain lists and `int` instead of refined types; the keywords are checked at runtime instead. Integer bounds must still fit in `int`. |
-| `allowUnboundedIntegers` | `false` | Allows integers without both bounds. Their type can't hold every valid number, so `Parse` can raise on one that overflows. |
+| `ignoreSpecificKeywords` | `false` | Plain lists and `int` instead of refined types; the keywords are checked at runtime instead. With `requireIntegerBounds = true`, integer bounds must still fit in `int`. |
+| `requireIntegerBounds` | `false` | Makes an integer without both bounds (or with bounds too wide for its type) a compile error, so `Parse` can't overflow. When `false`, such an integer compiles and `Parse` can raise on a number that overflows its type. |
 
 **Methods:** every provided type except the array helpers has `Create` (named arguments for objects, one `value` otherwise)
 and `Parse : string -> Result<'T, string list>`. Errors are NJsonSchema messages such as
@@ -297,9 +299,9 @@ need, use [his package](https://www.nuget.org/packages/JsonSchemaProvider/).
 
 This fork adds refined types for arrays and integers, `oneOf`, non-object roots, `Result` instead
 of exceptions, validation of every node, and the three flags. Coming from the original, expect
-`Result` return types, sized integers that need both bounds, tuple-shaped arrays and `<name>Item`
-instead of `<name>Obj` for array items. `ignoreSpecificKeywords = true` with
-`allowUnboundedIntegers = true` brings back plain lists and `int`.
+`Result` return types, sized integers picked from their bounds, tuple-shaped arrays and `<name>Item`
+instead of `<name>Obj` for array items. `ignoreSpecificKeywords = true` brings back plain lists
+and `int`.
 
 ## Contributing
 

@@ -17,7 +17,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema, allowUnboundedIntegers=true>
+    type StringOrInt = JsonSchemaProvider<schema = stringOrIntSchema>
 
     [<Fact>]
     let ``parse picks string branch of a string|int oneOf`` () =
@@ -70,7 +70,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema, allowUnboundedIntegers=true>
+    type StringOrIntOrBool = JsonSchemaProvider<schema = stringOrIntOrBoolSchema>
 
     [<Fact>]
     let ``parse picks string branch of a string|int|bool oneOf`` () =
@@ -103,7 +103,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema, allowUnboundedIntegers=true>
+    type StringOrIntArray = JsonSchemaProvider<schema = stringOrIntArraySchema>
 
     [<Fact>]
     let ``parse picks string branch of a string|array oneOf`` () =
@@ -132,7 +132,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema, allowUnboundedIntegers=true>
+    type NestedOneOf = JsonSchemaProvider<schema = nestedOneOfSchema>
 
     [<Fact>]
     let ``nested oneOf: outer string alternative matches`` () =
@@ -233,7 +233,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema, allowUnboundedIntegers=true>
+    type ArrayItemTypeOneOf = JsonSchemaProvider<schema = arrayItemTypeOneOfSchema>
 
     [<Fact>]
     let ``array|array oneOf: string items pick the string-item branch`` () =
@@ -274,7 +274,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema, allowUnboundedIntegers=true>
+    type ArrayLengthOneOf = JsonSchemaProvider<schema = arrayLengthOneOfSchema>
 
     [<Fact>]
     let ``array|array oneOf: a 2-element array picks the maxItems:2 branch`` () =
@@ -313,7 +313,7 @@ module OneOfTests =
             ]
         }
         """
-    type RootStringOrExact2Array = JsonSchemaProvider<schema = rootStringOrExact2ArraySchema, allowUnboundedIntegers=true>
+    type RootStringOrExact2Array = JsonSchemaProvider<schema = rootStringOrExact2ArraySchema>
 
     [<Fact>]
     let ``root string|array oneOf: Case2Array.ToTuple flattens the array branch`` () =
@@ -342,7 +342,7 @@ module OneOfTests =
             "required": ["values"]
         }
         """
-    type ArrayOfStringOrMin1Array = JsonSchemaProvider<schema = arrayOfStringOrMin1ArraySchema, allowUnboundedIntegers=true>
+    type ArrayOfStringOrMin1Array = JsonSchemaProvider<schema = arrayOfStringOrMin1ArraySchema>
 
     [<Fact>]
     let ``array of string|array oneOf items: valuesArray.ItemCase2Array.ToList flattens each array item`` () =
@@ -441,7 +441,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type SingleBranch = JsonSchemaProvider<schema = singleBranchSchema, allowUnboundedIntegers=true>
+    type SingleBranch = JsonSchemaProvider<schema = singleBranchSchema>
 
     [<Fact>]
     let ``single-branch oneOf: Parse gives the branch type, not a Choice`` () =
@@ -534,7 +534,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type EightMixedBranches = JsonSchemaProvider<schema = eightMixedBranchesSchema, allowUnboundedIntegers=true>
+    type EightMixedBranches = JsonSchemaProvider<schema = eightMixedBranchesSchema>
 
     let describeMixed json =
         let v = expectOk (EightMixedBranches.Parse(json))
@@ -587,7 +587,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type IntegerOrNumber = JsonSchemaProvider<schema = integerOrNumberSchema, allowUnboundedIntegers=true>
+    type IntegerOrNumber = JsonSchemaProvider<schema = integerOrNumberSchema>
 
     [<Fact>]
     let ``integer|number oneOf: Create rejects integer 5 because both branches match`` () =
@@ -623,7 +623,7 @@ module OneOfTests =
             "required": ["value"]
         }
         """
-    type BigOrSmallInt = JsonSchemaProvider<schema = bigOrSmallIntSchema, allowUnboundedIntegers=true>
+    type BigOrSmallInt = JsonSchemaProvider<schema = bigOrSmallIntSchema>
 
     // The object stores JSON, so the getter re-parses and the tag is normalized to the matching branch.
     [<Fact>]
@@ -634,7 +634,7 @@ module OneOfTests =
     [<Literal>]
     let rootBigOrSmallIntSchema =
         """{"oneOf": [{"type": "integer", "minimum": 10, "exclusiveMinimum": -2147483649}, {"type": "integer", "maximum": 5}]}"""
-    type RootBigOrSmallInt = JsonSchemaProvider<schema = rootBigOrSmallIntSchema, allowUnboundedIntegers=true>
+    type RootBigOrSmallInt = JsonSchemaProvider<schema = rootBigOrSmallIntSchema>
 
     // Root Create converts the validated JSON back, so it agrees with Parse on the tag.
     [<Fact>]

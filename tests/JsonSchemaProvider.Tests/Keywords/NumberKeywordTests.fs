@@ -30,7 +30,7 @@ module NumberKeywordTests =
 
     [<Literal>]
     let multipleOfSchema = """{ "type": "integer", "multipleOf": 5 }"""
-    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema, allowUnboundedIntegers=true>
+    type MultipleOf = JsonSchemaProvider<schema=multipleOfSchema>
 
     [<Fact>]
     let ``multipleOf rejects a non-multiple value`` () =

@@ -23,7 +23,7 @@
     <Compile Include="Mechanisms/RootTypeTests.fs" />
     <Compile Include="Mechanisms/SchemaFileTests.fs" />
     <Compile Include="Mechanisms/SkipRuntimeValidationTests.fs" />
-    <Compile Include="Mechanisms/AllowUnboundedIntegersTests.fs" />
+    <Compile Include="Mechanisms/RequireIntegerBoundsTests.fs" />
     <Compile Include="Mechanisms/NestedValidationTests.fs" />
     <Compile Include="Mechanisms/NullInputTests.fs" />
     <Compile Include="Mechanisms/NullCompiledArrayTests.fs" />

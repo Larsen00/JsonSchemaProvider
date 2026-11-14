@@ -52,7 +52,7 @@ module IntegerShape =
     type IntegerShape =
         // A lower bound above an upper bound: no integer is valid, so the provider reports a compile error.
         | InvalidIntegerBounds of JsonNumber.Keywords
-        // Without allowUnboundedIntegers: some valid instance would overflow, so the provider reports a compile error.
+        // With requireIntegerBounds: some valid instance would overflow, so the provider reports a compile error.
         | UnboundedInteger of JsonNumber.Keywords * UnboundedReason
         // ignoreSpecificKeywords with bounds present: int, runtime-validated.
         | UnsupportedIntegerKeywords of JsonNumber.Keywords
@@ -105,7 +105,7 @@ module IntegerShape =
 
     // Helper function that turns a set of integer keywords into an IntegerShape value.
     // The loosest bounds pick the type, the strictest are validated (e.g. minimum 0, maximum 11 and exclusiveMaximum 256 give byte).
-    // Without allowUnboundedIntegers the type must hold every valid instance, so Parse can't overflow.
+    // With requireIntegerBounds the type must hold every valid instance, so Parse can't overflow.
     let classifyIntegerShape
         (compileFlags: ProviderConfiguration.CompileFlags)
         (keywords: JsonNumber.Keywords)
@@ -129,7 +129,7 @@ module IntegerShape =
         match lowers, uppers, unboundedReason with
         // Checked before the flags, like minItems > maxItems for arrays.
         | _ :: _, _ :: _, _ when List.max lowers > List.min uppers -> InvalidIntegerBounds keywords
-        | _, _, Some reason when not compileFlags.AllowUnboundedIntegers -> UnboundedInteger(keywords, reason)
+        | _, _, Some reason when compileFlags.RequireIntegerBounds -> UnboundedInteger(keywords, reason)
         | [], [], _ -> SizedInteger(keywords, IntegerType.Int32, true)
         | _ when compileFlags.IgnoreSpecificKeywords -> UnsupportedIntegerKeywords keywords
         | _ -> sizedInteger keywords integerType lowers uppers

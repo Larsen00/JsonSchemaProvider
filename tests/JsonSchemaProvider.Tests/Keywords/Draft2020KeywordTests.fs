@@ -14,7 +14,7 @@ module Draft2020KeywordTests =
 
     [<Literal>]
     let containsSchema = """{ "type": "array", "items": { "type": "integer" }, "contains": { "const": 1 }, "minItems": 2 }"""
-    type ContainsArray = JsonSchemaProvider<schema = containsSchema, allowUnboundedIntegers=true>
+    type ContainsArray = JsonSchemaProvider<schema = containsSchema>
 
     [<Fact>]
     let ``contains with minItems gives a plain list, not a tuple`` () =
@@ -37,7 +37,7 @@ module Draft2020KeywordTests =
 
     [<Literal>]
     let minContainsSchema = """{ "type": "array", "items": { "type": "integer" }, "contains": { "const": 1 }, "minContains": 2, "maxItems": 3 }"""
-    type MinContainsArray = JsonSchemaProvider<schema = minContainsSchema, allowUnboundedIntegers=true>
+    type MinContainsArray = JsonSchemaProvider<schema = minContainsSchema>
 
     [<Fact>]
     let ``minContains with maxItems gives a plain list and checks maxItems at runtime`` () =
@@ -50,7 +50,7 @@ module Draft2020KeywordTests =
 
     [<Literal>]
     let maxContainsSchema = """{ "type": "array", "items": { "type": "integer" }, "contains": { "const": 1 }, "maxContains": 1 }"""
-    type MaxContainsArray = JsonSchemaProvider<schema = maxContainsSchema, allowUnboundedIntegers=true>
+    type MaxContainsArray = JsonSchemaProvider<schema = maxContainsSchema>
 
     [<Fact(Skip = ignored)>]
     let ``maxContains: Create rejects too many matches`` () = expectError (MaxContainsArray.Create [ 1; 1 ])
@@ -59,7 +59,7 @@ module Draft2020KeywordTests =
 
     [<Literal>]
     let prefixItemsSchema = """{ "type": "array", "items": { "type": "integer" }, "prefixItems": [ { "const": 1 } ], "minItems": 2 }"""
-    type PrefixItemsArray = JsonSchemaProvider<schema = prefixItemsSchema, allowUnboundedIntegers=true>
+    type PrefixItemsArray = JsonSchemaProvider<schema = prefixItemsSchema>
 
     [<Fact>]
     let ``prefixItems with minItems gives a plain list`` () =
