@@ -35,12 +35,15 @@ module OldCodeGenerationTests =
         let value = expectOk (StringConst.Create "Brian Sanderson")
         expectEqual value "Brian Sanderson"
 
-    // const is never actually enforced once a node is off the compile-time path, so Create
-    // wrongly accepts a non-matching value. Left commented out since it currently fails, not
-    // because it doesn't compile - uncomment once const is enforced.
-    // [<Fact>]
-    // let ``string const root loaded from file Create rejects a non-matching value`` () =
-    //     expectError (StringConst.Create "Robert Jordan") // should reject a value other than the const
+    // const isn't enforced yet (pinned in KnownGaps/KnownGapTests.fs). Workaround for schema
+    // authors: const x means the same as enum [x], and enum is enforced.
+    [<Literal>]
+    let stringSingleEnumSchema = """{ "type": "string", "enum": [ "Brian Sanderson" ] }"""
+    type StringSingleEnum = JsonSchemaProvider<schema=stringSingleEnumSchema>
+
+    [<Fact>]
+    let ``const rewritten as a one-value enum: Create rejects a non-matching value`` () =
+        expectError (StringSingleEnum.Create "Robert Jordan")
 
     [<Literal>]
     let stringEnumPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/04-string-enum.json"
@@ -72,6 +75,7 @@ module OldCodeGenerationTests =
         expectEqual (Number.Create 3.14) 3.14
 
     // "type": "null" isn't supported - design-time throws (parseObjectType has no Null case).
+    // The failure is pinned in the design-time project's KnownGaps/KnownGapTests.fs.
     // [<Literal>]
     // let nullPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/07-null.json"
     // type Null = JsonSchemaProvider<schemaFile=nullPath>
@@ -90,7 +94,7 @@ module OldCodeGenerationTests =
 
     // A root $ref isn't supported - NJsonSchema leaves the referencing node's Type = None, and
     // that case only handles oneOf, so it hits "Unsupported JSON schema type None" instead of
-    // resolving to the $defs entry.
+    // resolving to the $defs entry. Pinned in the design-time project's KnownGaps/KnownGapTests.fs.
     // [<Literal>]
     // let refPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/09-ref.json"
     // type Ref = JsonSchemaProvider<schemaFile=refPath>

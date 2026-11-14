@@ -29,6 +29,8 @@
     <Compile Include="Mechanisms/NullCompiledArrayTests.fs" />
     <!-- Compatibility/: parity against an external tool's own fixture schemas, not our own design. -->
     <Compile Include="Compatibility/OldCodeGenerationTests.fs" />
+    <!-- KnownGaps/: pins current behaviour where the spec asks for more; empty it as gaps close. -->
+    <Compile Include="KnownGaps/KnownGapTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="10.0.102" />

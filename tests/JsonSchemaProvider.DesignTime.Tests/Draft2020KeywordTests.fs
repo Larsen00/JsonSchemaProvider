@@ -1,8 +1,8 @@
 namespace JsonSchemaProvider.Tests
 
-// 2019-09/2020-12 keywords the provider has no encoding for. Pins three things per keyword:
-// NJsonSchema 11 keeps it through ToJson, the node is not compilable, and what NJsonSchema's
-// Validate (the runtime fallback) actually does with it.
+// 2019-09/2020-12 keywords the provider has no encoding for. Pins two things per keyword:
+// NJsonSchema 11 keeps it through ToJson, and the node is not compilable. What NJsonSchema's
+// Validate (the runtime fallback) does with it is in KnownGaps/KnownGapTests.fs.
 module Draft2020KeywordTests =
     open Expecto
     open JsonSchemaProvider
@@ -46,9 +46,6 @@ module Draft2020KeywordTests =
         | JsonObject(k, _) -> k.common.CanBeCompiled
         | other -> failwithf "Expected an array or object, got %A" other
 
-    let private errorCount (schemaText: string) (instance: string) =
-        Seq.length ((SchemaCache.parseSchema schemaText).Validate instance)
-
     let keptByToJson =
         testList
             "NJsonSchema keeps the keyword through ToJson"
@@ -79,53 +76,16 @@ module Draft2020KeywordTests =
                       Expect.isFalse (convertRoot (fixture schemaText)).FullyCompilable "Create must not skip validation"
                   } ]
 
-    // NJsonSchema 11 keeps these keywords as extension data but its validator never reads them,
-    // so the runtime fallback accepts instances the spec rejects. Pinned so a fix upstream shows up.
-    let ignoredByValidate =
-        testList
-            "NJsonSchema's Validate ignores the keyword"
-            [ for keyword, schemaText, invalid, valid in validateCases ->
-                  test keyword {
-                      Expect.equal (errorCount schemaText valid) 0 $"valid {valid}"
-                      Expect.equal (errorCount schemaText invalid) 0 $"invalid {invalid} is wrongly accepted"
-                  } ]
-
-    let enforcedByValidate =
-        testList
-            "spec: Validate rejects an instance that breaks the keyword"
-            [ for keyword, schemaText, invalid, _ in validateCases ->
-                  ptest keyword { Expect.isGreaterThan (errorCount schemaText invalid) 0 invalid } ]
-
-    let quirks =
-        testList
-            "NJsonSchema quirks"
-            [ test "items next to prefixItems is applied to every element, as in draft 4" {
-                  // 2020-12 applies items only after the prefixItems positions, so [1, "x"] is valid.
-                  let schemaText = """{ "type": "array", "prefixItems": [ { "type": "integer" } ], "items": { "type": "string" } }"""
-                  Expect.isGreaterThan (errorCount schemaText """[1, "x"]""") 0 "valid instance wrongly rejected"
-              }
-
-              test "a boolean items schema makes parsing throw" {
-                  Expect.throws
-                      (fun () -> SchemaCache.parseSchema """{ "type": "array", "prefixItems": [ { "type": "integer" } ], "items": false }""" |> ignore)
-                      "items: false"
-              }
-
-              // 11.0.2 rewrote it to draft-04; Validate behaves the same either way.
-              test "a 2020-12 $schema is kept by ToJson" {
-                  let schema = SchemaCache.parseSchema """{ "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string" }"""
-                  Expect.stringContains (schema.ToJson()) "draft/2020-12" ""
-              }
-
-              test "an array with prefixItems and no items is rejected by the provider" {
-                  // schema.Item is null, which parseArray passes straight on.
-                  Expect.throws
-                      (fun () -> parseJsonSchema """{ "type": "array", "prefixItems": [ { "type": "integer" } ] }""" |> ignore)
-                      "prefixItems without items"
-              } ]
+    // 11.0.2 rewrote it to draft-04; Validate behaves the same either way. That Validate ignores
+    // the keywords above is pinned in KnownGaps/KnownGapTests.fs.
+    let schemaKept =
+        test "a 2020-12 $schema is kept by ToJson" {
+            let schema = SchemaCache.parseSchema """{ "$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string" }"""
+            Expect.stringContains (schema.ToJson()) "draft/2020-12" ""
+        }
 
     [<Tests>]
     let tests =
         testList
             "Draft2020KeywordTests"
-            [ keptByToJson; notCompilable; arraysFallBack; ignoredByValidate; enforcedByValidate; quirks ]
+            [ keptByToJson; notCompilable; arraysFallBack; schemaKept ]

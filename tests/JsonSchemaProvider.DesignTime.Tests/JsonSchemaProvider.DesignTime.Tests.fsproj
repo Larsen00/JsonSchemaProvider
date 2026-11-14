@@ -16,6 +16,8 @@
     <Compile Include="TypeProviderTests.fs" />
     <Compile Include="NJsonSchemaTests.fs" />
     <Compile Include="Draft2020KeywordTests.fs" />
+    <!-- KnownGaps/: pins current behaviour where the spec asks for more; empty it as gaps close. -->
+    <Compile Include="KnownGaps/KnownGapTests.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
