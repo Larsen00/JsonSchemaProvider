@@ -38,6 +38,8 @@ module SchemaValidation =
             if path = "#" then rootschema
             else SchemaCache.resolveByPath rootschema path
 
+        // #omit-start collectValidationErrors
+        // #region outside-int64-check
         // Only a real throw is reported: a large integer the schema doesn't describe (an extra property) validates fine.
         try
             subschema.Validate jsonText
@@ -47,6 +49,11 @@ module SchemaValidation =
             match tryFindIntegerOutsideInt64 jsonText with
             | Some number -> [ outsideInt64Message number ]
             | None -> reraise ()
+        // #endregion
+        // #omit-end collectValidationErrors
+        // #old subschema.Validate jsonText
+        // #old |> Seq.map (fun validationError -> validationError.ToString())
+        // #old |> Seq.toList
 
     // Validates a JsonValue against the schema and returns a Result indicating success or failure.
     let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =
@@ -63,7 +70,8 @@ module SchemaValidation =
         | Some jsonValue -> Ok jsonValue
 
     // Parse's default entry point: syntactically parses jsonText, then validates it against the
-    // sub-schema at path ("#" for the root). Malformed JSON is reported as an Error too, so Parse never raises.
+    // sub-schema at path ("#" for the root). Malformed JSON is reported as an Error too. Parse can still
+    // raise afterwards, when a valid integer doesn't fit its F# type, unless requireIntegerBounds is set.
     let parseAndValidate (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : Result<JsonValue, string list> =
         match parseOnly jsonText with
         | Error errors -> Error errors
