@@ -20,4 +20,5 @@ module Main =
                   ConversionTests.tests
                   ExprGeneratorTests.tests
                   TypeProviderTests.tests
-                  NJsonSchemaTests.tests ])
+                  NJsonSchemaTests.tests
+                  CacheEquivalenceTests.tests ])

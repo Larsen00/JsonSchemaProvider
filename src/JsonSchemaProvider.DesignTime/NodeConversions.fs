@@ -125,11 +125,15 @@ module NodeConversions =
     // #region object-fully-compilable
     let rec convert (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion = 
         
-        context.ConversionCache.GetOrAdd( 
+        // #omit-start
+        // useConversionCache=false skips the cache (used by the cache benchmark and equivalence tests)
+        if not context.CompileFlags.UseConversionCache then conversion context typeMap schemaType else
+        // #omit-end
+        context.ConversionCache.GetOrAdd(
             pathOf schemaType,
             fun _ -> conversion context typeMap schemaType
         )
-        
+
 
     // #elide-start
     // Builds everything there is to know about turning one JsonSchemaType node into F#: its

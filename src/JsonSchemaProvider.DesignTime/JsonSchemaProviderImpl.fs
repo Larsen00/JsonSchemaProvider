@@ -24,6 +24,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
             ProvidedStaticParameter("skipRuntimeValidation", typeof<bool>, false)
             ProvidedStaticParameter("ignoreSpecificKeywords", typeof<bool>, false)
             ProvidedStaticParameter("requireIntegerBounds", typeof<bool>, false)
+            ProvidedStaticParameter("useConversionCache", typeof<bool>, true)
         ]
 
     let rootBaseType = typeof<NullableJsonValue>
@@ -33,7 +34,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
 
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
-        | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as ignoreSpecificKeywords; :? bool as requireIntegerBounds |] ->
+        | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as ignoreSpecificKeywords; :? bool as requireIntegerBounds; :? bool as useConversionCache |] ->
             if schemaSource = "" && schemaFile = "" || schemaSource <> "" && schemaFile <> "" then
                 failwith "Only one of schema or schemaFile must be set."
 
@@ -49,6 +50,7 @@ type JsonSchemaProviderImpl(config: TypeProviderConfig) as this =
                 SkipRuntimeValidation = skipRuntimeValidation
                 IgnoreSpecificKeywords = ignoreSpecificKeywords
                 RequireIntegerBounds = requireIntegerBounds
+                UseConversionCache = useConversionCache
             }
 
             let providedType =

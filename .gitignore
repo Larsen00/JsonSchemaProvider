@@ -282,3 +282,6 @@ docs/
 ideas/
 notes/
 .vscode/settings.json
+
+# Cache benchmark output (generated locally: dotnet run -c Release, python analysis.py, dotnet fsi parse-time.fsx)
+benchmarks/CacheBenchmark/results/

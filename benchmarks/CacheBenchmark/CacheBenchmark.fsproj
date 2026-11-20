@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Measures the provider's design-time work with and without the conversion cache.
+       Run with "dotnet run -c Release", which writes the results/ folder. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ServerGarbageCollection>false</ServerGarbageCollection>
+    <TieredPGO>true</TieredPGO>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Shared with CacheEquivalenceTests: provide, force and the schema helpers. -->
+    <Compile Include="..\..\tests\JsonSchemaProvider.DesignTime.Tests\CacheSupport.fs" Link="CacheSupport.fs" />
+    <Compile Include="Schemas.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\JsonSchemaProvider.DesignTime\JsonSchemaProvider.DesignTime.fsproj" />
+  </ItemGroup>
+</Project>

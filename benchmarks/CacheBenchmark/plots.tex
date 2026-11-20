@@ -1,0 +1,46 @@
+% Graphs of the cache benchmark. Run the benchmark first (it writes results/), then:
+%   latexmk -pdf -outdir=results/build plots.tex
+% One column per schema family, one row per measured quantity, cache on and off in each plot.
+\documentclass[border=4pt]{standalone}
+\usepackage{pgfplots}
+\usepgfplotslibrary{groupplots}
+\pgfplotsset{compat=1.18}
+
+% #1 family, #2 column, #3 extra axis options
+\newcommand{\pair}[3]{%
+  \nextgroupplot[#3]
+  \addplot+[mark=*, mark size=1.5pt] table[x=size, y=#2, col sep=comma] {results/#1-on.csv};
+  \addplot+[mark=square*, mark size=1.5pt] table[x=size, y=#2, col sep=comma] {results/#1-off.csv};
+}
+
+\begin{document}
+\begin{tikzpicture}
+  \begin{groupplot}[
+      group style={group size=3 by 5, horizontal sep=1.7cm, vertical sep=1.3cm},
+      width=6cm, height=4.4cm,
+      ymode=log, log ticks with fixed point, grid=major, grid style={gray!25},
+      legend style={font=\small}, tick label style={font=\small}, label style={font=\small},
+      title style={font=\small}]
+
+    \pair{objectTree}{runMs}{title={Object tree}, ylabel={run [ms]}, legend entries={cache on, cache off}, legend pos=north west}
+    \pair{refinedArrays}{runMs}{title={Refined arrays}}
+    \pair{deepChain}{runMs}{title={Deep chain of objects}}
+
+    \pair{objectTree}{totalMs}{ylabel={total [ms]}}
+    \pair{refinedArrays}{totalMs}{}
+    \pair{deepChain}{totalMs}{}
+
+    \pair{objectTree}{allocatedMB}{ylabel={allocated [MB]}}
+    \pair{refinedArrays}{allocatedMB}{}
+    \pair{deepChain}{allocatedMB}{}
+
+    \pair{objectTree}{peakMB}{ylabel={peak heap [MB]}}
+    \pair{refinedArrays}{peakMB}{}
+    \pair{deepChain}{peakMB}{}
+
+    \pair{objectTree}{retainedMB}{ylabel={retained [MB]}, xlabel={objects}}
+    \pair{refinedArrays}{retainedMB}{xlabel={array length $n$}}
+    \pair{deepChain}{retainedMB}{xlabel={depth}}
+  \end{groupplot}
+\end{tikzpicture}
+\end{document}
