@@ -485,9 +485,7 @@ module NodeConversions =
         (tailKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
 
-        // #region head-tail-tail
         let tail = buildArrayConversion context typeMap itemType tailKeywords
-        // #endregion head-tail-tail
 
         // #region head-tail-types
         let compileTimeType =

@@ -49,3 +49,18 @@ module KnownGapTests =
     [<Fact>]
     let ``unevaluatedProperties: Parse accepts an extra property`` () =
         expectOk (UnevaluatedPropertiesObject.Parse """{ "a": "x", "z": 1 }""") |> ignore
+
+    // -- allOf on an object: properties declared inside a branch get no member on the provided type --
+
+    [<Literal>]
+    let allOfPropertiesSchema =
+        """{ "type": "object", "allOf": [ { "properties": { "a": { "type": "string" } }, "required": [ "a" ] } ] }"""
+    type AllOfProperties = RefinedJsonSchemaProvider<schema = allOfPropertiesSchema>
+
+    [<Fact>]
+    let ``allOf properties: Create has no parameter for a, so it always fails`` () =
+        expectError (AllOfProperties.Create())
+
+    [<Fact>]
+    let ``allOf properties: Parse accepts a but the term has no member for it`` () =
+        expectOk (AllOfProperties.Parse """{ "a": "x" }""") |> ignore

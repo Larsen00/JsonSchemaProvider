@@ -39,7 +39,20 @@ module KnownGapTests =
                   Expect.throws
                       (fun () -> parseJsonSchema """{ "type": "array", "prefixItems": [ { "type": "integer" } ] }""" |> ignore)
                       "prefixItems without items"
-              } ]
+              }
+
+              // Only oneOf is handled on a node without "type"; the other composition keywords hit the fallthrough.
+              for keyword, schemaText in
+                  [ "anyOf", """{ "anyOf": [ { "type": "string" }, { "type": "integer" } ] }"""
+                    "allOf", """{ "allOf": [ { "type": "string" }, { "minLength": 2 } ] }"""
+                    "not", """{ "not": { "type": "string" } }""" ] do
+                  test $"a root {keyword} without type" { parseFailsWith "Unsupported JSON schema type None" schemaText }
+
+                  test $"a property with {keyword} and no type" {
+                      parseFailsWith
+                          "Unsupported JSON schema type None"
+                          $"""{{ "type": "object", "properties": {{ "value": {schemaText} }} }}"""
+                  } ]
 
     // NJsonSchema 11 keeps these keywords as extension data but its validator never reads them,
     // so the runtime fallback accepts instances the spec rejects.

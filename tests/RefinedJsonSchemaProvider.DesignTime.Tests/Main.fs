@@ -21,4 +21,6 @@ module Main =
                   ExprGeneratorTests.tests
                   TypeProviderTests.tests
                   NJsonSchemaTests.tests
-                  CacheEquivalenceTests.tests ])
+                  CacheEquivalenceTests.tests
+                  Draft2020KeywordTests.tests
+                  KnownGapTests.tests ])

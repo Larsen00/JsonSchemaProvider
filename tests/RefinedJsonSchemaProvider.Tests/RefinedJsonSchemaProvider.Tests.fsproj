@@ -18,6 +18,7 @@
     <Compile Include="Keywords/ObjectKeywordTests.fs" />
     <Compile Include="Keywords/OneOfTests.fs" />
     <Compile Include="Keywords/OneOfObjectBranchTests.fs" />
+    <Compile Include="Keywords/CompositionKeywordTests.fs" />
     <Compile Include="Keywords/Draft2020KeywordTests.fs" />
     <!-- Mechanisms/: provider plumbing, not a single keyword (static params, flags, Path resolution). -->
     <Compile Include="Mechanisms/RootTypeTests.fs" />
