@@ -36,7 +36,7 @@ module SchemaKeywordTests =
         | JsonObject(k, properties) -> k, properties
         | other -> failwithf "Expected an object, got %A" other
 
-    let private arrayKeywords schemaText =
+    let private parseArrayKeywords schemaText =
         match parseJsonSchema schemaText with
         | JsonArray(_, k) -> k
         | other -> failwithf "Expected an array, got %A" other
@@ -181,7 +181,7 @@ module SchemaKeywordTests =
               }
 
               test "array keywords are captured" {
-                  let k = arrayKeywords (TestHelpers.intArray ", \"minItems\": 2, \"maxItems\": 4, \"uniqueItems\": true")
+                  let k = parseArrayKeywords (TestHelpers.intArray ", \"minItems\": 2, \"maxItems\": 4, \"uniqueItems\": true")
                   Expect.equal k.specific.MinItems (Some 2) "minItems"
                   Expect.equal k.specific.MaxItems (Some 4) "maxItems"
                   Expect.isTrue k.specific.UniqueItems "uniqueItems"
