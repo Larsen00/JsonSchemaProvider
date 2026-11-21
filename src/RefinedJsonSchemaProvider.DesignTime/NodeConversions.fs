@@ -485,19 +485,37 @@ module NodeConversions =
         (tailKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
 
+        // #region head-tail-tail
         let tail = buildArrayConversion context typeMap itemType tailKeywords
+        // #endregion head-tail-tail
 
-        let compileTimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.CompileTimeType; tail.CompileTimeType |]
-        let runtimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.RuntimeType; tail.RuntimeType |]
+        // #region head-tail-types
+        let compileTimeType =
+            // #elide-start buildHeadTailConversion
+            Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.CompileTimeType; tail.CompileTimeType |]
+            // #elide-end buildHeadTailConversion
+        let runtimeType =
+            // #elide-start buildHeadTailConversion
+            Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.RuntimeType; tail.RuntimeType |]
+            // #elide-end buildHeadTailConversion
+        // #endregion head-tail-types
 
+        // #region head-tail-to-runtime
         let toRuntime =
+            // #elide-start buildHeadTailConversion
             withJsonArrayLambda (fun jsonArrVar ->
-                let headRuntime = Expr.Application(item.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>)
-                let tailJsonValue = CommonExprs.newJsonValueArray (CommonExprs.callArraySkip 1 (Expr.Var jsonArrVar) typeof<JsonValue>)
-                let tailRuntime = Expr.Application(tail.ToRuntime, tailJsonValue)
+                let headJson = CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>
+                let tailJson =
+                    CommonExprs.newJsonValueArray (CommonExprs.callArraySkip 1 (Expr.Var jsonArrVar) typeof<JsonValue>)
+                let headRuntime = Expr.Application(item.ToRuntime, headJson)
+                let tailRuntime = Expr.Application(tail.ToRuntime, tailJson)
                 Expr.NewTuple [ headRuntime; tailRuntime ])
+            // #elide-end buildHeadTailConversion
+        // #endregion head-tail-to-runtime
 
+        // #region head-tail-to-json
         let toJson =
+            // #elide-start buildHeadTailConversion
             CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
                 let headBack = Expr.Application(item.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 0))
                 let tailBack = Expr.Application(tail.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 1))
@@ -507,7 +525,10 @@ module NodeConversions =
                         (CommonExprs.callJsonValueAsArray tailBack)
                         typeof<JsonValue>
                 ))
+            // #elide-end buildHeadTailConversion
+        // #endregion head-tail-to-json
 
+        // #omit-start buildHeadTailConversion
         // head :: tail.ToList(tail-value)
         let toList =
             buildToList item runtimeType (fun valueVar ->
@@ -516,12 +537,16 @@ module NodeConversions =
                 let tailListExpr = Expr.Application((arrayHelpers tail).ToList.Convert, tailExpr)
                 CommonExprs.newListCons item.RuntimeType headExpr tailListExpr)
 
+        // #omit-end buildHeadTailConversion
         { CompileTimeType = compileTimeType
           RuntimeType = runtimeType
           ToRuntime = toRuntime
           ToJson = toJson
           FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable && tail.FullyCompilable
-          Specific = ArraySpecific { ToList = toList; ToTuple = None } }
+          // #omit-start buildHeadTailConversion
+          Specific = ArraySpecific { ToList = toList; ToTuple = None }
+          // #omit-end buildHeadTailConversion
+        }
 
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
