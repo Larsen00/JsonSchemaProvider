@@ -405,14 +405,25 @@ module NodeConversions =
             { headTail with specific.ToTuple = Some(buildExactLengthToTuple n inner headTail.common.RuntimeType) }
             // #elide-end buildArrayConversion
 
-        // minItems mandatory prefix: (Head, Tail) where Tail recurses with minItems decremented
-        // by one (dropping to None once exhausted) and maxItems decremented by one
-        | MinItemsPrefix(_, _, (minItems: int), (maxItems: int option)) ->
+        // minItems, no maxItems: (Head, Tail) where Tail recurses with minItems decremented by one,
+        // dropping to None once exhausted, so the tail ends as a plain list
+        | MinItemsPrefix(_, _, minItems) ->
+            // #elide-start buildArrayConversion
+            let inner = convert context typeMap innerType
+            let tailKeywords =
+                { arrayKeywords with
+                    specific.MinItems = if minItems > 1 then Some(minItems - 1) else None }
+            buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
+            // #elide-end buildArrayConversion
+
+        // minItems < maxItems: (Head, Tail) where Tail recurses with both bounds decremented by one;
+        // once minItems is exhausted it is dropped, and the tail becomes a maxItems shape
+        | MinMaxItems(_, _, minItems, maxItems) ->
             let inner = convert context typeMap innerType
             let tailKeywords =
                 { arrayKeywords with
                     specific.MinItems = if minItems > 1 then Some(minItems - 1) else None
-                    specific.MaxItems = maxItems |> Option.map (fun m -> m - 1) }
+                    specific.MaxItems = Some(maxItems - 1) }
             buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
 
         // maxItems = 1: option<inner>, the empty array or exactly one item.
@@ -449,7 +460,7 @@ module NodeConversions =
             { chain with common.ToJson = dropDuplicatesAfter chain.common.ToJson chain.common.RuntimeType }
             // #elide-end buildArrayConversion
 
-    // Shared by ExactLength (n > 1) and MinItemsPrefix: peels one head off the array and
+    // Shared by ExactLength (n > 1), MinItemsPrefix and MinMaxItems: peels one head off the array and
     // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
     // Splitting a value of this shape into head/tail is then just F#'s own tuple destructuring -
     // no runtime logic needed beyond building the pair itself.

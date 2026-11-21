@@ -19,7 +19,8 @@ module ArrayShapeTests =
         | InvalidBounds _ -> "InvalidBounds"
         | UnsupportedKeywords _ -> "UnsupportedKeywords"
         | ExactLength(_, _, n) -> $"ExactLength {n}"
-        | MinItemsPrefix(_, _, minItems, maxItems) -> $"MinItemsPrefix {minItems} {maxItems}"
+        | MinItemsPrefix(_, _, minItems) -> $"MinItemsPrefix {minItems}"
+        | MinMaxItems(_, _, minItems, maxItems) -> $"MinMaxItems {minItems} {maxItems}"
         | MaxItemsSingle _ -> "MaxItemsSingle"
         | MaxItemsChain(_, _, maxItems) -> $"MaxItemsChain {maxItems}"
         | Unbounded _ -> "Unbounded"
@@ -49,12 +50,12 @@ module ArrayShapeTests =
                   expectShape (intArray ", \"minItems\": 1, \"maxItems\": 1") "ExactLength 1"
               }
 
-              test "minItems alone is MinItemsPrefix without an upper bound" {
-                  expectShape (intArray ", \"minItems\": 2") "MinItemsPrefix 2 "
+              test "minItems alone is MinItemsPrefix" {
+                  expectShape (intArray ", \"minItems\": 2") "MinItemsPrefix 2"
               }
 
-              test "minItems < maxItems is MinItemsPrefix with an upper bound" {
-                  expectShape (intArray ", \"minItems\": 1, \"maxItems\": 3") "MinItemsPrefix 1 Some(3)"
+              test "minItems < maxItems is MinMaxItems" {
+                  expectShape (intArray ", \"minItems\": 1, \"maxItems\": 3") "MinMaxItems 1 3"
               }
 
               test "minItems > maxItems is InvalidBounds" {

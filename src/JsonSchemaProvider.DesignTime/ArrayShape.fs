@@ -12,8 +12,10 @@ module ArrayShape =
         | UnsupportedKeywords of JsonSchemaType * JsonArray.Keywords
         // minItems = maxItems = n: exact n-tuple, nothing optional.
         | ExactLength of JsonSchemaType * JsonArray.Keywords * n: int
-        // minItems mandatory prefix, maxItems optional tail bound.
-        | MinItemsPrefix of JsonSchemaType * JsonArray.Keywords * minItems: int * maxItems: int option
+        // minItems, no maxItems: a mandatory prefix of minItems items followed by a plain list.
+        | MinItemsPrefix of JsonSchemaType * JsonArray.Keywords * minItems: int
+        // minItems < maxItems: a mandatory prefix of minItems items followed by the maxItems - minItems option chain.
+        | MinMaxItems of JsonSchemaType * JsonArray.Keywords * minItems: int * maxItems: int
         // maxItems = 1, no minItems floor: option<inner>. Base case of the MaxItemsChain recursion.
         | MaxItemsSingle of JsonSchemaType * JsonArray.Keywords
         // maxItems > 1, no minItems floor: option<inner * tail>, recurses down to MaxItemsSingle.
@@ -57,8 +59,11 @@ module ArrayShape =
         | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->
             ExactLength(innerType, arrayKeywords, n)
 
-        | { MinItems = Some minItems; MaxItems = maxItems } ->
-            MinItemsPrefix(innerType, arrayKeywords, minItems, maxItems)
+        | { MinItems = Some minItems; MaxItems = Some maxItems } ->
+            MinMaxItems(innerType, arrayKeywords, minItems, maxItems)
+
+        | { MinItems = Some minItems } ->
+            MinItemsPrefix(innerType, arrayKeywords, minItems)
 
         | { MaxItems = Some 1 } ->
             MaxItemsSingle(innerType, arrayKeywords)
