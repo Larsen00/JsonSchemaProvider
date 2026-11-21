@@ -276,10 +276,9 @@ module NodeConversions =
             // Already a list, so ToList returns it unchanged.
             let toList = buildToList inner runtimeType (fun valueVar -> Expr.Var valueVar)
 
-            // MinItems.IsNone matters here specifically: reaching this default case with MinItems
-            // still Some means compileFlags.CompileMinItems was false, so minItems is a real,
-            // uncompiled constraint - MaxItems needs no equivalent check, since any Some MaxItems
-            // is always caught by one of the tuple/option cases above, unconditionally.
+            // Every shape with minItems gets its own conversion, so MinItems is None whenever this
+            // list is used as the node's type; the check only guards against a future shape that
+            // falls back to the list while keeping minItems.
             { common =
                 { CompileTimeType = compileTimeType
                   RuntimeType = runtimeType
