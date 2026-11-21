@@ -17,7 +17,7 @@ module TypeProvider =
     let rec private extractNestedClasses (schemaType: JsonSchemaType)  =
         match schemaType with
         | JsonObject(classID, properties) -> [(classID, properties)]
-        | JsonArray(inner, _) -> extractNestedClasses inner
+        | JsonArray(item, _) -> extractNestedClasses item
         | JsonOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
@@ -68,11 +68,11 @@ module TypeProvider =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (target: ProvidedTypeDefinition)
-        (innerType: JsonSchemaType)
+        (itemType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         : unit =
 
-        let array = buildArrayConversion context typeMap innerType arrayKeywords
+        let array = buildArrayConversion context typeMap itemType arrayKeywords
         let parameterType = array.common.CompileTimeType
 
         target.AddMember(createProvidedConversionMethod "ToList" parameterType array.specific.ToList)
@@ -80,7 +80,7 @@ module TypeProvider =
         array.specific.ToTuple
         |> Option.iter (fun toTuple -> target.AddMember(createProvidedConversionMethod "ToTuple" parameterType toTuple))
 
-        addArrayHelperTypes context typeMap target "Item" innerType
+        addArrayHelperTypes context typeMap target "Item" itemType
 
     // Adds a "<name>Array" helper type to `parent` for each array in `schemaType`; oneOf branch i is named "<name>Case<i>".
     and private addArrayHelperTypes
@@ -92,9 +92,9 @@ module TypeProvider =
         : unit =
 
         match schemaType with
-        | JsonArray(innerType, arrayKeywords) ->
+        | JsonArray(itemType, arrayKeywords) ->
             let helperType = createProvidedTypeDefinition context "Array" name
-            addArrayHelperMethods context typeMap helperType innerType arrayKeywords
+            addArrayHelperMethods context typeMap helperType itemType arrayKeywords
             parent.AddMember helperType
         | JsonOneOf(_, head, tail) ->
             head :: tail
@@ -320,7 +320,7 @@ module TypeProvider =
 
             // Root array: helpers go directly on the root type. Root oneOf: "Case<i>Array" types.
             match schemaType with
-            | JsonArray(innerType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition innerType arrayKeywords
+            | JsonArray(itemType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition itemType arrayKeywords
             | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" schemaType
             // #elide-end
 

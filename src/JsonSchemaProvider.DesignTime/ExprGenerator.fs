@@ -194,8 +194,8 @@ module ExprGenerator =
                 let elementType = typedefof<(string * JsonValue)[]>
 
                 let elements =[
-                    for (name, innerType), arg in List.zip properties args ->
-                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) innerType arg
+                    for (name, itemType), arg in List.zip properties args ->
+                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) itemType arg
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)

@@ -16,9 +16,9 @@ module ArrayShape =
         | MinItemsPrefix of JsonSchemaType * JsonArray.Keywords * minItems: int
         // minItems < maxItems: a mandatory prefix of minItems items followed by the maxItems - minItems option chain.
         | MinMaxItems of JsonSchemaType * JsonArray.Keywords * minItems: int * maxItems: int
-        // maxItems = 1, no minItems floor: option<inner>. Base case of the MaxItemsChain recursion.
+        // maxItems = 1, no minItems floor: option<item>. Base case of the MaxItemsChain recursion.
         | MaxItemsSingle of JsonSchemaType * JsonArray.Keywords
-        // maxItems > 1, no minItems floor: option<inner * tail>, recurses down to MaxItemsSingle.
+        // maxItems > 1, no minItems floor: option<item * tail>, recurses down to MaxItemsSingle.
         | MaxItemsChain of JsonSchemaType * JsonArray.Keywords * maxItems: int
         // No minItems/maxItems bound at all: plain list, already free (real `::`/List.isEmpty).
         | Unbounded of JsonSchemaType * JsonArray.Keywords
@@ -30,46 +30,46 @@ module ArrayShape =
     // Helper function that turn a set of array keywords into an ArrayShape value.
     let classifyArrayShape
         (compileFlags: ProviderConfiguration.CompileFlags)
-        (innerType: JsonSchemaType)
+        (itemType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
         : ArrayShape =
         match arrayKeywords.specific with
         | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
-            InvalidBounds(innerType, arrayKeywords)
+            InvalidBounds(itemType, arrayKeywords)
 
         // A keyword outside knownKeywordsFor (contains, prefixItems, enum, ...) gets no compiled shape either.
         | keys when not compileFlags.RefinedTypes
                     || not arrayKeywords.common.CanBeCompiled
                     || not keys.AllowAdditionalItems
                     || keys.HasAdditionalItemsSchema ->
-            UnsupportedKeywords(innerType, arrayKeywords)
+            UnsupportedKeywords(itemType, arrayKeywords)
 
         // Removing duplicates can push the array below minItems, so that combination is validated instead.
         // TODO: minItems 1 is safe (a non-empty array stays non-empty) and could keep its shape.
         | { UniqueItems = true; MinItems = Some _ } ->
-            UnsupportedKeywords(innerType, arrayKeywords)
+            UnsupportedKeywords(itemType, arrayKeywords)
 
         // Dropping duplicates only shortens the array, so maxItems still holds afterwards.
         | { UniqueItems = true; MaxItems = Some maxItems } ->
-            UniqueMaxItems(innerType, arrayKeywords, maxItems)
+            UniqueMaxItems(itemType, arrayKeywords, maxItems)
 
         | { UniqueItems = true } ->
-            UniqueUnbounded(innerType, arrayKeywords)
+            UniqueUnbounded(itemType, arrayKeywords)
 
         | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->
-            ExactLength(innerType, arrayKeywords, n)
+            ExactLength(itemType, arrayKeywords, n)
 
         | { MinItems = Some minItems; MaxItems = Some maxItems } ->
-            MinMaxItems(innerType, arrayKeywords, minItems, maxItems)
+            MinMaxItems(itemType, arrayKeywords, minItems, maxItems)
 
         | { MinItems = Some minItems } ->
-            MinItemsPrefix(innerType, arrayKeywords, minItems)
+            MinItemsPrefix(itemType, arrayKeywords, minItems)
 
         | { MaxItems = Some 1 } ->
-            MaxItemsSingle(innerType, arrayKeywords)
+            MaxItemsSingle(itemType, arrayKeywords)
 
         | { MaxItems = Some maxItems } ->
-            MaxItemsChain(innerType, arrayKeywords, maxItems)
+            MaxItemsChain(itemType, arrayKeywords, maxItems)
 
         | _ ->
-            Unbounded(innerType, arrayKeywords)
+            Unbounded(itemType, arrayKeywords)
