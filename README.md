@@ -22,7 +22,7 @@ confused with the original `JsonSchemaProvider` package on NuGet. See [Credits](
 
 > **Status:** research code from a master's thesis. It works and is well tested, but the API can
 > change and parts of JSON Schema aren't supported yet ([Limitations](#limitations)). If you use it,
-> please [open an issue](https://github.com/Larsen00/JsonSchemaProvider/issues). I'm happy to keep
+> please [open an issue](https://github.com/Larsen00/RefinedJsonSchemaProvider/issues). I'm happy to keep
 > extending it if people find it useful.
 
 ## Table of Contents
@@ -62,30 +62,30 @@ You need the .NET SDK 10. The library targets `netstandard2.0`. The fork isn't o
 pack it locally:
 
 ```bash
-git clone https://github.com/Larsen00/JsonSchemaProvider.git
-cd JsonSchemaProvider
+git clone https://github.com/Larsen00/RefinedJsonSchemaProvider.git
+cd RefinedJsonSchemaProvider
 dotnet pack src/RefinedJsonSchemaProvider.Runtime/RefinedJsonSchemaProvider.fsproj -c Release -p:IsNuGet=true -p:Version=0.2.0-local -o ./nupkg
 ```
 
 `-p:IsNuGet=true` is required, since it bundles the design-time assembly. Then, in your project:
 
 ```bash
-dotnet nuget add source /absolute/path/to/JsonSchemaProvider/nupkg -n refinedjsonschemaprovider-local
+dotnet nuget add source /absolute/path/to/RefinedJsonSchemaProvider/nupkg -n refinedjsonschemaprovider-local
 dotnet add package RefinedJsonSchemaProvider --version 0.2.0-local
 ```
 
 Alternatively, reference the projects directly:
 
 ```xml
-<ProjectReference Include="..\JsonSchemaProvider\src\RefinedJsonSchemaProvider.Runtime\RefinedJsonSchemaProvider.fsproj" />
-<ProjectReference Include="..\JsonSchemaProvider\src\RefinedJsonSchemaProvider.DesignTime\RefinedJsonSchemaProvider.DesignTime.fsproj"
+<ProjectReference Include="..\RefinedJsonSchemaProvider\src\RefinedJsonSchemaProvider.Runtime\RefinedJsonSchemaProvider.fsproj" />
+<ProjectReference Include="..\RefinedJsonSchemaProvider\src\RefinedJsonSchemaProvider.DesignTime\RefinedJsonSchemaProvider.DesignTime.fsproj"
                   ReferenceOutputAssembly="false" />
 ```
 
 Or, in an F# script, after a `dotnet build`:
 
 ```fsharp
-#I "path/to/JsonSchemaProvider/src/RefinedJsonSchemaProvider.Runtime/bin/Debug/netstandard2.0"
+#I "path/to/RefinedJsonSchemaProvider/src/RefinedJsonSchemaProvider.Runtime/bin/Debug/netstandard2.0"
 #r "FSharp.Data.Json.Core.dll"
 #r "NJsonSchema.dll"
 #r "RefinedJsonSchemaProvider.dll"

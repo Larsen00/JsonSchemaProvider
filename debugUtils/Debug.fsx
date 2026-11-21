@@ -1,4 +1,4 @@
-#load "/workspaces/JsonSchemaProvider/debugUtils/references.fsx"
+#load "/workspaces/RefinedJsonSchemaProvider/debugUtils/references.fsx"
 
 // This is an example script to debug the type provider code when
 // executed by fsi. The "fsi debugUtils/debug.fsx" launch configuration can

@@ -11,7 +11,7 @@
             "preLaunchTask": "build",
             "program": "/usr/share/dotnet/sdk/8.0.204/FSharp/fsi.dll",
             "args": [
-                "/workspaces/JsonSchemaProvider/debugUtils/debug.fsx"
+                "/workspaces/RefinedJsonSchemaProvider/debugUtils/debug.fsx"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
