@@ -5,7 +5,12 @@ wherever F# can express them.
 
 ```fsharp
 [<Literal>]
-let schema = """{ "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 }, "minItems": 1 }"""
+let schema = """
+{
+  "type": "array",
+  "items": { "type": "integer", "minimum": 0, "maximum": 255 },
+  "minItems": 1
+}"""
 type NonEmpty = JsonSchemaProvider<schema = schema>
 
 let numbers = NonEmpty.Create((1uy, [ 2uy; 3uy ]))   // byte * byte list: an empty array can't be built
@@ -146,7 +151,13 @@ Every array type has a `ToList` helper, and fixed sizes also have `ToTuple`:
 
 ```fsharp
 [<Literal>]
-let rgbSchema = """{ "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 255 }, "minItems": 3, "maxItems": 3 }"""
+let rgbSchema = """
+{
+  "type": "array",
+  "items": { "type": "integer", "minimum": 0, "maximum": 255 },
+  "minItems": 3,
+  "maxItems": 3
+}"""
 type Rgb = JsonSchemaProvider<schema = rgbSchema>
 
 let colour = Rgb.Create((255uy, (128uy, 0uy)))   // no Result needed
