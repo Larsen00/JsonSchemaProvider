@@ -190,7 +190,11 @@ module NodeConversions =
     // Wrapper function to "conversion" that uses a cache to avoid recomputation
     // #region convert-conversion
     // #region object-fully-compilable
-    let rec convert (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion = 
+    let rec convert
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (schemaType: JsonSchemaType)
+        : ProviderConfiguration.NodeConversion =
         
         // #omit-start
         // useConversionCache=false skips the cache (used by the cache benchmark and equivalence tests)
@@ -210,9 +214,15 @@ module NodeConversions =
     // Its done like this because otherwise we needed four separate functions that all needed
     // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
     // #elide-end
-    and conversion (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) : ProviderConfiguration.NodeConversion =
+    // #region array-case
+    and conversion
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (schemaType: JsonSchemaType)
+        : ProviderConfiguration.NodeConversion =
         
         match schemaType with
+        // #elide-start array-case
         // #elide-start object-fully-compilable
         | JsonBoolean keywords -> {
                 CompileTimeType = typeof<bool>
@@ -272,8 +282,11 @@ module NodeConversions =
             }
 
         // #elide-start object-fully-compilable
-        // Sicne array have compile time type support we delegate the conversion to `buildArrayConversion` function.
-        | JsonArray(innerType, arrayKeywords) -> (buildArrayConversion context typeMap innerType arrayKeywords).common
+        // Since arrays have compile-time type support, the conversion is delegated to the function `buildArrayConversion`.
+        // #elide-end array-case
+        | JsonArray(innerType, arrayKeywords) ->
+            (buildArrayConversion context typeMap innerType arrayKeywords).common
+        // #endregion array-case
 
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
         // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
