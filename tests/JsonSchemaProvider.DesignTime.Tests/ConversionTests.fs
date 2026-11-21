@@ -112,8 +112,8 @@ module ConversionTests =
                   Expect.isFalse conv.FullyCompilable "FullyCompilable"
               }
 
-              test "IgnoreSpecificKeywords keeps a non-negative integer as int and validated" {
-                  let conv = convertRoot (fixtureWith { defaultFlags with IgnoreSpecificKeywords = true } """{ "type": "integer", "minimum": 0 }""")
+              test "RefinedTypes off keeps a non-negative integer as int and validated" {
+                  let conv = convertRoot (fixtureWith { defaultFlags with RefinedTypes = false } """{ "type": "integer", "minimum": 0 }""")
                   Expect.equal conv.CompileTimeType typeof<int> "CompileTimeType"
                   Expect.isFalse conv.FullyCompilable "FullyCompilable"
               }
@@ -365,8 +365,8 @@ module ConversionTests =
                   Expect.isFalse (conversionOf schemaText).FullyCompilable ""
               }
 
-              test "IgnoreSpecificKeywords keeps the plain list type but drops FullyCompilable" {
-                  let conv = convertRoot (fixtureWith { defaultFlags with IgnoreSpecificKeywords = true } (intArray ", \"minItems\": 2"))
+              test "RefinedTypes off keeps the plain list type but drops FullyCompilable" {
+                  let conv = convertRoot (fixtureWith { defaultFlags with RefinedTypes = false } (intArray ", \"minItems\": 2"))
                   Expect.equal conv.CompileTimeType typeof<int list> "CompileTimeType"
                   Expect.isFalse conv.FullyCompilable "FullyCompilable"
               }

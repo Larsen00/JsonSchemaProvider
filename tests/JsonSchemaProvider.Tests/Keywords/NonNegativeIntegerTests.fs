@@ -200,9 +200,9 @@ module NonNegativeIntegerTests =
 
     [<Literal>]
     let ignoredSchema = """{ "type": "integer", "minimum": 0 }"""
-    type Ignored = JsonSchemaProvider<schema=ignoredSchema, ignoreSpecificKeywords=true>
+    type Ignored = JsonSchemaProvider<schema=ignoredSchema, refinedTypes = false>
 
     [<Fact>]
-    let ``ignoreSpecificKeywords keeps minimum 0 as int and Create validates`` () =
+    let ``refinedTypes = false keeps minimum 0 as int and Create validates`` () =
         expectEqual (expectOk (Ignored.Create 0)) 0
         expectError (Ignored.Create -1)

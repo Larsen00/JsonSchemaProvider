@@ -280,7 +280,7 @@ Compiles, but beware:
 | `schema` | `""` | The schema as a string literal. |
 | `schemaFile` | `""` | Path to a schema file. Set exactly one of the two. |
 | `skipRuntimeValidation` | `false` | No runtime validation: `Create` never returns a `Result`, and `Parse` only checks the JSON syntax. For trusted data only. |
-| `ignoreSpecificKeywords` | `false` | Plain lists and `int` instead of refined types; the keywords are checked at runtime instead. With `requireIntegerBounds = true`, integer bounds must still fit in `int`. |
+| `refinedTypes` | `true` | Refined types for the keywords the provider supports. With `false`: plain lists and `int` instead, and the keywords are checked at runtime. With `requireIntegerBounds = true`, integer bounds must still fit in `int`. |
 | `requireIntegerBounds` | `false` | Makes an integer without both bounds (or with bounds too wide for its type) a compile error, so `Parse` can't overflow. When `false`, such an integer compiles and `Parse` can raise on a number that overflows its type. |
 
 **Methods:** every provided type except the array helpers has `Create` (named arguments for objects, one `value` otherwise)
@@ -299,9 +299,9 @@ The foundation is [florenzen/JsonSchemaProvider](https://github.com/florenzen/Js
 need, use [his package](https://www.nuget.org/packages/JsonSchemaProvider/).
 
 This fork adds refined types for arrays and integers, `oneOf`, non-object roots, `Result` instead
-of exceptions, validation of every node, and the three flags. Coming from the original, expect
+of exceptions, validation of every node, and the flags. Coming from the original, expect
 `Result` return types, sized integers picked from their bounds, tuple-shaped arrays and `<name>Item`
-instead of `<name>Obj` for array items. `ignoreSpecificKeywords = true` brings back plain lists
+instead of `<name>Obj` for array items. `refinedTypes = false` brings back plain lists
 and `int`.
 
 ## Contributing

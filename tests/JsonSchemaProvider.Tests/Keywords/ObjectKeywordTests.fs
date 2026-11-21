@@ -172,7 +172,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let stringArrayMin2Schema =
         """{ "type": "object", "properties": { "tags": { "type": "array", "items": {"type": "string"}, "minItems": 2 } }, "required": ["tags"] }"""
-    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema, ignoreSpecificKeywords = true>
+    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema, refinedTypes = false>
     type StringArrayMin2 = JsonSchemaProvider<schema = stringArrayMin2Schema>
 
     [<Fact>]
@@ -289,7 +289,7 @@ module ObjectKeywordTests =
         expectEqual v.values (Some 7)
 
     // See ArrayKeywordTests.fs's matching block: IntArrayExact2WithFlag is declared identically
-    // to IntArrayExact2 (neither passes ignoreSpecificKeywords), inherited as-is.
+    // to IntArrayExact2 (neither passes refinedTypes = false), inherited as-is.
     [<Literal>]
     let intArrayExact2Schema =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2 } }, "required": ["values"] }"""
@@ -466,7 +466,7 @@ module ObjectKeywordTests =
     [<Literal>]
     let minItemsRuntimeSchema =
         """{ "type": "object", "properties": { "tags": { "type": "array", "items": { "type": "string" }, "minItems": 2 } }, "required": ["tags"] }"""
-    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema, ignoreSpecificKeywords=true>
+    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema, refinedTypes = false>
 
     [<Fact>]
     let ``object property: minItems is enforced at runtime by Create, not just as a compile-time tuple shape`` () =

@@ -11,7 +11,7 @@ module ArrayKeywordTests =
 
     [<Literal>]
     let stringArrayMin2Schema = """{ "type": "array", "items": {"type": "string"}, "minItems": 2 }"""
-    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema, ignoreSpecificKeywords = true>
+    type PlainStringArray = JsonSchemaProvider<schema = stringArrayMin2Schema, refinedTypes = false>
     type StringArrayMin2 = JsonSchemaProvider<schema = stringArrayMin2Schema>
 
     [<Fact>]
@@ -129,11 +129,11 @@ module ArrayKeywordTests =
         let v = expectOk (IntArrayMax1.Parse("""[7]"""))
         expectEqual v (Some 7)
 
-    // -- minItems = maxItems: exact tuple, with and without ignoreSpecificKeywords --
+    // -- minItems = maxItems: exact tuple, with refinedTypes on and off --
 
     // NB: IntArrayExact2WithFlag is declared identically to IntArrayExact2 below (neither passes
-    // ignoreSpecificKeywords) - inherited as-is from before this restructure. Per ArrayShape.fs,
-    // ignoreSpecificKeywords=true would actually force the UnsupportedKeywords/plain-list case
+    // refinedTypes = false) - inherited as-is from before this restructure. Per ArrayShape.fs,
+    // refinedTypes = false would actually force the UnsupportedKeywords/plain-list case
     // ahead of ExactLength, so if the flag were ever added here these two would stop agreeing.
     // Flagging rather than changing it, since fixing it is a test-design decision, not a rename.
     [<Literal>]
@@ -240,7 +240,7 @@ module ArrayKeywordTests =
         expectEqual (IntArrayMax2.ToList(Some(1, Some 2))) [ 1; 2 ]
 
     [<Fact>]
-    let ``no minItems/maxItems (or ignoreSpecificKeywords): ToList is the identity function`` () =
+    let ``no minItems/maxItems (or refinedTypes = false): ToList is the identity function`` () =
         expectEqual (PlainStringArray.ToList([ "a"; "b"; "c" ])) [ "a"; "b"; "c" ]
 
     // -- ToList/ToTuple for arrays inside arrays: helpers on nested "ItemArray" types --
@@ -422,12 +422,12 @@ module ArrayKeywordTests =
     let ``maxItems accepts an array within the limit`` () =
         expectEqual (MaxItemsArray.Create(Some(1, None))) (Some(1, None))
 
-    // -- minItems without ignoreSpecificKeywords still compiles to a tuple (see above); this is
+    // -- minItems with refinedTypes on still compiles to a tuple (see above); this is
     //    the plain-list case, where minItems is only checked by Create at runtime --
 
     [<Literal>]
     let minItemsRuntimeSchema = """{ "type": "array", "items": { "type": "string" }, "minItems": 2 }"""
-    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema, ignoreSpecificKeywords=true>
+    type MinItemsRuntime = JsonSchemaProvider<schema=minItemsRuntimeSchema, refinedTypes = false>
 
     [<Fact>]
     let ``minItems is enforced at runtime by Create, not just as a compile-time tuple shape`` () =

@@ -100,8 +100,8 @@ module IntegerShapeTests =
                   expectStrictShape ", \"minimum\": 10, \"maximum\": 5" "InvalidBounds"
               }
 
-              test "IgnoreSpecificKeywords needs bounds inside int" {
-                  let flags = { strictFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off needs bounds inside int" {
+                  let flags = { strictFlags with RefinedTypes = false }
                   let shape keywords = shapeName (classifyWith flags (integer keywords))
                   Expect.equal (shape int32Range) "Unsupported" "int range"
                   Expect.equal (shape ", \"minimum\": 0, \"maximum\": 255") "Unsupported" "byte range"
@@ -233,8 +233,8 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": 5, \"maximum\": 5" "UInt8 validated"
               }
 
-              test "InvalidBounds wins over IgnoreSpecificKeywords" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "InvalidBounds wins over RefinedTypes off" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (integer ", \"minimum\": 10, \"maximum\": 5"))) "InvalidBounds" ""
               }
 
@@ -242,8 +242,8 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": 0, \"maximum\": 256, \"exclusiveMaximum\": true" "UInt8 enforced"
               }
 
-              test "IgnoreSpecificKeywords turns an exact byte range into Unsupported" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off turns an exact byte range into Unsupported" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (integer ", \"minimum\": 0, \"maximum\": 255"))) "Unsupported" ""
               }
 
@@ -256,17 +256,17 @@ module IntegerShapeTests =
                   expectShape ", \"minimum\": -1, \"exclusiveMinimum\": true" "UInt32 enforced"
               }
 
-              test "IgnoreSpecificKeywords turns bounds into Unsupported" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off turns bounds into Unsupported" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (integer ", \"minimum\": 0"))) "Unsupported" ""
               }
 
-              test "IgnoreSpecificKeywords keeps int even for bounds outside int" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off keeps int even for bounds outside int" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (integer ", \"maximum\": 1000000000000"))) "Unsupported" ""
               }
 
-              test "IgnoreSpecificKeywords leaves an integer without numeric keywords an enforced Int32" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off leaves an integer without numeric keywords an enforced Int32" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (integer ""))) "Int32 enforced" ""
               } ]

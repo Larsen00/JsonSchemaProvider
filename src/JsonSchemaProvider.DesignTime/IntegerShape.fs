@@ -54,7 +54,7 @@ module IntegerShape =
         | InvalidIntegerBounds of JsonNumber.Keywords
         // With requireIntegerBounds: some valid instance would overflow, so the provider reports a compile error.
         | UnboundedInteger of JsonNumber.Keywords * UnboundedReason
-        // ignoreSpecificKeywords with bounds present: int, runtime-validated.
+        // refinedTypes = false with bounds present: int, runtime-validated.
         | UnsupportedIntegerKeywords of JsonNumber.Keywords
         // The integer type picked from the bounds; validated at runtime unless the type alone enforces them.
         | SizedInteger of JsonNumber.Keywords * IntegerType * typeEnforcesBounds: bool
@@ -113,9 +113,9 @@ module IntegerShape =
         let lowers = lowerBounds keywords.specific
         let uppers = upperBounds keywords.specific
 
-        // ignoreSpecificKeywords and a node without bounds always give int.
+        // refinedTypes = false and a node without bounds always give int.
         let integerType =
-            if compileFlags.IgnoreSpecificKeywords || (List.isEmpty lowers && List.isEmpty uppers) then IntegerType.Int32
+            if not compileFlags.RefinedTypes || (List.isEmpty lowers && List.isEmpty uppers) then IntegerType.Int32
             else chooseIntegerType lowers uppers
 
         let unboundedReason =
@@ -131,5 +131,5 @@ module IntegerShape =
         | _ :: _, _ :: _, _ when List.max lowers > List.min uppers -> InvalidIntegerBounds keywords
         | _, _, Some reason when compileFlags.RequireIntegerBounds -> UnboundedInteger(keywords, reason)
         | [], [], _ -> SizedInteger(keywords, IntegerType.Int32, true)
-        | _ when compileFlags.IgnoreSpecificKeywords -> UnsupportedIntegerKeywords keywords
+        | _ when not compileFlags.RefinedTypes -> UnsupportedIntegerKeywords keywords
         | _ -> sizedInteger keywords integerType lowers uppers

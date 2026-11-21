@@ -131,13 +131,13 @@ module RequireIntegerBoundsTests =
         expectEqual (expectOk (NonNegativeItems.Parse("[0, 3000000000]"))) [ 0u; 3000000000u ]
         expectError (NonNegativeItems.Parse("[4294967296]"))
 
-    // ignoreSpecificKeywords always gives int, so the strict rule only lets through bounds inside int.
+    // refinedTypes = false always gives int, so the strict rule only lets through bounds inside int.
     [<Literal>]
     let ignoredSchema = """{ "type": "integer", "minimum": 0, "maximum": 2147483647 }"""
-    type Ignored = JsonSchemaProvider<schema = ignoredSchema, ignoreSpecificKeywords = true, requireIntegerBounds = true>
+    type Ignored = JsonSchemaProvider<schema = ignoredSchema, refinedTypes = false, requireIntegerBounds = true>
 
     [<Fact>]
-    let ``ignoreSpecificKeywords with bounds inside int gives a validated int`` () =
+    let ``refinedTypes = false with bounds inside int gives a validated int`` () =
         expectEqual (expectOk (Ignored.Create 0)) 0
         expectError (Ignored.Create -1)
         expectError (Ignored.Parse("2147483648"))

@@ -87,8 +87,8 @@ module ArrayShapeTests =
                   expectShape (intArray ", \"minItems\": 1, \"maxItems\": 3, \"uniqueItems\": true") "UnsupportedKeywords"
               }
 
-              test "IgnoreSpecificKeywords wins over uniqueItems" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off wins over uniqueItems" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   Expect.equal (shapeName (classifyWith flags (intArray ", \"uniqueItems\": true"))) "UnsupportedKeywords" ""
               }
 
@@ -100,8 +100,8 @@ module ArrayShapeTests =
                   expectShape (intArray ", \"additionalItems\": { \"type\": \"string\" }") "UnsupportedKeywords"
               }
 
-              test "IgnoreSpecificKeywords turns a size-bounded array into UnsupportedKeywords" {
-                  let flags = { defaultFlags with IgnoreSpecificKeywords = true }
+              test "RefinedTypes off turns a size-bounded array into UnsupportedKeywords" {
+                  let flags = { defaultFlags with RefinedTypes = false }
                   let shape = classifyWith flags (intArray ", \"minItems\": 2")
                   Expect.equal (shapeName shape) "UnsupportedKeywords" ""
               }

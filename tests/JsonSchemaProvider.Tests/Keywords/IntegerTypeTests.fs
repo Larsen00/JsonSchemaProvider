@@ -8,13 +8,13 @@ module IntegerTypeTests =
     open Xunit
     open JsonSchemaProvider
 
-    // ignoreSpecificKeywords always gives int, also for bounds outside int.
+    // refinedTypes = false always gives int, also for bounds outside int.
     [<Literal>]
     let ignoredWideSchema = """{ "type": "integer", "maximum": 1000000000000 }"""
-    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, ignoreSpecificKeywords=true>
+    type IgnoredWide = JsonSchemaProvider<schema=ignoredWideSchema, refinedTypes = false>
 
     [<Fact>]
-    let ``ignoreSpecificKeywords with a bound outside int still gives a validated int`` () =
+    let ``refinedTypes = false with a bound outside int still gives a validated int`` () =
         expectEqual (expectOk (IgnoredWide.Create 5)) 5
 
     [<Literal>]

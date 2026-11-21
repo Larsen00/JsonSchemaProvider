@@ -14,7 +14,7 @@ module TestHelpers =
     open JsonSchemaProvider.DesignTime.NodeConversions
 
     // defaultFlags is the provider's default (unbounded integers allowed); strictFlags sets requireIntegerBounds.
-    let defaultFlags : CompileFlags = { SkipRuntimeValidation = false; IgnoreSpecificKeywords = false; RequireIntegerBounds = false; UseConversionCache = true }
+    let defaultFlags : CompileFlags = { SkipRuntimeValidation = false; RefinedTypes = true; RequireIntegerBounds = false; UseConversionCache = true }
     let strictFlags : CompileFlags = { defaultFlags with RequireIntegerBounds = true }
 
     // Same hash/source pairing as TypeProvider.run, so generated validation code finds the schema.

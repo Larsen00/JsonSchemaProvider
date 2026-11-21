@@ -39,7 +39,7 @@ module ProviderConfiguration =
     // User-set flags from the provider's static parameters.
     type CompileFlags = {
         SkipRuntimeValidation: bool // unsafe: invalid JSON may fail later at runtime
-        IgnoreSpecificKeywords: bool // fall back to runtime validation for every type-specific keyword
+        RefinedTypes: bool // false: no refined types, every type-specific keyword is validated at runtime
         RequireIntegerBounds: bool // strict: integers must have bounds that fit their type, so Parse can't overflow
         // #omit-start
         UseConversionCache: bool // reuse a node's NodeConversion instead of rebuilding it on every convert call

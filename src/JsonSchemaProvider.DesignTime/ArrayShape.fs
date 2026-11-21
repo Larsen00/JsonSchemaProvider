@@ -36,7 +36,7 @@ module ArrayShape =
             InvalidBounds(innerType, arrayKeywords)
 
         // A keyword outside knownKeywordsFor (contains, prefixItems, enum, ...) gets no compiled shape either.
-        | keys when compileFlags.IgnoreSpecificKeywords
+        | keys when not compileFlags.RefinedTypes
                     || not arrayKeywords.common.CanBeCompiled
                     || not keys.AllowAdditionalItems
                     || keys.HasAdditionalItemsSchema ->

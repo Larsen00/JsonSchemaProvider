@@ -15,7 +15,7 @@ module CacheSupport =
 
     let flagsWithCache (useCache: bool) : CompileFlags =
         { SkipRuntimeValidation = false
-          IgnoreSpecificKeywords = false
+          RefinedTypes = true
           RequireIntegerBounds = false
           UseConversionCache = useCache }
 
