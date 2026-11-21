@@ -154,8 +154,9 @@ Rgb.ToTuple colour                               // (255uy, 128uy, 0uy)
 Rgb.ToList colour                                // [255uy; 128uy; 0uy]
 ```
 
-With `uniqueItems`, `Create` drops duplicates and `Parse` rejects them. This applies to primitive
-items only; arrays of objects, and `uniqueItems` combined with `minItems`, are checked at runtime.
+With `uniqueItems`, `Create` drops duplicates and `Parse` rejects them. Items are compared as JSON
+instances, so objects that differ only in property order count as duplicates. `uniqueItems`
+combined with `minItems` is checked at runtime.
 
 ### Refined integers
 

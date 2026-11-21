@@ -75,24 +75,16 @@ module ArrayShapeTests =
                   expectShape (intArray ", \"maxItems\": 3, \"uniqueItems\": true") "UniqueMaxItems 3"
               }
 
-              test "uniqueItems on object items keeps the plain shapes, since duplicates can't be dropped" {
+              test "uniqueItems on object items gets the unique shapes too" {
                   let objectItems = """{ "type": "array", "items": { "type": "object" }, "uniqueItems": true"""
-                  expectShape (objectItems + " }") "Unbounded"
-                  expectShape (objectItems + ", \"maxItems\": 3 }") "MaxItemsChain 3"
+                  expectShape (objectItems + " }") "UniqueUnbounded"
+                  expectShape (objectItems + ", \"maxItems\": 3 }") "UniqueMaxItems 3"
               }
 
               test "uniqueItems with minItems falls back to UnsupportedKeywords" {
                   expectShape (intArray ", \"minItems\": 2, \"maxItems\": 2, \"uniqueItems\": true") "UnsupportedKeywords"
                   expectShape (intArray ", \"minItems\": 2, \"uniqueItems\": true") "UnsupportedKeywords"
                   expectShape (intArray ", \"minItems\": 1, \"maxItems\": 3, \"uniqueItems\": true") "UnsupportedKeywords"
-              }
-
-              test "hasStructuralEquality is false for anything containing an object" {
-                  let objectItem = parseJsonSchema """{ "type": "object", "properties": { "a": { "type": "integer" } } }"""
-                  Expect.isFalse (hasStructuralEquality objectItem) "object"
-                  Expect.isFalse (hasStructuralEquality (parseJsonSchema """{ "type": "array", "items": { "type": "object" } }""")) "array of objects"
-                  Expect.isFalse (hasStructuralEquality (parseJsonSchema """{ "oneOf": [ { "type": "integer" }, { "type": "object" } ] }""")) "oneOf with an object"
-                  Expect.isTrue (hasStructuralEquality (parseJsonSchema (intArray ""))) "array of integers"
               }
 
               test "IgnoreSpecificKeywords wins over uniqueItems" {

@@ -316,12 +316,33 @@ module ConversionTests =
                   Expect.equal ((JsonValue.Parse(toJsonText conv (box [ 1.0; 1.0 ]))).AsArray().Length) 1 ""
               }
 
-              test "uniqueItems on object items doesn't drop duplicates, validation rejects them" {
-                  let conv = conversionOf """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } } }, "uniqueItems": true }"""
+              test "uniqueItems on object items drops duplicates, whatever the property order" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } } }, "uniqueItems": true }"""
                   Expect.equal conv.RuntimeType typeof<NullableJsonValue list> "RuntimeType"
-                  Expect.isFalse conv.FullyCompilable ""
-                  let item = NullableJsonValue(JsonValue.Parse """{"a":1}""")
-                  Expect.equal (toJsonText conv (box [ item; item ])) (normalize """[{"a":1},{"a":1}]""") ""
+                  Expect.isFalse conv.FullyCompilable "an object item still needs validation"
+                  let item (jsonText: string) = NullableJsonValue(JsonValue.Parse jsonText)
+                  let items = [ item """{"a":1,"b":2}"""; item """{"b":2,"a":1}"""; item """{"a":2,"b":1}""" ]
+                  Expect.equal (toJsonText conv (box items)) (normalize """[{"a":1,"b":2},{"a":2,"b":1}]""") "the first occurrence is kept as it was"
+              }
+
+              test "uniqueItems compares nested objects and numbers by instance equality" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "object" }, "uniqueItems": true }"""
+                  let item (jsonVal: JsonValue) = NullableJsonValue jsonVal
+                  let parsed = item (JsonValue.Parse """{"x":{"p":1,"q":[1.5]}}""")
+                  let built = item (JsonValue.Record [| "x", JsonValue.Record [| "q", JsonValue.Array [| JsonValue.Float 1.5 |]; "p", JsonValue.Float 1.0 |] |])
+                  Expect.equal ((JsonValue.Parse(toJsonText conv (box [ parsed; built ]))).AsArray().Length) 1 "Float 1.0 equals Number 1, property order ignored"
+              }
+
+              test "uniqueItems keeps numbers that differ past the 15th digit apart" {
+                  let conv = conversionOf """{ "type": "array", "items": { "type": "number" }, "uniqueItems": true }"""
+                  Expect.equal ((JsonValue.Parse(toJsonText conv (box [ 1.0; 1.0000000000000002 ]))).AsArray().Length) 2 ""
+              }
+
+              test "uniqueItems on oneOf items with an object branch drops duplicates" {
+                  let conv = conversionOf """{ "type": "array", "items": { "oneOf": [ { "type": "integer" }, { "type": "object" } ] }, "uniqueItems": true }"""
+                  let objectItem (jsonText: string) = Choice2Of2(NullableJsonValue(JsonValue.Parse jsonText)) : Choice<int, NullableJsonValue>
+                  let items = [ objectItem """{"a":1,"b":2}"""; Choice1Of2 1; objectItem """{"b":2,"a":1}""" ]
+                  Expect.equal (toJsonText conv (box items)) (normalize """[{"a":1,"b":2},1]""") ""
               }
 
               // Deliberately unsupported: NJsonSchema can't tell maxItems 0 from an omitted maxItems.
@@ -331,12 +352,12 @@ module ConversionTests =
                   Expect.isTrue conv.FullyCompilable ""
               }
 
-              test "uniqueItems with maxItems on object items doesn't drop duplicates, validation rejects them" {
+              test "uniqueItems with maxItems on object items keeps the option chain and drops duplicates" {
                   let conv = conversionOf """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" } } }, "maxItems": 2, "uniqueItems": true }"""
                   Expect.equal conv.RuntimeType typeof<(NullableJsonValue * NullableJsonValue option) option> "RuntimeType"
-                  Expect.isFalse conv.FullyCompilable ""
+                  Expect.isFalse conv.FullyCompilable "an object item still needs validation"
                   let item = NullableJsonValue(JsonValue.Parse """{"a":1}""")
-                  Expect.equal (toJsonText conv (box (Some(item, Some item)))) (normalize """[{"a":1},{"a":1}]""") ""
+                  Expect.equal (toJsonText conv (box (Some(item, Some item)))) (normalize """[{"a":1}]""") ""
               }
 
               test "a non-compilable item makes the array not FullyCompilable" {

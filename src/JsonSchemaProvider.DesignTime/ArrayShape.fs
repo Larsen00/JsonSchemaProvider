@@ -25,17 +25,6 @@ module ArrayShape =
         // uniqueItems + maxItems, no minItems: same option chain as MaxItemsSingle/MaxItemsChain, ToJson drops duplicates.
         | UniqueMaxItems of JsonSchemaType * JsonArray.Keywords * maxItems: int
 
-    // True when equal JSON items always give equal JsonValues, so Array.distinct finds every duplicate. Objects can differ in property order.
-    let rec hasStructuralEquality (schemaType: JsonSchemaType) : bool =
-        match schemaType with
-        | JsonBoolean _
-        | JsonInteger _
-        | JsonNumber _
-        | JsonString _ -> true
-        | JsonObject _ -> false
-        | JsonArray(innerType, _) -> hasStructuralEquality innerType
-        | JsonOneOf(_, head, tail) -> List.forall hasStructuralEquality (head :: tail)
-
     // Helper function that turn a set of array keywords into an ArrayShape value.
     let classifyArrayShape
         (compileFlags: ProviderConfiguration.CompileFlags)
@@ -56,10 +45,10 @@ module ArrayShape =
             UnsupportedKeywords(innerType, arrayKeywords)
 
         // Dropping duplicates only shortens the array, so maxItems still holds afterwards.
-        | { UniqueItems = true; MaxItems = Some maxItems } when hasStructuralEquality innerType ->
+        | { UniqueItems = true; MaxItems = Some maxItems } ->
             UniqueMaxItems(innerType, arrayKeywords, maxItems)
 
-        | { UniqueItems = true } when hasStructuralEquality innerType ->
+        | { UniqueItems = true } ->
             UniqueUnbounded(innerType, arrayKeywords)
 
         | { MinItems = Some n; MaxItems = Some n2 } when n = n2 ->

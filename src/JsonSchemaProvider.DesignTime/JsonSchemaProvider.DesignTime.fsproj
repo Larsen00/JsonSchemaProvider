@@ -22,6 +22,7 @@
   <ItemGroup>
     <Compile Include="..\JsonSchemaProvider.Runtime\Types.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\ChoiceAccessors.fs" />
+    <Compile Include="..\JsonSchemaProvider.Runtime\JsonEquality.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\JsonSchemaProvider.Runtime.fs" />
     <Compile Include="..\JsonSchemaProvider.Runtime\SchemaValidation.fs" />
     <Compile Include="ProviderConfiguration.fs"/>

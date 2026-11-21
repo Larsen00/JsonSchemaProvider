@@ -390,11 +390,23 @@ module ArrayKeywordTests =
     type UniqueObjectItemsArray = JsonSchemaProvider<schema=uniqueObjectItemsSchema>
 
     [<Fact>]
-    let ``uniqueItems on object items stays a list checked at runtime`` () =
+    let ``uniqueItems on object items: Create drops duplicates, Parse rejects them`` () =
         let item a = UniqueObjectItemsArray.Item.Create(a = a)
-        let ok = expectOk (UniqueObjectItemsArray.Create([ item 1; item 2 ]))
+        let ok = expectOk (UniqueObjectItemsArray.Create([ item 1; item 2; item 1 ]))
         expectEqual (ok |> List.map (fun i -> i.a)) [ 1; 2 ]
-        expectError (UniqueObjectItemsArray.Create([ item 1; item 1 ]))
+        expectError (UniqueObjectItemsArray.Parse("""[{"a": 1}, {"a": 1}]"""))
+
+    [<Literal>]
+    let uniqueTwoPropertyItemsSchema =
+        """{ "type": "array", "items": { "type": "object", "properties": { "a": { "type": "integer" }, "b": { "type": "integer" } }, "required": ["a", "b"] }, "uniqueItems": true }"""
+    type UniqueTwoPropertyItemsArray = JsonSchemaProvider<schema=uniqueTwoPropertyItemsSchema>
+
+    [<Fact>]
+    let ``uniqueItems on object items ignores property order`` () =
+        let parsed = expectOk (UniqueTwoPropertyItemsArray.Parse("""[{"b": 2, "a": 1}]"""))
+        let built = UniqueTwoPropertyItemsArray.Item.Create(a = 1, b = 2)
+        let ok = expectOk (UniqueTwoPropertyItemsArray.Create(parsed @ [ built ]))
+        expectEqual (ok |> List.map (fun i -> i.a, i.b)) [ 1, 2 ]
 
     // -- maxItems: boundary is always structurally enforced, so no rejection test exists here --
 

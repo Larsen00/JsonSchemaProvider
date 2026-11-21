@@ -59,11 +59,10 @@ module NodeConversions =
         { Convert = CommonExprs.freshLambda "value" runtimeType body
           CompileTimeReturnType = typedefof<_ list>.MakeGenericType inner.CompileTimeType }
 
-    // Builds `fun runtimeObj -> JsonValue.Array(Array.distinct ((toJson runtimeObj).AsArray()))`, keeping each first occurrence.
+    // Builds `fun runtimeObj -> JsonEquality.distinctItems (toJson runtimeObj)`, keeping each first occurrence.
     let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
         CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
-            let jsonArray = CommonExprs.callJsonValueAsArray (Expr.Application(toJson, Expr.Var runtimeObjVar))
-            CommonExprs.newJsonValueArray (CommonExprs.callArrayDistinct jsonArray typeof<JsonValue>))
+            CommonExprs.callDistinctItems (Expr.Application(toJson, Expr.Var runtimeObjVar)))
 
 
     // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
