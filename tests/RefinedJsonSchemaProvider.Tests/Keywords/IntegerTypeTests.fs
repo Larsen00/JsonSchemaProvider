@@ -27,6 +27,16 @@ module IntegerTypeTests =
         expectEqual (expectOk (ByteRoot.Parse("255"))) 255uy
         expectError (ByteRoot.Parse("256"))
 
+    [<Fact>]
+    let ``Parse accepts 5.0 as an integer, since its fractional part is zero`` () =
+        expectEqual (expectOk (ByteRoot.Parse("5.0"))) 5uy
+        expectEqual (expectOk (IgnoredWide.Parse("5.0"))) 5
+        expectError (ByteRoot.Parse("5.5"))
+
+    [<Fact>]
+    let ``Parse rejects a float outside decimal's range without throwing`` () =
+        expectError (ByteRoot.Parse("1e400"))
+
     [<Literal>]
     let sbyteSchema = """{ "type": "integer", "exclusiveMinimum": -129, "exclusiveMaximum": 128 }"""
     type SByteRoot = RefinedJsonSchemaProvider<schema=sbyteSchema>

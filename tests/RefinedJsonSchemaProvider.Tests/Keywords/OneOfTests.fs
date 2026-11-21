@@ -594,8 +594,16 @@ module OneOfTests =
         expectError (IntegerOrNumber.Create(value = Choice1Of2 5)) // 5 is an integer and a number
 
     [<Fact>]
-    let ``integer|number oneOf: Create rejects number 5.0 because it is serialized as the integer 5`` () =
-        expectError (IntegerOrNumber.Create(value = Choice2Of2 5.0)) // written as 5, which matches both branches
+    let ``integer|number oneOf: Create rejects number 5.0 because 5.0 is an integer`` () =
+        expectError (IntegerOrNumber.Create(value = Choice2Of2 5.0)) // zero fractional part, so both branches match
+
+    [<Fact>]
+    let ``integer|number oneOf: Parse rejects 5.0 because 5.0 is an integer`` () =
+        expectError (IntegerOrNumber.Parse("""{"value": 5.0}""")) // zero fractional part, so both branches match
+
+    [<Fact>]
+    let ``integer|number oneOf: Parse accepts 1.0000000000000001, which is not an integer`` () =
+        expectOk (IntegerOrNumber.Parse("""{"value": 1.0000000000000001}""")) |> ignore // a double would round it to 1.0
 
     [<Fact>]
     let ``integer|number oneOf: Create accepts 5.5 and it round-trips through Parse`` () =

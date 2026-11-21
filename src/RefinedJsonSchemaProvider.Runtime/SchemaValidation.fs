@@ -29,6 +29,37 @@ module SchemaValidation =
         + "  B) Or set skipRuntimeValidation=true. Warning: then no JSON is validated against the schema, "
         + "and JSON of the wrong shape can raise when it is converted."
 
+    // A number with zero fractional part is an integer in JSON Schema, so 5.0 becomes 5 (outside int64 it stays a float).
+    let rec private markIntegralNumbers (token: Newtonsoft.Json.Linq.JToken) : unit =
+        match token with
+        | :? Newtonsoft.Json.Linq.JValue as value ->
+            match value.Value with
+            | :? decimal as number when number = System.Math.Truncate number
+                                        && number >= decimal System.Int64.MinValue
+                                        && number <= decimal System.Int64.MaxValue ->
+                value.Value <- int64 number
+            | _ -> ()
+        | :? Newtonsoft.Json.Linq.JContainer as container ->
+            for child in container.Children() do
+                markIntegralNumbers child
+        | _ -> ()
+
+    // NJsonSchema reads 5.0 as a float, which fails "type": "integer", so the JSON is read here with exact decimals.
+    let private readForValidation (jsonText: string) : Newtonsoft.Json.Linq.JToken =
+        let read floatParseHandling =
+            use reader = new Newtonsoft.Json.JsonTextReader(new System.IO.StringReader(jsonText))
+            reader.DateParseHandling <- Newtonsoft.Json.DateParseHandling.None
+            reader.FloatParseHandling <- floatParseHandling
+            Newtonsoft.Json.Linq.JToken.ReadFrom reader
+
+        try
+            let token = read Newtonsoft.Json.FloatParseHandling.Decimal
+            markIntegralNumbers token
+            token
+        with :? Newtonsoft.Json.JsonReaderException ->
+            // A float outside decimal's range, read as a double like NJsonSchema does.
+            read Newtonsoft.Json.FloatParseHandling.Double
+
     // Returns the schema errors for jsonText, empty when it's valid.
     let collectValidationErrors (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : string list =
         let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
@@ -42,7 +73,7 @@ module SchemaValidation =
         // #region outside-int64-check
         // Only a real throw is reported: a large integer the schema doesn't describe (an extra property) validates fine.
         try
-            subschema.Validate jsonText
+            subschema.Validate(readForValidation jsonText)
             |> Seq.map (fun validationError -> validationError.ToString())
             |> Seq.toList
         with :? System.InvalidCastException ->
