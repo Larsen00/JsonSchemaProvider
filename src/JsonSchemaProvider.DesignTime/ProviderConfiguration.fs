@@ -7,17 +7,6 @@ module ProviderConfiguration =
     open System.Collections.Concurrent
     open FSharp.Quotations
 
-    // Types and conversions for one schema node, built together so they stay in sync.
-    type NodeConversion = {
-        // #elide-start
-        CompileTimeType: Type // shown in signatures; differs from RuntimeType for erased types
-        RuntimeType: Type
-        ToRuntime: Expr // closed lambda: JsonValue -> RuntimeType
-        ToJson: Expr // closed lambda: RuntimeType -> JsonValue
-        // #elide-end
-        FullyCompilable: bool // true means runtime validation can be skipped
-    }
-
     // A ToList/ToTuple helper and the return type of its provided method.
     type RuntimeHelperConversion = {
         Convert: Expr // closed lambda on runtime types
@@ -30,10 +19,23 @@ module ProviderConfiguration =
         ToTuple: RuntimeHelperConversion option // only ExactLength with n >= 2 -> flat n-tuple
     }
 
-    // An array's node conversion plus its array-only helpers.
-    type ArrayConversion = {
-        common: NodeConversion
-        specific: ArrayHelpers
+    // What only some kinds of nodes have on top of the common conversion.
+    type NodeSpecific =
+        | ArraySpecific of ArrayHelpers
+        | NoSpecific
+
+    // Types and conversions for one schema node, built together so they stay in sync.
+    type NodeConversion = {
+        // #elide-start
+        CompileTimeType: Type // shown in signatures; differs from RuntimeType for erased types
+        RuntimeType: Type
+        ToRuntime: Expr // closed lambda: JsonValue -> RuntimeType
+        ToJson: Expr // closed lambda: RuntimeType -> JsonValue
+        // #elide-end
+        FullyCompilable: bool // true means runtime validation can be skipped
+        // #omit-start
+        Specific: NodeSpecific // ToList/ToTuple for arrays, cached together with the rest
+        // #omit-end
     }
 
     // User-set flags from the provider's static parameters.

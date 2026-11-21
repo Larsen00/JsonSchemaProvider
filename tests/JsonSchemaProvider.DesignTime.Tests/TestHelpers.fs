@@ -56,9 +56,9 @@ module TestHelpers =
 
     let convertRoot (f: Fixture) : NodeConversion = convert f.Context f.TypeMap f.Root
 
-    let arrayConversionOf (f: Fixture) : ArrayConversion =
+    let arrayConversionOf (f: Fixture) : NodeConversion =
         match f.Root with
-        | JsonArray(inner, keywords) -> buildArrayConversion f.Context f.TypeMap inner keywords
+        | JsonArray _ -> convert f.Context f.TypeMap f.Root
         | _ -> failwith "Root schema is not an array"
 
     // An integer array schema; `keywords` is spliced in after "items", e.g. ", \"minItems\": 2".

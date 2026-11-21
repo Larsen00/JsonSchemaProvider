@@ -72,12 +72,14 @@ module TypeProvider =
         (arrayKeywords: JsonArray.Keywords)
         : unit =
 
-        let array = buildArrayConversion context typeMap itemType arrayKeywords
-        let parameterType = array.common.CompileTimeType
+        // Through `convert`, so the array's conversion and helpers come from the cache.
+        let array = convert context typeMap (JsonArray(itemType, arrayKeywords))
+        let helpers = arrayHelpers array
+        let parameterType = array.CompileTimeType
 
-        target.AddMember(createProvidedConversionMethod "ToList" parameterType array.specific.ToList)
+        target.AddMember(createProvidedConversionMethod "ToList" parameterType helpers.ToList)
 
-        array.specific.ToTuple
+        helpers.ToTuple
         |> Option.iter (fun toTuple -> target.AddMember(createProvidedConversionMethod "ToTuple" parameterType toTuple))
 
         addArrayHelperTypes context typeMap target "Item" itemType

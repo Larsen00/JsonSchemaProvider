@@ -242,24 +242,55 @@ module ConversionTests =
                   test $"array{keywords} ToList yields the elements in order" {
                       let array = arrayConversionOf (fixture schemaText)
                       for sample in samples do
-                          let runtimeValue = toRuntime array.common sample
-                          let list = apply array.specific.ToList.Convert array.common.RuntimeType runtimeValue
+                          let runtimeValue = toRuntime array sample
+                          let list = apply (arrayHelpers array).ToList.Convert array.RuntimeType runtimeValue
                           let expected = JsonValue.Parse(sample).AsArray() |> Array.map (fun v -> v.AsInteger()) |> List.ofArray
                           Expect.equal list (box expected) $"ToList of {sample}"
                   }
 
               test "ExactLength n >= 2 offers a flat ToTuple" {
                   let array = arrayConversionOf (fixture (intArray ", \"minItems\": 3, \"maxItems\": 3"))
-                  let toTuple = Expect.wantSome array.specific.ToTuple "ToTuple"
+                  let toTuple = Expect.wantSome (arrayHelpers array).ToTuple "ToTuple"
                   Expect.equal toTuple.CompileTimeReturnType typeof<int * int * int> "return type"
-                  let runtimeValue = toRuntime array.common "[1,2,3]"
-                  Expect.equal (apply toTuple.Convert array.common.RuntimeType runtimeValue) (box (1, 2, 3)) "value"
+                  let runtimeValue = toRuntime array "[1,2,3]"
+                  Expect.equal (apply toTuple.Convert array.RuntimeType runtimeValue) (box (1, 2, 3)) "value"
               }
 
               test "ToTuple is only offered for ExactLength n >= 2" {
                   for keywords in [ ""; ", \"minItems\": 1, \"maxItems\": 1"; ", \"minItems\": 2"; ", \"maxItems\": 2" ] do
                       let array = arrayConversionOf (fixture (intArray keywords))
-                      Expect.isNone array.specific.ToTuple keywords
+                      Expect.isNone (arrayHelpers array).ToTuple keywords
+              }
+
+              test "every array shape carries ToList/ToTuple helpers, and nothing else does" {
+                  let arrayKeywordSets =
+                      [ ""
+                        ", \"minItems\": 2"
+                        ", \"maxItems\": 1"
+                        ", \"maxItems\": 3"
+                        ", \"minItems\": 1, \"maxItems\": 1"
+                        ", \"minItems\": 3, \"maxItems\": 3"
+                        ", \"minItems\": 1, \"maxItems\": 3"
+                        ", \"uniqueItems\": true"
+                        ", \"uniqueItems\": true, \"maxItems\": 3"
+                        ", \"uniqueItems\": true, \"minItems\": 2"
+                        ", \"minItems\": 2, \"maxItems\": 3, \"additionalItems\": false" ]
+                  for keywords in arrayKeywordSets do
+                      let conv = arrayConversionOf (fixture (intArray keywords))
+                      match conv.Specific with
+                      | ArraySpecific _ -> ()
+                      | NoSpecific -> failtest $"array{keywords} has no helpers"
+                  for schemaText in [ """{ "type": "integer" }"""; """{ "type": "string" }"""; """{ "type": "object", "properties": { "a": { "type": "number" } } }""" ] do
+                      match (convertRoot (fixture schemaText)).Specific with
+                      | NoSpecific -> ()
+                      | ArraySpecific _ -> failtest $"{schemaText} is not an array but has array helpers"
+              }
+
+              test "the helpers of an array come from the conversion cache" {
+                  let f = fixture (intArray ", \"minItems\": 1, \"maxItems\": 3")
+                  let first = convert f.Context f.TypeMap f.Root
+                  let second = convert f.Context f.TypeMap f.Root
+                  Expect.isTrue (obj.ReferenceEquals(first, second)) "same cached conversion, helpers included"
               }
 
               test "nested exact-length arrays round-trip" {

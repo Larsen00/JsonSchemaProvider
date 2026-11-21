@@ -59,9 +59,16 @@ module NodeConversions =
         { Convert = CommonExprs.freshLambda "value" runtimeType body
           CompileTimeReturnType = typedefof<_ list>.MakeGenericType item.CompileTimeType }
 
+    // The ToList/ToTuple helpers of an array conversion. Every conversion built for an array node
+    // carries them, so NoSpecific here means a bug in the provider, never a user error.
+    let arrayHelpers (conversion: ProviderConfiguration.NodeConversion) : ProviderConfiguration.ArrayHelpers =
+        match conversion.Specific with
+        | ArraySpecific helpers -> helpers
+        | NoSpecific -> failwith "Internal error: an array conversion is missing its ToList/ToTuple helpers."
+
     // Exactly one item: the item itself, with no tuple around it. The base case of ExactLength,
     // and what MaxItemsSingle wraps in an option.
-    let private buildSingleItemConversion (arrayKeywords: JsonArray.Keywords) (item: ProviderConfiguration.NodeConversion) : ProviderConfiguration.ArrayConversion =
+    let private buildSingleItemConversion (arrayKeywords: JsonArray.Keywords) (item: ProviderConfiguration.NodeConversion) : ProviderConfiguration.NodeConversion =
         let toRuntime =
             withJsonArrayLambda (fun jsonArrVar ->
                 Expr.Application(item.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>))
@@ -76,18 +83,17 @@ module NodeConversions =
             buildToList item item.RuntimeType (fun valueVar ->
                 CommonExprs.newListSingleton item.RuntimeType (Expr.Var valueVar))
 
-        { common =
-            { CompileTimeType = item.CompileTimeType
-              RuntimeType = item.RuntimeType
-              ToRuntime = toRuntime
-              ToJson = toJson
-              FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable }
-          specific = { ToList = toList; ToTuple = None } }
+        { CompileTimeType = item.CompileTimeType
+          RuntimeType = item.RuntimeType
+          ToRuntime = toRuntime
+          ToJson = toJson
+          FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable
+          Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
     // Wraps the conversion of a non-empty array in an option: None is the empty array, Some holds the non-empty array.
     // Both maxItems shapes are built this way, from one item (MaxItemsSingle) or a head and a tail (MaxItemsChain).
-    let private buildOptionConversion (item: ProviderConfiguration.NodeConversion) (nonEmpty: ProviderConfiguration.ArrayConversion) : ProviderConfiguration.ArrayConversion =
-        let present = nonEmpty.common
+    let private buildOptionConversion (item: ProviderConfiguration.NodeConversion) (nonEmpty: ProviderConfiguration.NodeConversion) : ProviderConfiguration.NodeConversion =
+        let present = nonEmpty
         let compileTimeType = typedefof<option<_>>.MakeGenericType [| present.CompileTimeType |]
         let runtimeType = typedefof<option<_>>.MakeGenericType [| present.RuntimeType |]
 
@@ -116,16 +122,15 @@ module NodeConversions =
             buildToList item runtimeType (fun valueVar ->
                 Expr.IfThenElse(
                     CommonExprs.getOptionIsSome present.RuntimeType (Expr.Var valueVar),
-                    Expr.Application(nonEmpty.specific.ToList.Convert, CommonExprs.getOptionValue present.RuntimeType (Expr.Var valueVar)),
+                    Expr.Application((arrayHelpers nonEmpty).ToList.Convert, CommonExprs.getOptionValue present.RuntimeType (Expr.Var valueVar)),
                     CommonExprs.newListEmpty item.RuntimeType))
 
-        { common =
-            { CompileTimeType = compileTimeType
-              RuntimeType = runtimeType
-              ToRuntime = toRuntime
-              ToJson = toJson
-              FullyCompilable = present.FullyCompilable }
-          specific = { ToList = toList; ToTuple = None } }
+        { CompileTimeType = compileTimeType
+          RuntimeType = runtimeType
+          ToRuntime = toRuntime
+          ToJson = toJson
+          FullyCompilable = present.FullyCompilable
+          Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
     // Builds `fun runtimeObj -> JsonEquality.distinctItems (toJson runtimeObj)`, keeping each first occurrence.
     let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
@@ -136,7 +141,7 @@ module NodeConversions =
     // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
     let private integerConversion (integerType: IntegerType) (fullyCompilable: bool) : ProviderConfiguration.NodeConversion =
         let sized (dotnetType: Type) (toRuntime: Expr) (toJson: Expr) : ProviderConfiguration.NodeConversion =
-            { CompileTimeType = dotnetType; RuntimeType = dotnetType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = fullyCompilable }
+            { CompileTimeType = dotnetType; RuntimeType = dotnetType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = fullyCompilable; Specific = NoSpecific }
 
         match integerType with
         | IntegerType.Int8 ->
@@ -232,6 +237,9 @@ module NodeConversions =
                 // #elide-start convert-conversion
                 FullyCompilable = keywords.common.CanBeCompiled
                 // #elide-end convert-conversion
+                // #omit-start
+                Specific = NoSpecific
+                // #omit-end
             }
 
         // #elide-start convert-conversion
@@ -253,6 +261,7 @@ module NodeConversions =
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
                 ToJson = <@@ fun (runtimeObj: double) -> JsonValue.Float runtimeObj @@>
                 FullyCompilable = keywords.common.CanBeCompiled
+                Specific = NoSpecific
             }
 
         // A .NET string can be null and F# can't rule that out for provided types, so a string
@@ -264,6 +273,7 @@ module NodeConversions =
                 ToJson = <@@ fun (runtimeObj: string) ->
                                 if isNull runtimeObj then JsonValue.Null else JsonValue.String runtimeObj @@>
                 FullyCompilable = false
+                Specific = NoSpecific
             }
 
         // #elide-end object-fully-compilable
@@ -279,13 +289,16 @@ module NodeConversions =
                 // Like a string, an object value can be null, so wherever one is passed in it needs
                 // validation. The object's own Create only depends on its properties (isObjectFullyCompilable).
                 FullyCompilable = false
+                // #omit-start
+                Specific = NoSpecific
+                // #omit-end
             }
 
         // #elide-start object-fully-compilable
         // Since arrays have compile-time type support, the conversion is delegated to the function `buildArrayConversion`.
         // #elide-end array-case
         | JsonArray(itemType, arrayKeywords) ->
-            (buildArrayConversion context typeMap itemType arrayKeywords).common
+            buildArrayConversion context typeMap itemType arrayKeywords
         // #endregion array-case
 
         // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
@@ -314,11 +327,11 @@ module NodeConversions =
         (typeMap: TypeMap)
         (itemType: JsonSchemaType)
         (arrayKeywords: JsonArray.Keywords)
-        : ProviderConfiguration.ArrayConversion =
+        : ProviderConfiguration.NodeConversion =
 
         // #elide-start buildArrayConversion
         // Default conversion for F# list arrays based on their item type.
-        let defaultArrayConversion: ProviderConfiguration.ArrayConversion =
+        let defaultArrayConversion: ProviderConfiguration.NodeConversion =
             // Extract the item type conversion
             let item = convert context typeMap itemType
 
@@ -360,13 +373,12 @@ module NodeConversions =
             // Every shape with minItems gets its own conversion, so MinItems is None whenever this
             // list is used as the node's type; the check only guards against a future shape that
             // falls back to the list while keeping minItems.
-            { common =
-                { CompileTimeType = compileTimeType
-                  RuntimeType = runtimeType
-                  ToRuntime = toRuntime
-                  ToJson = toJson
-                  FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && item.FullyCompilable }
-              specific = { ToList = toList; ToTuple = None } }
+            { CompileTimeType = compileTimeType
+              RuntimeType = runtimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = arrayKeywords.common.CanBeCompiled && arrayKeywords.specific.MinItems.IsNone && item.FullyCompilable
+              Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
 
 
@@ -383,7 +395,7 @@ module NodeConversions =
         // If RefinedTypes is off, we need to fallback to runtime validation regardless of other keyword combinations.
         | UnsupportedKeywords _ ->
             // #elide-start buildArrayConversion
-            { defaultArrayConversion with common.FullyCompilable = false }
+            { defaultArrayConversion with FullyCompilable = false }
             // #elide-end buildArrayConversion
 
         // Exact-size, exactly one element left: just the element itself
@@ -402,7 +414,7 @@ module NodeConversions =
                     specific.MinItems = Some(n - 1)
                     specific.MaxItems = Some(n - 1) }
             let headTail = buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
-            { headTail with specific.ToTuple = Some(buildExactLengthToTuple n item headTail.common.RuntimeType) }
+            { headTail with Specific = ArraySpecific { arrayHelpers headTail with ToTuple = Some(buildExactLengthToTuple n item headTail.RuntimeType) } }
             // #elide-end buildArrayConversion
 
         // minItems, no maxItems: (Head, Tail) where Tail recurses with minItems decremented by one,
@@ -449,7 +461,7 @@ module NodeConversions =
         | UniqueUnbounded _ ->
             // #elide-start buildArrayConversion
             { defaultArrayConversion with
-                common.ToJson = dropDuplicatesAfter defaultArrayConversion.common.ToJson defaultArrayConversion.common.RuntimeType }
+                ToJson = dropDuplicatesAfter defaultArrayConversion.ToJson defaultArrayConversion.RuntimeType }
             // #elide-end buildArrayConversion
 
         // uniqueItems + maxItems: the option chain built without uniqueItems (so its tails don't
@@ -457,7 +469,7 @@ module NodeConversions =
         | UniqueMaxItems _ ->
             // #elide-start buildArrayConversion
             let chain = buildArrayConversion context typeMap itemType { arrayKeywords with specific.UniqueItems = false }
-            { chain with common.ToJson = dropDuplicatesAfter chain.common.ToJson chain.common.RuntimeType }
+            { chain with ToJson = dropDuplicatesAfter chain.ToJson chain.RuntimeType }
             // #elide-end buildArrayConversion
 
     // Shared by ExactLength (n > 1), MinItemsPrefix and MinMaxItems: peels one head off the array and
@@ -471,10 +483,9 @@ module NodeConversions =
         (arrayKeywords: JsonArray.Keywords)
         (item: ProviderConfiguration.NodeConversion)
         (tailKeywords: JsonArray.Keywords)
-        : ProviderConfiguration.ArrayConversion =
+        : ProviderConfiguration.NodeConversion =
 
-        let tailArray = buildArrayConversion context typeMap itemType tailKeywords
-        let tail = tailArray.common
+        let tail = buildArrayConversion context typeMap itemType tailKeywords
 
         let compileTimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.CompileTimeType; tail.CompileTimeType |]
         let runtimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.RuntimeType; tail.RuntimeType |]
@@ -502,16 +513,15 @@ module NodeConversions =
             buildToList item runtimeType (fun valueVar ->
                 let headExpr = Expr.TupleGet(Expr.Var valueVar, 0)
                 let tailExpr = Expr.TupleGet(Expr.Var valueVar, 1)
-                let tailListExpr = Expr.Application(tailArray.specific.ToList.Convert, tailExpr)
+                let tailListExpr = Expr.Application((arrayHelpers tail).ToList.Convert, tailExpr)
                 CommonExprs.newListCons item.RuntimeType headExpr tailListExpr)
 
-        { common =
-            { CompileTimeType = compileTimeType
-              RuntimeType = runtimeType
-              ToRuntime = toRuntime
-              ToJson = toJson
-              FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable && tail.FullyCompilable }
-          specific = { ToList = toList; ToTuple = None } }
+        { CompileTimeType = compileTimeType
+          RuntimeType = runtimeType
+          ToRuntime = toRuntime
+          ToJson = toJson
+          FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable && tail.FullyCompilable
+          Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
 
     // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
@@ -546,7 +556,7 @@ module NodeConversions =
                     let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var runtimeObjVar)
                     Expr.IfThenElse(isChoice1, Expr.Application(head.ToJson, headValue), Expr.Application(tail.ToJson, tailValue)))
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable }
+            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable; Specific = NoSpecific }
 
     // An object is fully compilable if it can be compiled itself (no stray keywords) and all of its properties are fully compilable.
     // #elide-end object-fully-compilable
