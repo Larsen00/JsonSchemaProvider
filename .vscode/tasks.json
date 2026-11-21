@@ -3,7 +3,7 @@
 	"tasks": [
 		{
 			"type": "shell",
-			"command": "dotnet build JsonSchemaProvider.sln",
+			"command": "dotnet build RefinedJsonSchemaProvider.sln",
 			"problemMatcher": [
 				"$msCompile"
 			],
@@ -12,11 +12,11 @@
 				"isDefault": true
 			},
 			"label": "build",
-			"detail": "Build the JsonSchemaProvider.sln solution"
+			"detail": "Build the RefinedJsonSchemaProvider.sln solution"
 		},
 		{
 			"type": "shell",
-			"command": "dotnet test JsonSchemaProvider.sln",
+			"command": "dotnet test RefinedJsonSchemaProvider.sln",
 			"problemMatcher": [
 				"$msCompile"
 			],

@@ -9,7 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Shared with CacheEquivalenceTests: provide, force and the schema helpers. -->
-    <Compile Include="..\..\tests\JsonSchemaProvider.DesignTime.Tests\CacheSupport.fs" Link="CacheSupport.fs" />
+    <Compile Include="..\..\tests\RefinedJsonSchemaProvider.DesignTime.Tests\CacheSupport.fs" Link="CacheSupport.fs" />
     <Compile Include="Schemas.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
@@ -20,6 +20,6 @@
     <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\JsonSchemaProvider.DesignTime\JsonSchemaProvider.DesignTime.fsproj" />
+    <ProjectReference Include="..\..\src\RefinedJsonSchemaProvider.DesignTime\RefinedJsonSchemaProvider.DesignTime.fsproj" />
   </ItemGroup>
 </Project>

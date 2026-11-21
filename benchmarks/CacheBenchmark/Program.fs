@@ -1,4 +1,4 @@
-namespace JsonSchemaProvider.Benchmarks
+namespace RefinedJsonSchemaProvider.Benchmarks
 
 // Times TypeProvider.run with and without the conversion cache, and measures its memory.
 //
@@ -23,7 +23,7 @@ module Program =
     open System.Diagnostics
     open System.IO
     open System.Threading
-    open JsonSchemaProvider.Tests.CacheSupport
+    open RefinedJsonSchemaProvider.Tests.CacheSupport
 
     type Measurement =
         { RunMs: float

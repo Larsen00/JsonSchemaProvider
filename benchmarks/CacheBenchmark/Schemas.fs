@@ -1,4 +1,4 @@
-namespace JsonSchemaProvider.Benchmarks
+namespace RefinedJsonSchemaProvider.Benchmarks
 
 // Families of schemas that grow with one size parameter.
 module Schemas =

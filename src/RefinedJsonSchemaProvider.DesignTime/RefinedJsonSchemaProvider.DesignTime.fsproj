@@ -1,0 +1,39 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <DefineConstants>IS_DESIGNTIME;$(DefineConstants)</DefineConstants>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    <BaseOutputPath Condition="$(IsNuGet) == ''">..\RefinedJsonSchemaProvider.Runtime\bin</BaseOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.Data.Json.Core" Version="6.6.0" />
+    <PackageReference Include="FSharp.TypeProviders.SDK" Version="8.0.2">
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="NJsonSchema" Version="11.6.2" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="10.0.1" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102">
+      <!-- This excludes FSharp.Core.xml and FSharp.Core.resources.dll while referencing the right FSharp.Core.dll version -->
+      <ExcludeAssets>runtime;contentFiles</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\RefinedJsonSchemaProvider.Runtime\Types.fs" />
+    <Compile Include="..\RefinedJsonSchemaProvider.Runtime\ChoiceAccessors.fs" />
+    <Compile Include="..\RefinedJsonSchemaProvider.Runtime\JsonEquality.fs" />
+    <Compile Include="..\RefinedJsonSchemaProvider.Runtime\RefinedJsonSchemaProvider.Runtime.fs" />
+    <Compile Include="..\RefinedJsonSchemaProvider.Runtime\SchemaValidation.fs" />
+    <Compile Include="ProviderConfiguration.fs"/>
+    <Compile Include="CommonExprs.fs" />
+    <Compile Include="SchemaValidationExprs.fs" />
+    <Compile Include="SchemaConversion.fs" />
+    <Compile Include="ArrayShape.fs" />
+    <Compile Include="IntegerShape.fs" />
+    <Compile Include="NodeConversions.fs" />
+    <Compile Include="ExprGenerator.fs" />
+    <Compile Include="TypeProvider.fs" />
+    <Compile Include="RefinedJsonSchemaProviderImpl.fs" />
+  </ItemGroup>
+</Project>

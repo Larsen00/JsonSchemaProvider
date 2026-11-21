@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FSharpToolsDirectory>typeproviders</FSharpToolsDirectory>
+    <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PackageId>RefinedJsonSchemaProvider</PackageId>
+    <Title>RefinedJsonSchemaProvider: refined F# types from JSON Schema</Title>
+    <Copyright>Copyright (c) 2024 Florian Lorenzen</Copyright>
+    <Description>The RefinedJsonSchemaProvider provides F# types from JSON schemas. It can be used to build
+JSON values in a strongly typed way that conform to the schema or to parse JSON values into an F# value that
+can be queried in a stringly types way. Specifications like numeric ranges or string patterns that cannot be
+validated at compile time are checked at runtime.
+
+The JSON schema can either be given as an inline string literal or by a local file.
+
+The type provider is built around NJsonSchema for the schema parsing and validation
+and uses the JsonValue data type from FSharp.Data.</Description>
+    <Version>0.1.0</Version>
+    <Authors>Florian Lorenzen</Authors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <PackageProjectUrl>https://github.com/Larsen00/JsonSchemaProvider</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Larsen00/JsonSchemaProvider</RepositoryUrl>
+    <RepositoryBranch>main</RepositoryBranch>
+    <PackageTags>f#; fsharp; data; json; jsonschema; json-schema; type-provider; refinement-types</PackageTags>
+    <NoWarn>NU5100</NoWarn>
+    <!-- NU5100 is irrelevant since the respective DLLs must be in the typeproviders
+         directory. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Types.fs" />
+    <Compile Include="ChoiceAccessors.fs" />
+    <Compile Include="JsonEquality.fs" />
+    <Compile Include="RefinedJsonSchemaProvider.Runtime.fs" />
+    <Compile Include="SchemaValidation.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+    <None Include="../../LICENSE" Pack="true" PackagePath="/" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Condition="$(IsNuGet) != ''" Include="..\RefinedJsonSchemaProvider.DesignTime\RefinedJsonSchemaProvider.DesignTime.fsproj">
+      <IsFSharpDesignTimeProvider>true</IsFSharpDesignTimeProvider>
+      <PrivateAssets>all</PrivateAssets>
+    </ProjectReference>
+    <PackageReference Include="FSharp.Data.Json.Core" Version="6.6.0" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="NJsonSchema" Version="11.6.2" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="10.0.1" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+  </ItemGroup>
+
+</Project>

@@ -9,13 +9,13 @@
 #r "bin/Release/net10.0/FSharp.Data.Runtime.Utilities.dll"
 #r "bin/Release/net10.0/FSharp.Data.Http.dll"
 #r "bin/Release/net10.0/FSharp.TypeProviders.SDK.dll"
-#r "bin/Release/net10.0/JsonSchemaProvider.DesignTime.dll"
+#r "bin/Release/net10.0/RefinedJsonSchemaProvider.DesignTime.dll"
 #r "bin/Release/net10.0/CacheBenchmark.dll"
 open System.Diagnostics
-open JsonSchemaProvider
-open JsonSchemaProvider.DesignTime
-open JsonSchemaProvider.Benchmarks
-open JsonSchemaProvider.Tests.CacheSupport
+open RefinedJsonSchemaProvider
+open RefinedJsonSchemaProvider.DesignTime
+open RefinedJsonSchemaProvider.Benchmarks
+open RefinedJsonSchemaProvider.Tests.CacheSupport
 let time name f =
     let sw = Stopwatch.StartNew()
     let r = f ()

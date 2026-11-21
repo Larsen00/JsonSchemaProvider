@@ -487,8 +487,10 @@ module NodeConversions =
 
         let tail = buildArrayConversion context typeMap itemType tailKeywords
 
-        let compileTimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.CompileTimeType; tail.CompileTimeType |]
-        let runtimeType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.RuntimeType; tail.RuntimeType |]
+        let compileTimeType = 
+            Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.CompileTimeType; tail.CompileTimeType |]
+        let runtimeType = 
+            Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| item.RuntimeType; tail.RuntimeType |]
 
         let toRuntime =
             withJsonArrayLambda (fun jsonArrVar ->

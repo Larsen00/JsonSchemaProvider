@@ -1,0 +1,10 @@
+{
+  "solution": {
+    "path": "RefinedJsonSchemaProvider.sln",
+    "projects": [
+      "src\\RefinedJsonSchemaProvider.DesignTime\\RefinedJsonSchemaProvider.DesignTime.fsproj",
+      "src\\RefinedJsonSchemaProvider.Runtime\\RefinedJsonSchemaProvider.fsproj",
+      "tests\\RefinedJsonSchemaProvider.DesignTime.Tests\\RefinedJsonSchemaProvider.DesignTime.Tests.fsproj"
+    ]
+  }
+}

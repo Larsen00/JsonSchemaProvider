@@ -1,0 +1,41 @@
+﻿namespace RefinedJsonSchemaProvider
+
+open System.Collections.Concurrent
+open NJsonSchema
+open FSharp.Data
+open System
+open Newtonsoft.Json.Serialization
+
+// Wraps a raw JsonValue so generated properties can return "this or null"
+// (nullable = how optional object/list properties are represented).
+[<AllowNullLiteral>]
+type NullableJsonValue(jsonVal: JsonValue) =
+    member val JsonVal = jsonVal
+    override this.ToString() : string = this.JsonVal.ToString()
+
+
+// Avoids re-parsing the same schema text every time Parse/Create runs.
+module SchemaCache =
+    // hashCode of the schema text -> already-parsed NJsonSchema object.
+    let private cache = ConcurrentDictionary<int, JsonSchema>()
+
+    // Parses schema text into an NJsonSchema object (no caching).
+    let parseSchema (schemaSource: string) =
+        JsonSchema.FromJsonAsync(schemaSource)
+        |> Async.AwaitTask
+        |> Async.RunSynchronously
+
+    //  the cached schema if present, else parses it once and caches it.
+    let retrieveSchema (hashCode: int) (schemaSource: string) =
+        cache.GetOrAdd(hashCode, (fun _ -> parseSchema schemaSource))
+
+
+    let resolveByPath (root: JsonSchema) (path: string) : JsonSchema =
+        let appender = JsonSchemaAppender(root, DefaultTypeNameGenerator())
+        let resolver = JsonReferenceResolver appender
+        resolver.ResolveDocumentReference(root, path, typeof<JsonSchema>, DefaultContractResolver()) :?> JsonSchema
+
+#if !IS_DESIGNTIME
+[<assembly: FSharp.Core.CompilerServices.TypeProviderAssembly("RefinedJsonSchemaProvider.DesignTime")>]
+do ()
+#endif

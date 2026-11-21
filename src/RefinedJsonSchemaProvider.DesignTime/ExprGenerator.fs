@@ -1,0 +1,263 @@
+namespace RefinedJsonSchemaProvider.DesignTime
+
+module ExprGenerator =
+    open FSharp.Quotations
+    open FSharp.Data
+    open SchemaConversion
+    open ProviderConfiguration
+    open NodeConversions
+    open RefinedJsonSchemaProvider.SchemaValidation
+    open RefinedJsonSchemaProvider
+    open System
+    open FSharp.Quotations.Patterns
+    open FSharp.Quotations.DerivedPatterns
+
+
+
+    // "optional" (an F# property/parameter being absent, represented as Nullable<T> for value
+    // types) is a call-site concern, not a property of the node's own JsonValue<->runtime
+    // conversion - NodeConversion.ToJson always expects a plain (non-Nullable) RuntimeType. This
+    // wraps it to also accept Nullable<RuntimeType> when the value type needs that.
+    let private wrapOptionalToJson (conv: ProviderConfiguration.NodeConversion) (optional: bool) : Expr =
+        if optional && conv.RuntimeType.IsValueType then
+            let nullableType = typedefof<Nullable<_>>.MakeGenericType conv.RuntimeType
+            CommonExprs.freshLambda "nullableObj" nullableType (fun nullableVar ->
+                Expr.Application(conv.ToJson, CommonExprs.getNullableValue conv.RuntimeType (Expr.Var nullableVar)))
+        else
+            conv.ToJson
+
+    // only for class
+    let generatePropertyGetter
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (keywords:  JsonObject.Keywords)
+        ((name, innertype): PropertyName * JsonSchemaType)
+        : Expr list -> Expr =
+        let conv = convert context typeMap innertype
+        let plainPropertyRuntimeType = conv.RuntimeType
+        let convertToRuntimeType = conv.ToRuntime
+
+        if not <| Map.find name keywords.specific.Required then
+            fun (args: Expr list) ->
+                // Implements:
+                // <@@
+                //     match %%(args[0]).JsonVal.TryGetProperty(name) with
+                //     | None -> None
+                //     | Some(jsonVal) -> Some((%%conversion) jsonVal)
+                //
+                //     let maybeProperty = %%(args[0]).JsonVal.TryGetProperty(name)
+                //     if maybeProperty.IsSome then
+                //         Some(%%conversion maybeProperty.Value)
+                //     else
+                //         None
+                // @@>
+                let scrutineeVar = Var($"maybeProperty{Guid.NewGuid()}", typeof<JsonValue option>)
+                let jsonVal = CommonExprs.getNullableJsonValueJsonVal args[0]
+                let maybePropertySelect = CommonExprs.callJsonValueTryGetPropertyName jsonVal name
+
+                let isSome = CommonExprs.getOptionIsSome typeof<JsonValue> (Expr.Var(scrutineeVar))
+
+                let thenBranch =
+                    CommonExprs.newOptionSome
+                        plainPropertyRuntimeType
+                        (Expr.Application(
+                            convertToRuntimeType,
+                            CommonExprs.getOptionValue typeof<JsonValue> (Expr.Var(scrutineeVar))
+                        ))
+
+                let elseBranch = CommonExprs.newOptionNone plainPropertyRuntimeType
+
+                Expr.Let(scrutineeVar, maybePropertySelect, Expr.IfThenElse(isSome, thenBranch, elseBranch))
+        else
+            // Implements: <@@ %%conversion %%(args[0]).JsonVal[name] @@>
+            fun (args: Expr list) ->
+                let jsonVal = CommonExprs.getNullableJsonValueJsonVal args[0]
+
+                let propertySelect = CommonExprs.callJsonValueItem jsonVal name
+
+                Expr.Application(convertToRuntimeType, propertySelect)
+
+    // Value types arrive as Nullable<T> (see nullableOrPlainType), everything else as a nullable reference.
+    let private generateIsNullCheck (conv: ProviderConfiguration.NodeConversion) (arg: Expr) : Expr =
+        if conv.RuntimeType.IsValueType then
+            CommonExprs.callOpNot (CommonExprs.getNullableHasValue conv.RuntimeType arg)
+        else
+            CommonExprs.callOpEquality arg (Expr.Value(null))
+
+    let private generatePropertyCreation
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (name: string)
+        (optional: bool)
+        (schemaType: JsonSchemaType)
+        (arg: Expr)
+        =
+        let conv = convert context typeMap schemaType
+        let toJson = wrapOptionalToJson conv optional
+
+        if optional then
+            let isNull = generateIsNullCheck conv arg
+
+            let thenBranch = Expr.NewArray(typeof<string * JsonValue>, [])
+
+            let elseBranch =
+                Expr.NewArray(
+                    typeof<string * JsonValue>,
+                    [ Expr.NewTuple
+                          [ Expr.Value(name)
+                            Expr.Application(toJson, arg) ]
+                    ]
+                )
+
+            Expr.IfThenElse(isNull, thenBranch, elseBranch)
+        else
+            Expr.NewArray(
+                typeof<string * JsonValue>,
+                [ Expr.NewTuple
+                      [ Expr.Value(name)
+                        Expr.Application(toJson, arg) ]
+                ]
+            )
+
+
+    // Extracts the MethodInfo behind a two-argument top-level function, e.g.
+    //   methodInfoOf2 <@ fun (a: float) (b: string) -> Number.create a b @>
+    let methodInfoOf2 (expr: Expr<'a -> 'b -> 'c>) =
+        match expr with
+        | Lambdas(_, Call(_, mi, _)) -> mi
+        | _ -> failwith "Expected a quotation of the form <@ fun a b -> SomeModule.someFunction a b @>"
+
+    // Extracts the MethodInfo behind a one-argument top-level function, e.g.
+    //  methodInfoOf <@ fun (a: float) -> Number.create a @>
+    let methodInfoOf1 (expr: Expr<'a -> 'b -> 'c>) =
+        match expr with
+        | Lambdas(_, Call(_, mi, _)) -> mi
+        | _ -> failwith "Expected a quotation of the form <@ fun a b -> SomeModule.someFunction a b @>"
+
+
+    // Parse always evaluates to Result<'T, string list>, unlike Create: its input is an arbitrary
+    // string, so it can fail even when the node is FullyCompilable. SkipRuntimeValidation is
+    // respected like in Create - only the syntax check remains, so JSON of the wrong shape can
+    // raise inside toRuntime. toRuntime is a closed lambda JsonValue -> runtimeType.
+    let generateParseInvokeCode
+        (context: GenerationContext)
+        (path: string)
+        (runtimeType: Type)
+        (toRuntime: Expr)
+        : Expr list -> Expr =
+
+        let schemaHashCode = context.SchemaHashCode
+        let schemaSource = context.SchemaString
+
+        fun (args: Expr list) ->
+            let parsedVar = Var($"parsed{Guid.NewGuid()}", typeof<Result<JsonValue, string list>>)
+            let parsed = Expr.Var parsedVar
+
+            let isOk = <@@ Result.isOk (%%parsed: Result<JsonValue, string list>) @@>
+            let okValue = <@@ match (%%parsed: Result<JsonValue, string list>) with Ok v -> v | Error _ -> JsonValue.Null @@>
+            let errorValue = <@@ match (%%parsed: Result<JsonValue, string list>) with Error e -> e | Ok _ -> [] @@>
+
+            // Same Expr.NewUnionCase construction as Create's primitive/list/oneOf branch below:
+            // the success type is only known here, so Result<runtimeType, _> is built by reflection.
+            let resultType = typedefof<Result<_, _>>.MakeGenericType(runtimeType, typeof<string list>)
+            let cases = Reflection.FSharpType.GetUnionCases resultType
+            let okCase, errorCase = cases.[0], cases.[1]
+
+            Expr.Let(
+                parsedVar,
+                (if context.CompileFlags.SkipRuntimeValidation then
+                     <@@ parseOnly (%%args[0]: string) @@>
+                 else
+                     <@@ parseAndValidate path (%%args[0]: string) schemaHashCode schemaSource @@>),
+                Expr.IfThenElse(
+                    isOk,
+                    Expr.NewUnionCase(okCase, [ Expr.Application(toRuntime, okValue) ]),
+                    Expr.NewUnionCase(errorCase, [ errorValue ])
+                )
+            )
+
+    let generateCreateInvokeCode
+        (context: GenerationContext)
+        (typeMap: TypeMap)
+        (schemaType: JsonSchemaType)
+        : Expr list -> Expr =
+
+        // Plain locals extracted up front so the quotations below only ever close over ordinary
+        // values (int/string), never `context` itself - a quoted `context.SchemaHashCode` would
+        // try to splice the whole GenerationContext record into the generated code.
+        let schemaHashCode = context.SchemaHashCode
+        let schemaSource = context.SchemaString
+
+        match schemaType with
+        | JsonObject(keywords, properties) ->
+            fun (args: Expr list) ->
+                let elementType = typedefof<(string * JsonValue)[]>
+
+                let elements =[
+                    for (name, itemType), arg in List.zip properties args ->
+                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) itemType arg
+                    ]
+
+                let fields = Expr.NewArray(elementType, elements)
+
+                let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
+
+                // #region create-object
+                let conv = convert context typeMap schemaType
+                let record = Expr.Application(conv.ToRuntime, jsonValExpr)
+
+                if context.CompileFlags.SkipRuntimeValidation || isObjectFullyCompilable context typeMap keywords properties then
+                    record
+                else
+                    let path = keywords.common.Path
+                    <@@ validateJsonSchema path (%%record: NullableJsonValue) schemaHashCode schemaSource @@>
+                // #endregion
+
+
+        // Only hitting this branch when the type is at the root of the json Schema
+        // never gets its own Create when nested as a property, so this always validates against
+        // the whole schema directly, no path lookup needed.
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
+            fun (args: Expr list) ->
+                
+                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaType).FullyCompilable then
+                    match schemaType with
+                    // An array's ToJson can normalise the term (uniqueItems drops duplicates), so round-trip it.
+                    | JsonArray _ ->
+                        let conv = convert context typeMap schemaType
+                        Expr.Application(conv.ToRuntime, Expr.Application(conv.ToJson, args[0]))
+                    | _ -> args[0]
+                else
+                    let conv = convert context typeMap schemaType
+                    let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
+                    let jsonValExpr = Expr.Var jsonValVar
+                    let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
+
+                    let path = pathOf schemaType
+                    let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
+
+                    // The success payload is the validated JSON converted back (ToRuntime), not args[0], so a
+                    // oneOf tag is normalized to the matching branch - the same value Parse would give.
+                    // Result<successType, _> is built directly with Expr.NewUnionCase, since successType
+                    // isn't resolved until here, same as the Choice1/Choice2 construction above.
+                    let successType = conv.RuntimeType
+                    let resultType = typedefof<Result<_, _>>.MakeGenericType(successType, typeof<string list>)
+                    let cases = Reflection.FSharpType.GetUnionCases resultType
+                    let okCase, errorCase = cases.[0], cases.[1]
+
+                    let errorsVar = Var($"validationErrors{Guid.NewGuid()}", typeof<string list>)
+                    let isEmpty = <@@ List.isEmpty (%%(Expr.Var errorsVar): string list) @@>
+
+                    Expr.Let(
+                        jsonValVar,
+                        Expr.Application(conv.ToJson, args[0]),
+                        Expr.Let(
+                            errorsVar,
+                            errorsExpr,
+                            Expr.IfThenElse(
+                                isEmpty,
+                                Expr.NewUnionCase(okCase, [ Expr.Application(conv.ToRuntime, jsonValExpr) ]),
+                                Expr.NewUnionCase(errorCase, [ Expr.Var errorsVar ])
+                            )
+                        )
+                    )

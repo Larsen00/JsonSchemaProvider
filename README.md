@@ -1,4 +1,4 @@
-# JsonSchemaProvider: refined F# types from JSON Schema
+# RefinedJsonSchemaProvider: refined F# types from JSON Schema
 
 An F# type provider that turns a JSON Schema into F# types, and its constraints into refined types
 wherever F# can express them.
@@ -11,14 +11,14 @@ let schema = """
   "items": { "type": "integer", "minimum": 0, "maximum": 255 },
   "minItems": 1
 }"""
-type NonEmpty = JsonSchemaProvider<schema = schema>
+type NonEmpty = RefinedJsonSchemaProvider<schema = schema>
 
 let numbers = NonEmpty.Create((1uy, [ 2uy; 3uy ]))   // byte * byte list: an empty array can't be built
 ```
 
 This is a fork of [Florian Lorenzen's JsonSchemaProvider](https://github.com/florenzen/JsonSchemaProvider),
-extended as my master's thesis at DTU. It is not the `JsonSchemaProvider` package on NuGet; that
-one is the original. See [Credits](#credits).
+extended as my master's thesis at DTU. It is renamed RefinedJsonSchemaProvider so it can't be
+confused with the original `JsonSchemaProvider` package on NuGet. See [Credits](#credits).
 
 > **Status:** research code from a master's thesis. It works and is well tested, but the API can
 > change and parts of JSON Schema aren't supported yet ([Limitations](#limitations)). If you use it,
@@ -59,36 +59,36 @@ specification as far as NJsonSchema does; see [Limitations](#limitations).
 ## Install
 
 You need the .NET SDK 10. The library targets `netstandard2.0`. The fork isn't on NuGet yet, so
-pack it locally, with a version that can't clash with the original package:
+pack it locally:
 
 ```bash
 git clone https://github.com/Larsen00/JsonSchemaProvider.git
 cd JsonSchemaProvider
-dotnet pack src/JsonSchemaProvider.Runtime/JsonSchemaProvider.fsproj -c Release -p:IsNuGet=true -p:Version=0.2.0-local -o ./nupkg
+dotnet pack src/RefinedJsonSchemaProvider.Runtime/RefinedJsonSchemaProvider.fsproj -c Release -p:IsNuGet=true -p:Version=0.2.0-local -o ./nupkg
 ```
 
 `-p:IsNuGet=true` is required, since it bundles the design-time assembly. Then, in your project:
 
 ```bash
-dotnet nuget add source /absolute/path/to/JsonSchemaProvider/nupkg -n jsonschemaprovider-local
-dotnet add package JsonSchemaProvider --version 0.2.0-local
+dotnet nuget add source /absolute/path/to/JsonSchemaProvider/nupkg -n refinedjsonschemaprovider-local
+dotnet add package RefinedJsonSchemaProvider --version 0.2.0-local
 ```
 
 Alternatively, reference the projects directly:
 
 ```xml
-<ProjectReference Include="..\JsonSchemaProvider\src\JsonSchemaProvider.Runtime\JsonSchemaProvider.fsproj" />
-<ProjectReference Include="..\JsonSchemaProvider\src\JsonSchemaProvider.DesignTime\JsonSchemaProvider.DesignTime.fsproj"
+<ProjectReference Include="..\JsonSchemaProvider\src\RefinedJsonSchemaProvider.Runtime\RefinedJsonSchemaProvider.fsproj" />
+<ProjectReference Include="..\JsonSchemaProvider\src\RefinedJsonSchemaProvider.DesignTime\RefinedJsonSchemaProvider.DesignTime.fsproj"
                   ReferenceOutputAssembly="false" />
 ```
 
 Or, in an F# script, after a `dotnet build`:
 
 ```fsharp
-#I "path/to/JsonSchemaProvider/src/JsonSchemaProvider.Runtime/bin/Debug/netstandard2.0"
+#I "path/to/JsonSchemaProvider/src/RefinedJsonSchemaProvider.Runtime/bin/Debug/netstandard2.0"
 #r "FSharp.Data.Json.Core.dll"
 #r "NJsonSchema.dll"
-#r "JsonSchemaProvider.dll"
+#r "RefinedJsonSchemaProvider.dll"
 ```
 
 ## Usage
@@ -96,7 +96,7 @@ Or, in an F# script, after a `dotnet build`:
 ### Objects
 
 ```fsharp
-open JsonSchemaProvider
+open RefinedJsonSchemaProvider
 
 [<Literal>]
 let personSchema = """
@@ -110,7 +110,7 @@ let personSchema = """
   "required": ["name", "tags"]
 }"""
 
-type Person = JsonSchemaProvider<schema = personSchema>
+type Person = RefinedJsonSchemaProvider<schema = personSchema>
 
 match Person.Parse """{ "name": "Ada", "age": 36, "tags": ["math"] }""" with
 | Ok person -> printfn "%s is %A" person.name person.age   // Ada is Some 36uy
@@ -158,7 +158,7 @@ let rgbSchema = """
   "minItems": 3,
   "maxItems": 3
 }"""
-type Rgb = JsonSchemaProvider<schema = rgbSchema>
+type Rgb = RefinedJsonSchemaProvider<schema = rgbSchema>
 
 let colour = Rgb.Create((255uy, (128uy, 0uy)))   // no Result needed
 Rgb.ToTuple colour                               // (255uy, 128uy, 0uy)
@@ -214,7 +214,7 @@ A `oneOf` becomes a `Choice`, and object branches get their own types:
 
 ```fsharp
 // "payment": { "oneOf": [ { object with "iban" }, { object with "cardNumber" } ] }
-type Order = JsonSchemaProvider<schema = orderSchema>
+type Order = RefinedJsonSchemaProvider<schema = orderSchema>
 
 match Order.Parse json with
 | Ok order ->
@@ -234,7 +234,7 @@ branch is rejected, as the spec requires.
 ```fsharp
 [<Literal>]
 let path = __SOURCE_DIRECTORY__ + "/schemas/config.schema.json"
-type Config = JsonSchemaProvider<schemaFile = path>
+type Config = RefinedJsonSchemaProvider<schemaFile = path>
 ```
 
 Use `__SOURCE_DIRECTORY__`, because a relative path is resolved against the compiler's working

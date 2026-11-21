@@ -5,7 +5,7 @@
 // be used to run the script in the debugger.
 // Breakpoints can be set in the code of the type provider.
 
-open JsonSchemaProvider
+open RefinedJsonSchemaProvider
 
 [<Literal>]
 let flatObject =
@@ -20,7 +20,7 @@ let flatObject =
       "required": ["Y"]
     }"""
 
-type FlatObject = JsonSchemaProvider<schema=flatObject>
+type FlatObject = RefinedJsonSchemaProvider<schema=flatObject>
 
 let fo0 = FlatObject.Create(Y = "y", Z = 1)
 
@@ -69,7 +69,7 @@ let nestedObjects =
       "required": ["body"]
     }"""
 
-type NestedObjects = JsonSchemaProvider<schema=nestedObjects>
+type NestedObjects = RefinedJsonSchemaProvider<schema=nestedObjects>
 
 let no1 =
     NestedObjects.Parse(
@@ -128,7 +128,7 @@ let nestedArrayWithObjectItems =
       }
     }"""
 
-type NestedArrayWithObjectItems = JsonSchemaProvider<schema=nestedArrayWithObjectItems>
+type NestedArrayWithObjectItems = RefinedJsonSchemaProvider<schema=nestedArrayWithObjectItems>
 
 let nawoi0 =
     NestedArrayWithObjectItems.Create([ [ NestedArrayWithObjectItems.valuesObj.Create(propA = 5) ] ])
