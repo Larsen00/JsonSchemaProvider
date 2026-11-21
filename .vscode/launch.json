@@ -5,13 +5,13 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "fsi debugUtils/debug.fsx",
+            "name": "fsi debugUtils/Debug.fsx",
             "type": "coreclr",
             "request": "launch",
             "preLaunchTask": "build",
             "program": "/usr/share/dotnet/sdk/8.0.204/FSharp/fsi.dll",
             "args": [
-                "/workspaces/RefinedJsonSchemaProvider/debugUtils/debug.fsx"
+                "/workspaces/RefinedJsonSchemaProvider/debugUtils/Debug.fsx"
             ],
             "cwd": "${workspaceFolder}",
             "stopAtEntry": false,
