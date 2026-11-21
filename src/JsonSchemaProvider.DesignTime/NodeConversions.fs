@@ -316,6 +316,7 @@ module NodeConversions =
         (arrayKeywords: JsonArray.Keywords)
         : ProviderConfiguration.ArrayConversion =
 
+        // #elide-start buildArrayConversion
         // Default conversion for F# list arrays based on their inner type.
         let defaultArrayConversion: ProviderConfiguration.ArrayConversion =
             // Extract the inner type conversion
@@ -369,24 +370,32 @@ module NodeConversions =
 
 
 
+        // #elide-end buildArrayConversion
         match classifyArrayShape context.CompileFlags innerType arrayKeywords with
 
         // Invalid case: minItems greater than maxItems
         | InvalidBounds _ ->
+            // #elide-start buildArrayConversion
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
+            // #elide-end buildArrayConversion
 
         // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
-        // If IgnoreSpecificKeywords is set, we need to fallback to runtime validation regardless of other keyword combinations.
+        // If RefinedTypes is off, we need to fallback to runtime validation regardless of other keyword combinations.
         | UnsupportedKeywords _ ->
+            // #elide-start buildArrayConversion
             { defaultArrayConversion with common.FullyCompilable = false }
+            // #elide-end buildArrayConversion
 
         // Exact-size, exactly one element left: just the element itself
         | ExactLength(_, _, 1) ->
+            // #elide-start buildArrayConversion
             buildSingleItemConversion arrayKeywords (convert context typeMap innerType)
+            // #elide-end buildArrayConversion
 
         // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
         // same exact-length shape with n - 1
         | ExactLength(_, _, n) ->
+            // #elide-start buildArrayConversion
             let inner = convert context typeMap innerType
             let tailKeywords =
                 { arrayKeywords with
@@ -394,10 +403,11 @@ module NodeConversions =
                     specific.MaxItems = Some(n - 1) }
             let headTail = buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
             { headTail with specific.ToTuple = Some(buildExactLengthToTuple n inner headTail.common.RuntimeType) }
+            // #elide-end buildArrayConversion
 
         // minItems mandatory prefix: (Head, Tail) where Tail recurses with minItems decremented
         // by one (dropping to None once exhausted) and maxItems decremented by one
-        | MinItemsPrefix(_, _, minItems, maxItems) ->
+        | MinItemsPrefix(_, _, (minItems: int), (maxItems: int option)) ->
             let inner = convert context typeMap innerType
             let tailKeywords =
                 { arrayKeywords with
@@ -407,29 +417,37 @@ module NodeConversions =
 
         // maxItems = 1: option<inner>, the empty array or exactly one item.
         | MaxItemsSingle _ ->
+            // #elide-start buildArrayConversion
             let inner = convert context typeMap innerType
             buildOptionConversion inner (buildSingleItemConversion arrayKeywords inner)
+            // #elide-end buildArrayConversion
 
         // maxItems > 1: option<(inner * tail)>, the empty array or one item followed by at most
         // maxItems - 1 more, the tail built by recursing on this same function.
         | MaxItemsChain(_, _, maxItems) ->
+            // #elide-start buildArrayConversion
             let inner = convert context typeMap innerType
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
             buildOptionConversion inner (buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords)
+            // #elide-end buildArrayConversion
 
         // Default case: unbounded list.
         | Unbounded _ -> defaultArrayConversion
 
         // uniqueItems, no size bound: the plain list, with duplicates dropped on the way to JSON.
         | UniqueUnbounded _ ->
+            // #elide-start buildArrayConversion
             { defaultArrayConversion with
                 common.ToJson = dropDuplicatesAfter defaultArrayConversion.common.ToJson defaultArrayConversion.common.RuntimeType }
+            // #elide-end buildArrayConversion
 
         // uniqueItems + maxItems: the option chain built without uniqueItems (so its tails don't
         // drop duplicates on their own), with duplicates dropped from the whole array on the way to JSON.
         | UniqueMaxItems _ ->
+            // #elide-start buildArrayConversion
             let chain = buildArrayConversion context typeMap innerType { arrayKeywords with specific.UniqueItems = false }
             { chain with common.ToJson = dropDuplicatesAfter chain.common.ToJson chain.common.RuntimeType }
+            // #elide-end buildArrayConversion
 
     // Shared by ExactLength (n > 1) and MinItemsPrefix: peels one head off the array and
     // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
