@@ -59,6 +59,74 @@ module NodeConversions =
         { Convert = CommonExprs.freshLambda "value" runtimeType body
           CompileTimeReturnType = typedefof<_ list>.MakeGenericType inner.CompileTimeType }
 
+    // Exactly one item: the item itself, with no tuple around it. The base case of ExactLength,
+    // and what MaxItemsSingle wraps in an option.
+    let private buildSingleItemConversion (arrayKeywords: JsonArray.Keywords) (inner: ProviderConfiguration.NodeConversion) : ProviderConfiguration.ArrayConversion =
+        let toRuntime =
+            withJsonArrayLambda (fun jsonArrVar ->
+                Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>))
+
+        let toJson =
+            CommonExprs.freshLambda "runtimeObj" inner.RuntimeType (fun runtimeObjVar ->
+                CommonExprs.newJsonValueArray (
+                    Expr.NewArray(typeof<JsonValue>, [ Expr.Application(inner.ToJson, Expr.Var runtimeObjVar) ])
+                ))
+
+        let toList =
+            buildToList inner inner.RuntimeType (fun valueVar ->
+                CommonExprs.newListSingleton inner.RuntimeType (Expr.Var valueVar))
+
+        { common =
+            { CompileTimeType = inner.CompileTimeType
+              RuntimeType = inner.RuntimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
+          specific = { ToList = toList; ToTuple = None } }
+
+    // Wraps the conversion of a non-empty array in an option: None is the empty array, Some holds the non-empty array.
+    // Both maxItems shapes are built this way, from one item (MaxItemsSingle) or a head and a tail (MaxItemsChain).
+    let private buildOptionConversion (inner: ProviderConfiguration.NodeConversion) (nonEmpty: ProviderConfiguration.ArrayConversion) : ProviderConfiguration.ArrayConversion =
+        let present = nonEmpty.common
+        let compileTimeType = typedefof<option<_>>.MakeGenericType [| present.CompileTimeType |]
+        let runtimeType = typedefof<option<_>>.MakeGenericType [| present.RuntimeType |]
+
+        // Some (present.ToRuntime jsonVal) if the array has at least one element, otherwise None.
+        let toRuntime =
+            CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (fun jsonValVar ->
+                let jsonArrVar = Var($"jsonArr{Guid.NewGuid()}", typeof<JsonValue[]>)
+                Expr.Let(
+                    jsonArrVar,
+                    CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar),
+                    Expr.IfThenElse(
+                        hasAtLeastOneElement jsonArrVar,
+                        CommonExprs.newOptionSome present.RuntimeType (Expr.Application(present.ToRuntime, Expr.Var jsonValVar)),
+                        CommonExprs.newOptionNone present.RuntimeType)))
+
+        // Some x -> present.ToJson x | None -> []
+        let toJson =
+            CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
+                Expr.IfThenElse(
+                    CommonExprs.getOptionIsSome present.RuntimeType (Expr.Var runtimeObjVar),
+                    Expr.Application(present.ToJson, CommonExprs.getOptionValue present.RuntimeType (Expr.Var runtimeObjVar)),
+                    CommonExprs.emptyJsonValueArray))
+
+        // Some x -> nonEmpty.ToList x | None -> []
+        let toList =
+            buildToList inner runtimeType (fun valueVar ->
+                Expr.IfThenElse(
+                    CommonExprs.getOptionIsSome present.RuntimeType (Expr.Var valueVar),
+                    Expr.Application(nonEmpty.specific.ToList.Convert, CommonExprs.getOptionValue present.RuntimeType (Expr.Var valueVar)),
+                    CommonExprs.newListEmpty inner.RuntimeType))
+
+        { common =
+            { CompileTimeType = compileTimeType
+              RuntimeType = runtimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = present.FullyCompilable }
+          specific = { ToList = toList; ToTuple = None } }
+
     // Builds `fun runtimeObj -> JsonEquality.distinctItems (toJson runtimeObj)`, keeping each first occurrence.
     let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
         CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
@@ -299,31 +367,9 @@ module NodeConversions =
         | UnsupportedKeywords _ ->
             { defaultArrayConversion with common.FullyCompilable = false }
 
-        // Exact-size, exactly one element left: same base case as MaxItemsSingle - just the element itself
+        // Exact-size, exactly one element left: just the element itself
         | ExactLength(_, _, 1) ->
-            let inner = convert context typeMap innerType
-
-            let toRuntime =
-                withJsonArrayLambda (fun jsonArrVar ->
-                    Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>))
-
-            let toJson =
-                CommonExprs.freshLambda "runtimeObj" inner.RuntimeType (fun runtimeObjVar ->
-                    CommonExprs.newJsonValueArray (
-                        Expr.NewArray(typeof<JsonValue>, [ Expr.Application(inner.ToJson, Expr.Var runtimeObjVar) ])
-                    ))
-
-            let toList =
-                buildToList inner inner.RuntimeType (fun valueVar ->
-                    CommonExprs.newListSingleton inner.RuntimeType (Expr.Var valueVar))
-
-            { common =
-                { CompileTimeType = inner.CompileTimeType
-                  RuntimeType = inner.RuntimeType
-                  ToRuntime = toRuntime
-                  ToJson = toJson
-                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
-              specific = { ToList = toList; ToTuple = None } }
+            buildSingleItemConversion arrayKeywords (convert context typeMap innerType)
 
         // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
         // same exact-length shape with n - 1
@@ -346,131 +392,17 @@ module NodeConversions =
                     specific.MaxItems = maxItems |> Option.map (fun m -> m - 1) }
             buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords
 
-        // maxItems = 1: option<inner>.
+        // maxItems = 1: option<inner>, the empty array or exactly one item.
         | MaxItemsSingle _ ->
-            // Extract the inner type
             let inner = convert context typeMap innerType
+            buildOptionConversion inner (buildSingleItemConversion arrayKeywords inner)
 
-            // Define the compile-time and runtime types for the option<inner> conversion.
-            let compileTimeType = typedefof<option<_>>.MakeGenericType [| inner.CompileTimeType |]
-            let runtimeType = typedefof<option<_>>.MakeGenericType [| inner.RuntimeType |]
-
-            let toRuntime =
-                withJsonArrayLambda (
-                    fun jsonArrVar ->
-                        
-                        // Get the first element of the JSON array.
-                        let element = CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>
-
-                        let some =
-                            CommonExprs.newOptionSome
-                                inner.RuntimeType
-                                (Expr.Application(inner.ToRuntime, element))
-                        
-                        // Return Some(inner) if the array has at least one element, otherwise return None.
-                        Expr.IfThenElse(hasAtLeastOneElement jsonArrVar, some, CommonExprs.newOptionNone inner.RuntimeType)
-                    )
-
-            let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (
-                    fun runtimeObjVar ->
-                        let thenBranch =
-                            CommonExprs.newJsonValueArray (
-                                Expr.NewArray(
-                                    typeof<JsonValue>,
-                                    [ Expr.Application(inner.ToJson, CommonExprs.getOptionValue inner.RuntimeType (Expr.Var runtimeObjVar)) ]
-                                )
-                            )
-                        Expr.IfThenElse(CommonExprs.getOptionIsSome inner.RuntimeType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray)
-                    )
-
-            // Some x -> [x] | None -> []
-            let toList =
-                buildToList inner runtimeType (fun valueVar ->
-                    let thenBranch = CommonExprs.newListSingleton inner.RuntimeType (CommonExprs.getOptionValue inner.RuntimeType (Expr.Var valueVar))
-                    Expr.IfThenElse(CommonExprs.getOptionIsSome inner.RuntimeType (Expr.Var valueVar), thenBranch, CommonExprs.newListEmpty inner.RuntimeType))
-
-            { common =
-                { CompileTimeType = compileTimeType
-                  RuntimeType = runtimeType
-                  ToRuntime = toRuntime
-                  ToJson = toJson
-                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable }
-              specific = { ToList = toList; ToTuple = None } }
-
-        // maxItems > 1: option<(inner * tail)>, tail built by recursing on this same function.
+        // maxItems > 1: option<(inner * tail)>, the empty array or one item followed by at most
+        // maxItems - 1 more, the tail built by recursing on this same function.
         | MaxItemsChain(_, _, maxItems) ->
-
             let inner = convert context typeMap innerType
-
-            // Build the tail conversion by recursively calling this function with MaxItems decreased by 1.
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
-            let tailArray = buildArrayConversion context typeMap innerType tailKeywords
-            let tail = tailArray.common
-
-            // Build the compile-time and runtime types for the option containing the pair of head and tail.
-            let compileTimePairType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.CompileTimeType; tail.CompileTimeType |]
-            let compileTimeType = typedefof<option<_>>.MakeGenericType [| compileTimePairType |]
-            let pairType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType [| inner.RuntimeType; tail.RuntimeType |]
-            let runtimeType = typedefof<option<_>>.MakeGenericType [| pairType |]
-
-            let toRuntime =
-                withJsonArrayLambda (fun jsonArrVar ->
-                    // Convert the head element of the array to its runtime representation.
-                    let headRuntime = Expr.Application(inner.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>)
-                    
-                    // Convert the tail of the array to its runtime representation.
-                    let tailJsonValue =
-                        CommonExprs.newJsonValueArray (CommonExprs.callArraySkip 1 (Expr.Var jsonArrVar) typeof<JsonValue>)
-                    
-                    let tailRuntime = Expr.Application(tail.ToRuntime, tailJsonValue)
-                    
-                    let some = CommonExprs.newOptionSome pairType (Expr.NewTuple [ headRuntime; tailRuntime ])
-                    
-                    // If the array has at least one element, wrap the converted pair in Some; otherwise, return None.
-                    Expr.IfThenElse(hasAtLeastOneElement jsonArrVar, some, CommonExprs.newOptionNone pairType)
-                )
-
-            let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
-                    let pairVar = Var($"pair{Guid.NewGuid()}", pairType)
-                    let headBack = Expr.Application(inner.ToJson, Expr.TupleGet(Expr.Var pairVar, 0))
-                    let tailBack = Expr.Application(tail.ToJson, Expr.TupleGet(Expr.Var pairVar, 1))
-                    let thenBranch =
-                        Expr.Let(
-                            pairVar,
-                            CommonExprs.getOptionValue pairType (Expr.Var runtimeObjVar),
-                            CommonExprs.newJsonValueArray (
-                                CommonExprs.callArrayAppend
-                                    (Expr.NewArray(typeof<JsonValue>, [ headBack ]))
-                                    (CommonExprs.callJsonValueAsArray tailBack)
-                                    typeof<JsonValue>
-                            )
-                        )
-                    Expr.IfThenElse(CommonExprs.getOptionIsSome pairType (Expr.Var runtimeObjVar), thenBranch, CommonExprs.emptyJsonValueArray))
-
-            // Some(h, t) -> h :: tail.ToList(t) | None -> []
-            let toList =
-                buildToList inner runtimeType (fun valueVar ->
-                    let pairVar = Var($"pair{Guid.NewGuid()}", pairType)
-                    let headExpr = Expr.TupleGet(Expr.Var pairVar, 0)
-                    let tailExpr = Expr.TupleGet(Expr.Var pairVar, 1)
-                    let tailListExpr = Expr.Application(tailArray.specific.ToList.Convert, tailExpr)
-                    let thenBranch =
-                        Expr.Let(
-                            pairVar,
-                            CommonExprs.getOptionValue pairType (Expr.Var valueVar),
-                            CommonExprs.newListCons inner.RuntimeType headExpr tailListExpr
-                        )
-                    Expr.IfThenElse(CommonExprs.getOptionIsSome pairType (Expr.Var valueVar), thenBranch, CommonExprs.newListEmpty inner.RuntimeType))
-
-            { common =
-                { CompileTimeType = compileTimeType
-                  RuntimeType = runtimeType
-                  ToRuntime = toRuntime
-                  ToJson = toJson
-                  FullyCompilable = arrayKeywords.common.CanBeCompiled && inner.FullyCompilable && tail.FullyCompilable }
-              specific = { ToList = toList; ToTuple = None } }
+            buildOptionConversion inner (buildHeadTailConversion context typeMap innerType arrayKeywords inner tailKeywords)
 
         // Default case: unbounded list.
         | Unbounded _ -> defaultArrayConversion
