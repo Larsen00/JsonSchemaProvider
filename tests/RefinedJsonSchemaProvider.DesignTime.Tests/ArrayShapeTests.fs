@@ -9,23 +9,23 @@ module ArrayShapeTests =
 
     let private classifyWith (flags: CompileFlags) (schemaText: string) =
         match parseJsonSchema schemaText with
-        | JsonArray(inner, keywords) -> classifyArrayShape flags inner keywords
+        | JsonArray(inner, keywords) -> classifyArrayShape flags keywords
         | other -> failwithf "Expected an array schema, got %A" other
 
     let private classify = classifyWith defaultFlags
 
     let private shapeName (shape: ArrayShape) =
         match shape with
-        | InvalidBounds _ -> "InvalidBounds"
-        | UnsupportedKeywords _ -> "UnsupportedKeywords"
-        | ExactLength(_, _, n) -> $"ExactLength {n}"
-        | MinItemsPrefix(_, _, minItems) -> $"MinItemsPrefix {minItems}"
-        | MinMaxItems(_, _, minItems, maxItems) -> $"MinMaxItems {minItems} {maxItems}"
-        | MaxItemsSingle _ -> "MaxItemsSingle"
-        | MaxItemsChain(_, _, maxItems) -> $"MaxItemsChain {maxItems}"
-        | Unbounded _ -> "Unbounded"
-        | UniqueUnbounded _ -> "UniqueUnbounded"
-        | UniqueMaxItems(_, _, maxItems) -> $"UniqueMaxItems {maxItems}"
+        | InvalidBounds -> "InvalidBounds"
+        | UnsupportedKeywords -> "UnsupportedKeywords"
+        | ExactLength n -> $"ExactLength {n}"
+        | MinItemsPrefix minItems -> $"MinItemsPrefix {minItems}"
+        | MinMaxItems(minItems, maxItems) -> $"MinMaxItems {minItems} {maxItems}"
+        | MaxItemsSingle -> "MaxItemsSingle"
+        | MaxItemsChain maxItems -> $"MaxItemsChain {maxItems}"
+        | Unbounded -> "Unbounded"
+        | UniqueUnbounded -> "UniqueUnbounded"
+        | UniqueMaxItems maxItems -> $"UniqueMaxItems {maxItems}"
 
     let private expectShape (schemaText: string) (expected: string) =
         Expect.equal (shapeName (classify schemaText)) expected schemaText

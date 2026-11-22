@@ -408,6 +408,25 @@ module internal CommonExprs =
     let callArrayAppend (array1: Expr) (array2: Expr) (elementType: Type) : Expr =
         Expr.Call(arrayAppendMethodInfo elementType, [ array1; array2 ])
 
+    /// <summary>Builds an Expr that evaluates `jsonArray.[0]`, the head of a JSON array.</summary>
+    /// <param name="jsonArray">The expression producing the JsonValue array.</param>
+    /// <returns>An Expr evaluating to the first JsonValue of the array.</returns>
+    let jsonArrayHead (jsonArray: Expr) : Expr =
+        callArrayGet 0 jsonArray typeof<JsonValue>
+
+    /// <summary>Builds an Expr that evaluates `JsonValue.Array(Array.skip 1 jsonArray)`, the tail of a JSON array.</summary>
+    /// <param name="jsonArray">The expression producing the JsonValue array.</param>
+    /// <returns>An Expr evaluating to a JsonValue array holding every item but the first.</returns>
+    let jsonArrayTail (jsonArray: Expr) : Expr =
+        newJsonValueArray (callArraySkip 1 jsonArray typeof<JsonValue>)
+
+    /// <summary>Builds an Expr that evaluates `JsonValue.Array(Array.append [| head |] (tail.AsArray()))`.</summary>
+    /// <param name="head">The expression producing the JsonValue to put first.</param>
+    /// <param name="tail">The expression producing a JsonValue array to put after it.</param>
+    /// <returns>An Expr evaluating to a JsonValue array that starts with `head` followed by the items of `tail`.</returns>
+    let prependToJsonArray (head: Expr) (tail: Expr) : Expr =
+        newJsonValueArray (callArrayAppend (Expr.NewArray(typeof<JsonValue>, [ head ])) (callJsonValueAsArray tail) typeof<JsonValue>)
+
     /// <summary>Builds an Expr that evaluates `getChoice1Of2 choice`, extracting the first case of a two-way choice.</summary>
     /// <param name="headType">The type of the choice's first case.</param>
     /// <param name="tailType">The type of the choice's remaining cases.</param>

@@ -17,14 +17,14 @@ module IntegerShapeTests =
     // "Unsupported", or the picked type plus "enforced" when the type alone enforces the bounds.
     let private shapeName (shape: IntegerShape) =
         match shape with
-        | InvalidIntegerBounds _ -> "InvalidBounds"
-        | UnboundedInteger(_, NoBounds) -> "NoBounds"
-        | UnboundedInteger(_, NoLowerBound integerType) -> $"NoLowerBound %A{integerType}"
-        | UnboundedInteger(_, NoUpperBound integerType) -> $"NoUpperBound %A{integerType}"
-        | UnboundedInteger(_, RangeTooWide integerType) -> $"RangeTooWide %A{integerType}"
-        | UnsupportedIntegerKeywords _ -> "Unsupported"
-        | SizedInteger(_, integerType, true) -> $"%A{integerType} enforced"
-        | SizedInteger(_, integerType, false) -> $"%A{integerType} validated"
+        | InvalidIntegerBounds -> "InvalidBounds"
+        | UnboundedInteger(NoBounds) -> "NoBounds"
+        | UnboundedInteger(NoLowerBound integerType) -> $"NoLowerBound %A{integerType}"
+        | UnboundedInteger(NoUpperBound integerType) -> $"NoUpperBound %A{integerType}"
+        | UnboundedInteger(RangeTooWide integerType) -> $"RangeTooWide %A{integerType}"
+        | UnsupportedIntegerKeywords -> "Unsupported"
+        | SizedInteger(integerType, true) -> $"%A{integerType} enforced"
+        | SizedInteger(integerType, false) -> $"%A{integerType} validated"
 
     // An integer schema; `keywords` is spliced in after "type", e.g. ", \"minimum\": 0".
     let private integer (keywords: string) = """{ "type": "integer" """ + keywords + " }"

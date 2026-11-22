@@ -71,12 +71,12 @@ module NodeConversions =
     let private buildSingleItemConversion (arrayKeywords: JsonArray.Keywords) (item: ProviderConfiguration.NodeConversion) : ProviderConfiguration.NodeConversion =
         let toRuntime =
             withJsonArrayLambda (fun jsonArrVar ->
-                Expr.Application(item.ToRuntime, CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>))
+                Expr.Application(item.ToRuntime, CommonExprs.jsonArrayHead (Expr.Var jsonArrVar)))
 
         let toJson =
-            CommonExprs.freshLambda "runtimeObj" item.RuntimeType (fun runtimeObjVar ->
+            CommonExprs.freshLambda "term" item.RuntimeType (fun termVar ->
                 CommonExprs.newJsonValueArray (
-                    Expr.NewArray(typeof<JsonValue>, [ Expr.Application(item.ToJson, Expr.Var runtimeObjVar) ])
+                    Expr.NewArray(typeof<JsonValue>, [ Expr.Application(item.ToJson, Expr.Var termVar) ])
                 ))
 
         let toList =
@@ -111,10 +111,10 @@ module NodeConversions =
 
         // Some x -> present.ToJson x | None -> []
         let toJson =
-            CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
+            CommonExprs.freshLambda "term" runtimeType (fun termVar ->
                 Expr.IfThenElse(
-                    CommonExprs.getOptionIsSome present.RuntimeType (Expr.Var runtimeObjVar),
-                    Expr.Application(present.ToJson, CommonExprs.getOptionValue present.RuntimeType (Expr.Var runtimeObjVar)),
+                    CommonExprs.getOptionIsSome present.RuntimeType (Expr.Var termVar),
+                    Expr.Application(present.ToJson, CommonExprs.getOptionValue present.RuntimeType (Expr.Var termVar)),
                     CommonExprs.emptyJsonValueArray))
 
         // Some x -> nonEmpty.ToList x | None -> []
@@ -132,10 +132,10 @@ module NodeConversions =
           FullyCompilable = present.FullyCompilable
           Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
-    // Builds `fun runtimeObj -> JsonEquality.distinctItems (toJson runtimeObj)`, keeping each first occurrence.
+    // Builds `fun term -> JsonEquality.distinctItems (toJson term)`, keeping each first occurrence.
     let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
-        CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
-            CommonExprs.callDistinctItems (Expr.Application(toJson, Expr.Var runtimeObjVar)))
+        CommonExprs.freshLambda "term" runtimeType (fun termVar ->
+            CommonExprs.callDistinctItems (Expr.Application(toJson, Expr.Var termVar)))
 
 
     // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
@@ -245,14 +245,14 @@ module NodeConversions =
         // #elide-start convert-conversion
         | JsonInteger keywords ->
             match classifyIntegerShape context.CompileFlags keywords with
-            | InvalidIntegerBounds _ ->
+            | InvalidIntegerBounds ->
                 failwith "A lower bound (minimum or exclusiveMinimum) is above an upper bound (maximum or exclusiveMaximum), so no integer is valid - Please check your schema."
 
-            | UnboundedInteger(_, reason) -> failwith (unboundedIntegerMessage keywords.common.Path reason)
+            | UnboundedInteger(reason) -> failwith (unboundedIntegerMessage keywords.common.Path reason)
 
-            | UnsupportedIntegerKeywords _ -> integerConversion IntegerType.Int32 false
+            | UnsupportedIntegerKeywords -> integerConversion IntegerType.Int32 false
 
-            | SizedInteger(_, integerType, typeEnforcesBounds) ->
+            | SizedInteger(integerType, typeEnforcesBounds) ->
                 integerConversion integerType (keywords.common.CanBeCompiled && typeEnforcesBounds)
 
         | JsonNumber keywords -> {
@@ -354,11 +354,11 @@ module NodeConversions =
                     )
 
             let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (
-                    fun runtimeObjVar ->
+                CommonExprs.freshLambda "term" runtimeType (
+                    fun termVar ->
 
                         // map each element of the list back to a JSON value
-                        let mappedBack = CommonExprs.callListMap item.ToJson (Expr.Var runtimeObjVar) item.RuntimeType typeof<JsonValue>
+                        let mappedBack = CommonExprs.callListMap item.ToJson (Expr.Var termVar) item.RuntimeType typeof<JsonValue>
 
                         // convert the list of JSON values back into a JSON array
                         let arrayOfList = CommonExprs.callArrayOfList mappedBack typeof<JsonValue>
@@ -383,30 +383,30 @@ module NodeConversions =
 
 
         // #elide-end buildArrayConversion
-        match classifyArrayShape context.CompileFlags itemType arrayKeywords with
+        match classifyArrayShape context.CompileFlags arrayKeywords with
 
         // Invalid case: minItems greater than maxItems
-        | InvalidBounds _ ->
+        | InvalidBounds ->
             // #elide-start buildArrayConversion
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
             // #elide-end buildArrayConversion
 
         // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
         // If RefinedTypes is off, we need to fallback to runtime validation regardless of other keyword combinations.
-        | UnsupportedKeywords _ ->
+        | UnsupportedKeywords ->
             // #elide-start buildArrayConversion
             { defaultArrayConversion with FullyCompilable = false }
             // #elide-end buildArrayConversion
 
         // Exact-size, exactly one element left: just the element itself
-        | ExactLength(_, _, 1) ->
+        | ExactLength 1 ->
             // #elide-start buildArrayConversion
             buildSingleItemConversion arrayKeywords (convert context typeMap itemType)
             // #elide-end buildArrayConversion
 
         // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
         // same exact-length shape with n - 1
-        | ExactLength(_, _, n) ->
+        | ExactLength n ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
             let tailKeywords =
@@ -419,7 +419,7 @@ module NodeConversions =
 
         // minItems, no maxItems: (Head, Tail) where Tail recurses with minItems decremented by one,
         // dropping to None once exhausted, so the tail ends as a plain list
-        | MinItemsPrefix(_, _, minItems) ->
+        | MinItemsPrefix minItems ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
             let tailKeywords =
@@ -430,7 +430,7 @@ module NodeConversions =
 
         // minItems < maxItems: (Head, Tail) where Tail recurses with both bounds decremented by one;
         // once minItems is exhausted it is dropped, and the tail becomes a maxItems shape
-        | MinMaxItems(_, _, minItems, maxItems) ->
+        | MinMaxItems(minItems, maxItems) ->
             let item = convert context typeMap itemType
             let tailKeywords =
                 { arrayKeywords with
@@ -439,7 +439,7 @@ module NodeConversions =
             buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
 
         // maxItems = 1: option<item>, the empty array or exactly one item.
-        | MaxItemsSingle _ ->
+        | MaxItemsSingle ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
             buildOptionConversion item (buildSingleItemConversion arrayKeywords item)
@@ -447,7 +447,7 @@ module NodeConversions =
 
         // maxItems > 1: option<(item * tail)>, the empty array or one item followed by at most
         // maxItems - 1 more, the tail built by recursing on this same function.
-        | MaxItemsChain(_, _, maxItems) ->
+        | MaxItemsChain maxItems ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
@@ -455,10 +455,10 @@ module NodeConversions =
             // #elide-end buildArrayConversion
 
         // Default case: unbounded list.
-        | Unbounded _ -> defaultArrayConversion
+        | Unbounded -> defaultArrayConversion
 
         // uniqueItems, no size bound: the plain list, with duplicates dropped on the way to JSON.
-        | UniqueUnbounded _ ->
+        | UniqueUnbounded ->
             // #elide-start buildArrayConversion
             { defaultArrayConversion with
                 ToJson = dropDuplicatesAfter defaultArrayConversion.ToJson defaultArrayConversion.RuntimeType }
@@ -467,10 +467,9 @@ module NodeConversions =
         // uniqueItems + maxItems: the option chain built without uniqueItems (so its tails don't
         // drop duplicates on their own), with duplicates dropped from the whole array on the way to JSON.
         | UniqueMaxItems _ ->
-            // #elide-start buildArrayConversion
-            let chain = buildArrayConversion context typeMap itemType { arrayKeywords with specific.UniqueItems = false }
+            let chain =
+                buildArrayConversion context typeMap itemType { arrayKeywords with specific.UniqueItems = false }
             { chain with ToJson = dropDuplicatesAfter chain.ToJson chain.RuntimeType }
-            // #elide-end buildArrayConversion
 
     // Shared by ExactLength (n > 1), MinItemsPrefix and MinMaxItems: peels one head off the array and
     // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
@@ -502,27 +501,25 @@ module NodeConversions =
         let toRuntime =
             // #elide-start buildHeadTailConversion
             withJsonArrayLambda (fun jsonArrVar ->
-                let headJson = CommonExprs.callArrayGet 0 (Expr.Var jsonArrVar) typeof<JsonValue>
-                let tailJson =
-                    CommonExprs.newJsonValueArray (CommonExprs.callArraySkip 1 (Expr.Var jsonArrVar) typeof<JsonValue>)
+                let headJson = CommonExprs.jsonArrayHead (Expr.Var jsonArrVar)
+                let tailJson = CommonExprs.jsonArrayTail (Expr.Var jsonArrVar)
                 let headRuntime = Expr.Application(item.ToRuntime, headJson)
                 let tailRuntime = Expr.Application(tail.ToRuntime, tailJson)
-                Expr.NewTuple [ headRuntime; tailRuntime ])
+                Expr.NewTuple [ headRuntime; tailRuntime ]
+            )
             // #elide-end buildHeadTailConversion
         // #endregion head-tail-to-runtime
 
         // #region head-tail-to-json
         let toJson =
             // #elide-start buildHeadTailConversion
-            CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
-                let headBack = Expr.Application(item.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 0))
-                let tailBack = Expr.Application(tail.ToJson, Expr.TupleGet(Expr.Var runtimeObjVar, 1))
-                CommonExprs.newJsonValueArray (
-                    CommonExprs.callArrayAppend
-                        (Expr.NewArray(typeof<JsonValue>, [ headBack ]))
-                        (CommonExprs.callJsonValueAsArray tailBack)
-                        typeof<JsonValue>
-                ))
+            CommonExprs.freshLambda "term" runtimeType (fun termVar ->
+                let headRuntime = Expr.TupleGet(Expr.Var termVar, 0)
+                let tailRuntime = Expr.TupleGet(Expr.Var termVar, 1)
+                let headJson = Expr.Application(item.ToJson, headRuntime)
+                let tailJson = Expr.Application(tail.ToJson, tailRuntime)
+                CommonExprs.prependToJsonArray headJson tailJson
+            )
             // #elide-end buildHeadTailConversion
         // #endregion head-tail-to-json
 
@@ -573,10 +570,10 @@ module NodeConversions =
                     Expr.IfThenElse(headMatches, thenBranch, elseBranch))
 
             let toJson =
-                CommonExprs.freshLambda "runtimeObj" runtimeType (fun runtimeObjVar ->
-                    let isChoice1 = Expr.UnionCaseTest(Expr.Var runtimeObjVar, choice1)
-                    let headValue = CommonExprs.callGetChoice1Of2 head.RuntimeType tail.RuntimeType (Expr.Var runtimeObjVar)
-                    let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var runtimeObjVar)
+                CommonExprs.freshLambda "term" runtimeType (fun termVar ->
+                    let isChoice1 = Expr.UnionCaseTest(Expr.Var termVar, choice1)
+                    let headValue = CommonExprs.callGetChoice1Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
+                    let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
                     Expr.IfThenElse(isChoice1, Expr.Application(head.ToJson, headValue), Expr.Application(tail.ToJson, tailValue)))
 
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable; Specific = NoSpecific }

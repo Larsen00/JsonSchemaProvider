@@ -51,13 +51,13 @@ module IntegerShape =
     // The shapes an integer can have depending on its keywords.
     type IntegerShape =
         // A lower bound above an upper bound: no integer is valid, so the provider reports a compile error.
-        | InvalidIntegerBounds of JsonNumber.Keywords
+        | InvalidIntegerBounds
         // With requireIntegerBounds: some valid instance would overflow, so the provider reports a compile error.
-        | UnboundedInteger of JsonNumber.Keywords * UnboundedReason
+        | UnboundedInteger of UnboundedReason
         // refinedTypes = false with bounds present: int, runtime-validated.
-        | UnsupportedIntegerKeywords of JsonNumber.Keywords
+        | UnsupportedIntegerKeywords
         // The integer type picked from the bounds; validated at runtime unless the type alone enforces them.
-        | SizedInteger of JsonNumber.Keywords * IntegerType * typeEnforcesBounds: bool
+        | SizedInteger of IntegerType * typeEnforcesBounds: bool
 
     // Each lower bound as the smallest integer it allows, e.g. exclusiveMinimum -1 gives 0.
     let private lowerBounds (specific: JsonNumber.Specific) : decimal list =
@@ -101,7 +101,7 @@ module IntegerShape =
     let private sizedInteger (keywords: JsonNumber.Keywords) (integerType: IntegerType) (lowers: decimal list) (uppers: decimal list) =
         let typeMin, typeMax = rangeOf integerType
         let enforced (strictBound: decimal option) (typeLimit: decimal) = Option.forall ((=) typeLimit) strictBound
-        SizedInteger(keywords, integerType, enforced (tryMax lowers) typeMin && enforced (tryMin uppers) typeMax)
+        SizedInteger(integerType, enforced (tryMax lowers) typeMin && enforced (tryMin uppers) typeMax)
 
     // Helper function that turns a set of integer keywords into an IntegerShape value.
     // The loosest bounds pick the type, the strictest are validated (e.g. minimum 0, maximum 11 and exclusiveMaximum 256 give byte).
@@ -128,8 +128,8 @@ module IntegerShape =
 
         match lowers, uppers, unboundedReason with
         // Checked before the flags, like minItems > maxItems for arrays.
-        | _ :: _, _ :: _, _ when List.max lowers > List.min uppers -> InvalidIntegerBounds keywords
-        | _, _, Some reason when compileFlags.RequireIntegerBounds -> UnboundedInteger(keywords, reason)
-        | [], [], _ -> SizedInteger(keywords, IntegerType.Int32, true)
-        | _ when not compileFlags.RefinedTypes -> UnsupportedIntegerKeywords keywords
+        | _ :: _, _ :: _, _ when List.max lowers > List.min uppers -> InvalidIntegerBounds
+        | _, _, Some reason when compileFlags.RequireIntegerBounds -> UnboundedInteger reason
+        | [], [], _ -> SizedInteger(IntegerType.Int32, true)
+        | _ when not compileFlags.RefinedTypes -> UnsupportedIntegerKeywords
         | _ -> sizedInteger keywords integerType lowers uppers

@@ -68,8 +68,8 @@ module Draft2020KeywordTests =
                   test keyword {
                       match parseJsonSchema schemaText with
                       | JsonArray(inner, keywords) ->
-                          match classifyArrayShape defaultFlags inner keywords with
-                          | UnsupportedKeywords _ -> ()
+                          match classifyArrayShape defaultFlags keywords with
+                          | UnsupportedKeywords -> ()
                           | shape -> failtestf "Expected UnsupportedKeywords, got %A" shape
                       | other -> failtestf "Expected an array, got %A" other
 

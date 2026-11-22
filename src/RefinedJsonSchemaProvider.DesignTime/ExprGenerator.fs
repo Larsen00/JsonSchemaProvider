@@ -214,15 +214,19 @@ module ExprGenerator =
                 // #endregion
 
 
-        // Only hitting this branch when the type is at the root of the json Schema
-        // never gets its own Create when nested as a property, so this always validates against
-        // the whole schema directly, no path lookup needed.
+        // Create for a root that is not an object. Such a node never gets its own Create when it is
+        // nested as a property, so the validating path checks the whole schema, no path lookup needed.
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
             fun (args: Expr list) ->
                 
                 if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaType).FullyCompilable then
                     match schemaType with
-                    // An array's ToJson can normalise the term (uniqueItems drops duplicates), so round-trip it.
+                    // An array is sent through JSON and back. ToJson drops the duplicates of every uniqueItems
+                    // array inside it, and it throws on a null list or pair anywhere in the term.
+                    // Possible improvement: the round trip converts every array twice, also those that need
+                    // neither. A flag in ArrayHelpers saying whether ToJson changes the term (set by the unique
+                    // shapes and passed up from the items and the tail) would let other arrays skip it, but the
+                    // null check would then need a walk of its own.
                     | JsonArray _ ->
                         let conv = convert context typeMap schemaType
                         Expr.Application(conv.ToRuntime, Expr.Application(conv.ToJson, args[0]))
