@@ -1,19 +1,12 @@
 namespace RefinedJsonSchemaProvider
 
-// Every JSON Schema "type" keyword (object/array/integer/number/string/boolean) gets its own
-// module here, each exposing a `Keywords` record split into:
-//   - `common`  : keywords any schema node can have regardless of `type` (currently just Path -
-//                 this node's own JSON Pointer position in the root schema; room for
-//                 Title/Description/Default/Enum/Const later)
-//   - `specific`: keywords only that `type` supports (the table JSON Schema itself draws between
-//                 "core"/"metadata" keywords and per-type "validation" keywords)
+// One module per JSON type, each with a Keywords record of common and type-specific keywords.
 // #region common-keywords
 module Common =
     type Keywords = {
         // #elide-start
         Path: string
-        // A local promise only: true when this node's own JSON (not its children's) 
-        // has nothing that would require runtime validation.
+        // True when the node's own keywords, not its children's, need no runtime validation.
         // #elide-end
         CanBeCompiled: bool
     }
@@ -41,11 +34,7 @@ module JsonArray =
     type Keywords = { common: Common.Keywords; specific: Specific }
 
 module JsonNumber =
-    // Shared by both "integer" and "number" - the numeric range/multipleOf keywords apply the
-    // same way regardless of which of the two the schema declares. JsonInteger/JsonNumber (the
-    // JsonSchemaType cases built from this) still track that distinction themselves; it's not a
-    // keyword, so it doesn't live here.
-    // decimal, as NJsonSchema stores them, so 64-bit integer bounds like Int64.MaxValue stay exact.
+    // Shared by integer and number nodes; decimal, as in NJsonSchema, keeps 64-bit bounds exact.
     type Specific = {
         Minimum: decimal option
         Maximum: decimal option
@@ -65,5 +54,5 @@ module JsonString =
     type Keywords = { common: Common.Keywords; specific: Specific }
 
 module JsonBoolean =
-    // No boolean-specific validation keywords exist in JSON Schema - only `common` applies.
+    // JSON Schema has no boolean-specific keywords, so only common applies.
     type Keywords = { common: Common.Keywords }

@@ -6,6 +6,6 @@ module SchemaValidationExprs =
     open FSharp.Data
     open RefinedJsonSchemaProvider.SchemaValidation
 
-    // Returns an F# quotation expression that validates a JsonValue against the schema and returns a boolean indicating success.
+    // A quotation that is true when the JsonValue is valid against the subschema at path.
     let validateJsonSchemaExpr (jsonValExpr: Expr) schemaHashCode schemaSource path =
         <@@ validateJsonSchema path (%%jsonValExpr: JsonValue) schemaHashCode schemaSource |> Result.isOk @@>

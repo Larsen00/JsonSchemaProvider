@@ -43,9 +43,7 @@ module ProviderConfiguration =
         SkipRuntimeValidation: bool // unsafe: invalid JSON may fail later at runtime
         RefinedTypes: bool // false: no refined types, every type-specific keyword is validated at runtime
         RequireIntegerBounds: bool // strict: integers must have bounds that fit their type, so Parse can't overflow
-        // #omit-start
         UseConversionCache: bool // reuse a node's NodeConversion instead of rebuilding it on every convert call
-        // #omit-end
     }
 
     // Shared data for one generation run, passed through every generation function.

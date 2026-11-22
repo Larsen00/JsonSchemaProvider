@@ -60,11 +60,11 @@ module SchemaValidation =
             // A float outside decimal's range, read as a double like NJsonSchema does.
             read Newtonsoft.Json.FloatParseHandling.Double
 
-    // Returns the schema errors for jsonText, empty when it's valid.
+    // The errors of jsonText against the subschema at path, empty when it is valid.
     let collectValidationErrors (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : string list =
         let rootschema = SchemaCache.retrieveSchema schemaHashCode schemaSource
 
-        // This allow us to validate a nested class on .create if the path is '#' then we are at the root.
+        // "#" is the root; any other path is the subschema of a nested node.
         let subschema =
             if path = "#" then rootschema
             else SchemaCache.resolveByPath rootschema path
@@ -86,23 +86,19 @@ module SchemaValidation =
         // #old |> Seq.map (fun validationError -> validationError.ToString())
         // #old |> Seq.toList
 
-    // Validates a JsonValue against the schema and returns a Result indicating success or failure.
+    // Ok with the term when it is valid against the subschema at path, otherwise Error with the messages.
     let validateJsonSchema path record (schemaHashCode: int32) (schemaSource: string) =
         match collectValidationErrors path (record.ToString()) schemaHashCode schemaSource with
         | [] -> Ok record
         | errors -> Error errors
 
-    // Parse's entry point under SkipRuntimeValidation: syntax check only, no schema validation.
-    // Malformed JSON is still an Error, but JSON of the wrong shape passes through and can raise
-    // later, when converted to the typed value.
+    // Parse under skipRuntimeValidation: only checks that jsonText is JSON.
     let parseOnly (jsonText: string) : Result<JsonValue, string list> =
         match JsonValue.TryParse jsonText with
         | None -> Error [ "Invalid JSON: " + jsonText ]
         | Some jsonValue -> Ok jsonValue
 
-    // Parse's default entry point: syntactically parses jsonText, then validates it against the
-    // sub-schema at path ("#" for the root). Malformed JSON is reported as an Error too. Parse can still
-    // raise afterwards, when a valid integer doesn't fit its F# type, unless requireIntegerBounds is set.
+    // Parse by default: checks that jsonText is JSON and valid against the subschema at path.
     let parseAndValidate (path: string) (jsonText: string) (schemaHashCode: int32) (schemaSource: string) : Result<JsonValue, string list> =
         match parseOnly jsonText with
         | Error errors -> Error errors

@@ -6,6 +6,7 @@ open FSharp.Core.CompilerServices
 open ProviderImplementation.ProvidedTypes
 open RefinedJsonSchemaProvider
 
+// The type provider itself: registers RefinedJsonSchemaProvider and its static parameters.
 [<TypeProvider>]
 type RefinedJsonSchemaProviderImpl(config: TypeProviderConfig) as this =
     inherit
@@ -32,6 +33,7 @@ type RefinedJsonSchemaProviderImpl(config: TypeProviderConfig) as this =
     let jsonSchemaType =
         ProvidedTypeDefinition(thisAssembly, namespaceName, "RefinedJsonSchemaProvider", baseType = Some rootBaseType)
 
+    // Builds the provided type for one use of the provider, from its static parameter values.
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
         | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as refinedTypes; :? bool as requireIntegerBounds; :? bool as useConversionCache |] ->

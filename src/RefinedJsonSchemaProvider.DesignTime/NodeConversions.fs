@@ -13,10 +13,10 @@ module NodeConversions =
     open ArrayShape
     open IntegerShape
 
+    // Each object's Path mapped to its provided type.
     type TypeMap = Map<string, ProvidedTypeDefinition>
 
-    // Every type carries its own Path
-    // A root-level node's Path is "#".
+    // The Path of a node; the root's is "#".
     let pathOf (schemaType: JsonSchemaType) : string =
         match schemaType with
         | JsonNumber keywords
@@ -39,11 +39,11 @@ module NodeConversions =
 
         CommonExprs.freshLambda "jsonVal" typeof<JsonValue> body
 
-    // `true` when the JsonValue array behind `jsonArrVar` has at least one element
+    // True when the JSON array in jsonArrVar is non-empty.
     let private hasAtLeastOneElement (jsonArrVar: Var) : Expr =
         <@@ (%%(Expr.Var jsonArrVar): JsonValue[]).Length > 0 @@>
 
-    // Rebuilds the flat n-tuple (n >= 2) from an ExactLength nested-pair value (h1, (h2, ... hn)).
+    // ToTuple for ExactLength n (n >= 2): the nested pairs (h1, (h2, ... hn)) as a flat n-tuple.
     let private buildExactLengthToTuple (n: int) (item: ProviderConfiguration.NodeConversion) (runtimeType: Type) : ProviderConfiguration.RuntimeHelperConversion =
         let rec elems (remaining: int) (current: Expr) : Expr list =
             if remaining = 1 then
@@ -54,20 +54,18 @@ module NodeConversions =
         { Convert = CommonExprs.freshLambda "value" runtimeType (fun valueVar -> Expr.NewTuple(elems n (Expr.Var valueVar)))
           CompileTimeReturnType = Microsoft.FSharp.Reflection.FSharpType.MakeTupleType(Array.create n item.CompileTimeType) }
 
-    // Creates a ToList helper; `body` builds the list from the array value.
+    // A ToList helper, where body builds the list from the term.
     let private buildToList (item: ProviderConfiguration.NodeConversion) (runtimeType: Type) (body: Var -> Expr) : ProviderConfiguration.RuntimeHelperConversion =
         { Convert = CommonExprs.freshLambda "value" runtimeType body
           CompileTimeReturnType = typedefof<_ list>.MakeGenericType item.CompileTimeType }
 
-    // The ToList/ToTuple helpers of an array conversion. Every conversion built for an array node
-    // carries them, so NoSpecific here means a bug in the provider, never a user error.
+    // The ToList/ToTuple helpers of an array conversion; NoSpecific here is a provider bug, not a user error.
     let arrayHelpers (conversion: ProviderConfiguration.NodeConversion) : ProviderConfiguration.ArrayHelpers =
         match conversion.Specific with
         | ArraySpecific helpers -> helpers
         | NoSpecific -> failwith "Internal error: an array conversion is missing its ToList/ToTuple helpers."
 
-    // Exactly one item: the item itself, with no tuple around it. The base case of ExactLength,
-    // and what MaxItemsSingle wraps in an option.
+    // An array of exactly one item as the item itself; the base case of ExactLength and MaxItemsSingle.
     let private buildSingleItemConversion (arrayKeywords: JsonArray.Keywords) (item: ProviderConfiguration.NodeConversion) : ProviderConfiguration.NodeConversion =
         let toRuntime =
             withJsonArrayLambda (fun jsonArrVar ->
@@ -90,8 +88,7 @@ module NodeConversions =
           FullyCompilable = arrayKeywords.common.CanBeCompiled && item.FullyCompilable
           Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
-    // Wraps the conversion of a non-empty array in an option: None is the empty array, Some holds the non-empty array.
-    // Both maxItems shapes are built this way, from one item (MaxItemsSingle) or a head and a tail (MaxItemsChain).
+    // The conversion of a non-empty array wrapped in an option, where None is the empty array.
     let private buildOptionConversion (item: ProviderConfiguration.NodeConversion) (nonEmpty: ProviderConfiguration.NodeConversion) : ProviderConfiguration.NodeConversion =
         let present = nonEmpty
         let compileTimeType = typedefof<option<_>>.MakeGenericType [| present.CompileTimeType |]
@@ -132,11 +129,10 @@ module NodeConversions =
           FullyCompilable = present.FullyCompilable
           Specific = ArraySpecific { ToList = toList; ToTuple = None } }
 
-    // Builds `fun term -> JsonEquality.distinctItems (toJson term)`, keeping each first occurrence.
+    // fun term -> JsonEquality.distinctItems (toJson term), keeping each first occurrence.
     let private dropDuplicatesAfter (toJson: Expr) (runtimeType: Type) : Expr =
         CommonExprs.freshLambda "term" runtimeType (fun termVar ->
             CommonExprs.callDistinctItems (Expr.Application(toJson, Expr.Var termVar)))
-
 
     // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
     let private integerConversion (integerType: IntegerType) (fullyCompilable: bool) : ProviderConfiguration.NodeConversion =
@@ -192,7 +188,7 @@ module NodeConversions =
         + "  B) Or remove requireIntegerBounds=true. This turns the check off for every integer in the schema,\n"
         + "     and numbers outside the type then throw at runtime."
 
-    // Wrapper function to "conversion" that uses a cache to avoid recomputation
+    // The conversion of a node, cached by its Path.
     // #region convert-conversion
     // #region object-fully-compilable
     let rec convert
@@ -212,12 +208,7 @@ module NodeConversions =
 
 
     // #elide-start
-    // Builds everything there is to know about turning one JsonSchemaType node into F#: its
-    // compile-time type, its runtime/erased type, and the two conversion functions between
-    // JsonValue and that runtime type
-    //
-    // Its done like this because otherwise we needed four separate functions that all needed
-    // to stay in sync with each other. -- a bonus is that we also get better performance with less overhead
+    // The types and conversions of one node, built together so they can't disagree.
     // #elide-end
     // #region array-case
     and conversion
@@ -295,17 +286,13 @@ module NodeConversions =
             }
 
         // #elide-start object-fully-compilable
-        // Since arrays have compile-time type support, the conversion is delegated to the function `buildArrayConversion`.
+        // An array's type depends on its shape, so buildArrayConversion builds it.
         // #elide-end array-case
         | JsonArray(itemType, arrayKeywords) ->
             buildArrayConversion context typeMap itemType arrayKeywords
         // #endregion array-case
 
-        // OneOf types are handled by the `buildOneOfConversion` function. keywords.CanBeCompiled
-        // is about the oneOf node itself (e.g. a stray keyword sitting alongside "oneOf"), which
-        // buildOneOfConversion has no access to - folded in here instead.
-        // With several branches, a value may match more than one (e.g. integer and number), so
-        // "exactly one" always needs runtime validation. A single branch cannot overlap itself.
+        // Several branches can overlap (e.g. integer and number), so only a single branch skips validation.
         | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
             let branchesCannotOverlap = List.isEmpty tail
@@ -318,10 +305,7 @@ module NodeConversions =
 
     
 
-    // Performs the recursive conversion for array types based on their item type and array keywords.
-    //
-    // Note: this assumes minItems and maxItems can never be 0 - a 0 value is converted to None in
-    // SchemaConversion.fs.
+    // The conversion of an array node by its ArrayShape; minItems and maxItems are never 0 here.
     and buildArrayConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -330,49 +314,33 @@ module NodeConversions =
         : ProviderConfiguration.NodeConversion =
 
         // #elide-start buildArrayConversion
-        // Default conversion for F# list arrays based on their item type.
+        // The plain list conversion of the shapes without a compiled size.
         let defaultArrayConversion: ProviderConfiguration.NodeConversion =
-            // Extract the item type conversion
             let item = convert context typeMap itemType
 
-            // The compile-time and runtime types for the list based on the item type conversion
             let compileTimeType = typedefof<_ list>.MakeGenericType item.CompileTimeType
             let runtimeType     = typedefof<_ list>.MakeGenericType item.RuntimeType
 
             let toRuntime =
                 CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (
                     fun jsonValVar ->
-
-                        // Calls asArray on the JSON value to get it as an array
                         let asArray = CommonExprs.callJsonValueAsArray (Expr.Var jsonValVar)
-
-                        // Maps each element of the JSON array to its runtime representation using the item type conversion
                         let mapped = CommonExprs.callArrayMap item.ToRuntime asArray typeof<JsonValue> item.RuntimeType
-
-                        // Turns the array in to a list
                         CommonExprs.callListOfArray mapped item.RuntimeType
                     )
 
             let toJson =
                 CommonExprs.freshLambda "term" runtimeType (
                     fun termVar ->
-
-                        // map each element of the list back to a JSON value
                         let mappedBack = CommonExprs.callListMap item.ToJson (Expr.Var termVar) item.RuntimeType typeof<JsonValue>
-
-                        // convert the list of JSON values back into a JSON array
                         let arrayOfList = CommonExprs.callArrayOfList mappedBack typeof<JsonValue>
-
-                        // create a new JSON array from the array of JSON values (Reverse of asArray)
                         CommonExprs.newJsonValueArray arrayOfList
                     )
 
-            // Already a list, so ToList returns it unchanged.
+            // Already a list, so ToList evaluates to the term itself.
             let toList = buildToList item runtimeType (fun valueVar -> Expr.Var valueVar)
 
-            // Every shape with minItems gets its own conversion, so MinItems is None whenever this
-            // list is used as the node's type; the check only guards against a future shape that
-            // falls back to the list while keeping minItems.
+            // MinItems is always None here; the check guards a future shape that falls back to the list.
             { CompileTimeType = compileTimeType
               RuntimeType = runtimeType
               ToRuntime = toRuntime
@@ -385,27 +353,24 @@ module NodeConversions =
         // #elide-end buildArrayConversion
         match classifyArrayShape context.CompileFlags arrayKeywords with
 
-        // Invalid case: minItems greater than maxItems
         | InvalidBounds ->
             // #elide-start buildArrayConversion
             failwith "MinItems cannot be greater than MaxItems - Please check your schema."
             // #elide-end buildArrayConversion
 
-        // Keyword combinations that does not have a compiled type -> so we gonna fallback to runtime validation
-        // If RefinedTypes is off, we need to fallback to runtime validation regardless of other keyword combinations.
+        // No compiled type for these keywords, so the plain list is validated at runtime.
         | UnsupportedKeywords ->
             // #elide-start buildArrayConversion
             { defaultArrayConversion with FullyCompilable = false }
             // #elide-end buildArrayConversion
 
-        // Exact-size, exactly one element left: just the element itself
+        // One item left: the item itself.
         | ExactLength 1 ->
             // #elide-start buildArrayConversion
             buildSingleItemConversion arrayKeywords (convert context typeMap itemType)
             // #elide-end buildArrayConversion
 
-        // Exact-size tuple, more than one element left: (Head, Tail) where Tail recurses on the
-        // same exact-length shape with n - 1
+        // (head, tail), where the tail has exactly n - 1 items.
         | ExactLength n ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
@@ -417,8 +382,7 @@ module NodeConversions =
             { headTail with Specific = ArraySpecific { arrayHelpers headTail with ToTuple = Some(buildExactLengthToTuple n item headTail.RuntimeType) } }
             // #elide-end buildArrayConversion
 
-        // minItems, no maxItems: (Head, Tail) where Tail recurses with minItems decremented by one,
-        // dropping to None once exhausted, so the tail ends as a plain list
+        // (head, tail), where the tail has minItems - 1 and ends as a plain list.
         | MinItemsPrefix minItems ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
@@ -428,8 +392,7 @@ module NodeConversions =
             buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
             // #elide-end buildArrayConversion
 
-        // minItems < maxItems: (Head, Tail) where Tail recurses with both bounds decremented by one;
-        // once minItems is exhausted it is dropped, and the tail becomes a maxItems shape
+        // (head, tail), where the tail has both bounds lowered by one and ends as a maxItems shape.
         | MinMaxItems(minItems, maxItems) ->
             let item = convert context typeMap itemType
             let tailKeywords =
@@ -438,15 +401,14 @@ module NodeConversions =
                     specific.MaxItems = Some(maxItems - 1) }
             buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
 
-        // maxItems = 1: option<item>, the empty array or exactly one item.
+        // The empty array or one item.
         | MaxItemsSingle ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
             buildOptionConversion item (buildSingleItemConversion arrayKeywords item)
             // #elide-end buildArrayConversion
 
-        // maxItems > 1: option<(item * tail)>, the empty array or one item followed by at most
-        // maxItems - 1 more, the tail built by recursing on this same function.
+        // The empty array, or one item followed by at most maxItems - 1 more.
         | MaxItemsChain maxItems ->
             // #elide-start buildArrayConversion
             let item = convert context typeMap itemType
@@ -454,27 +416,22 @@ module NodeConversions =
             buildOptionConversion item (buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords)
             // #elide-end buildArrayConversion
 
-        // Default case: unbounded list.
         | Unbounded -> defaultArrayConversion
 
-        // uniqueItems, no size bound: the plain list, with duplicates dropped on the way to JSON.
+        // The plain list, with duplicates dropped on the way to JSON.
         | UniqueUnbounded ->
             // #elide-start buildArrayConversion
             { defaultArrayConversion with
                 ToJson = dropDuplicatesAfter defaultArrayConversion.ToJson defaultArrayConversion.RuntimeType }
             // #elide-end buildArrayConversion
 
-        // uniqueItems + maxItems: the option chain built without uniqueItems (so its tails don't
-        // drop duplicates on their own), with duplicates dropped from the whole array on the way to JSON.
+        // Built without uniqueItems, so only the whole array drops duplicates, not each tail.
         | UniqueMaxItems _ ->
-            let chain =
+            let nestedPairs =
                 buildArrayConversion context typeMap itemType { arrayKeywords with specific.UniqueItems = false }
-            { chain with ToJson = dropDuplicatesAfter chain.ToJson chain.RuntimeType }
+            { nestedPairs with ToJson = dropDuplicatesAfter nestedPairs.ToJson nestedPairs.RuntimeType }
 
-    // Shared by ExactLength (n > 1), MinItemsPrefix and MinMaxItems: peels one head off the array and
-    // recurses via `buildArrayConversion` on `tailKeywords` for the rest, producing (Head, Tail).
-    // Splitting a value of this shape into head/tail is then just F#'s own tuple destructuring -
-    // no runtime logic needed beyond building the pair itself.
+    // The pair (head, tail) of a non-empty array, where the tail is built from tailKeywords.
     and private buildHeadTailConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -544,7 +501,7 @@ module NodeConversions =
         }
 
 
-    // Choice has a limit of 7 generic parameters, so more than 2 branches nest as Choice<T1, Choice<T2, Choice<T3, ...>>>
+    // The conversion of oneOf branches as nested Choice<head, tail>, since Choice has at most seven cases.
     and buildOneOfConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -578,7 +535,7 @@ module NodeConversions =
 
             { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable; Specific = NoSpecific }
 
-    // An object is fully compilable if it can be compiled itself (no stray keywords) and all of its properties are fully compilable.
+    // True when the object's own keywords compile and every property is fully compilable.
     // #elide-end object-fully-compilable
     and isObjectFullyCompilable
         (context: GenerationContext)
@@ -591,12 +548,14 @@ module NodeConversions =
         keywords.common.CanBeCompiled && List.forall isCompilable properties
     // #endregion object-fully-compilable
 
+    // The type of a property getter: an option when the property is optional.
     let optionalOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then
             typedefof<_ option>.MakeGenericType(dotnetType)
         else
             dotnetType
 
+    // The type of a Create parameter: Nullable when it is optional and a value type.
     let nullableOrPlainType (optional: bool) (dotnetType: Type) : Type =
         if optional then
             if dotnetType.IsValueType then
@@ -606,9 +565,11 @@ module NodeConversions =
         else
             dotnetType
 
+    // The default of an optional Create parameter: an empty Nullable or null.
     let defaultValueForNullableType (compileTimeType: Type) : obj =
         if compileTimeType.IsValueType then Nullable() else null
 
+    // The type of the Create parameter for a node.
     let schemaTypeToMethodParameterType
         (context: GenerationContext)
         (typeMap: TypeMap)

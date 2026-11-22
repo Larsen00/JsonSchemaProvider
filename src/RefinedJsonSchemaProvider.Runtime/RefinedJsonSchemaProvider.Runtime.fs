@@ -6,8 +6,7 @@ open FSharp.Data
 open System
 open Newtonsoft.Json.Serialization
 
-// Wraps a raw JsonValue so generated properties can return "this or null"
-// (nullable = how optional object/list properties are represented).
+// The runtime type of every object node, a JsonValue that may be null.
 [<AllowNullLiteral>]
 type NullableJsonValue(jsonVal: JsonValue) =
     member val JsonVal = jsonVal
@@ -16,7 +15,7 @@ type NullableJsonValue(jsonVal: JsonValue) =
 
 // Avoids re-parsing the same schema text every time Parse/Create runs.
 module SchemaCache =
-    // hashCode of the schema text -> already-parsed NJsonSchema object.
+    // The hash code of the schema text mapped to the parsed schema.
     let private cache = ConcurrentDictionary<int, JsonSchema>()
 
     // Parses schema text into an NJsonSchema object (no caching).
@@ -25,11 +24,11 @@ module SchemaCache =
         |> Async.AwaitTask
         |> Async.RunSynchronously
 
-    //  the cached schema if present, else parses it once and caches it.
+    // The cached schema, parsed and cached on first use.
     let retrieveSchema (hashCode: int) (schemaSource: string) =
         cache.GetOrAdd(hashCode, (fun _ -> parseSchema schemaSource))
 
-
+    // The subschema at a JSON Pointer path, e.g. "#/properties/name".
     let resolveByPath (root: JsonSchema) (path: string) : JsonSchema =
         let appender = JsonSchemaAppender(root, DefaultTypeNameGenerator())
         let resolver = JsonReferenceResolver appender

@@ -4,30 +4,30 @@ module ArrayShape =
     open RefinedJsonSchemaProvider
     open SchemaConversion
 
-    // An array have multiple shapes depending on its keywords, we are gonna use this type to help diffrent functions agree on the shapes.
+    // The shapes an array node can have, decided once from its keywords.
     type ArrayShape =
-        // minItems > maxItems - not a valid schema.
+        // minItems > maxItems: no array is valid.
         | InvalidBounds
-        // Keywords with no compile-time encoding here (see classifyArrayShape): bare list, runtime-validated.
+        // Keywords without a compiled type: a plain list, validated at runtime.
         | UnsupportedKeywords
-        // minItems = maxItems = n: exact n-tuple, nothing optional.
+        // minItems = maxItems = n: n items as nested pairs.
         | ExactLength of n: int
-        // minItems, no maxItems: a mandatory prefix of minItems items followed by a plain list.
+        // minItems only: minItems items as nested pairs, ending in a plain list.
         | MinItemsPrefix of minItems: int
-        // minItems < maxItems: a mandatory prefix of minItems items followed by the maxItems - minItems option chain.
+        // minItems < maxItems: minItems items, then the option chain of the remaining maxItems - minItems.
         | MinMaxItems of minItems: int * maxItems: int
-        // maxItems = 1, no minItems floor: option<item>. Base case of the MaxItemsChain recursion.
+        // maxItems = 1 only: an option of one item, the base case of MaxItemsChain.
         | MaxItemsSingle
-        // maxItems > 1, no minItems floor: option<item * tail>, recurses down to MaxItemsSingle.
+        // maxItems > 1 only: an option of an item and a tail with maxItems - 1.
         | MaxItemsChain of maxItems: int
-        // No minItems/maxItems bound at all: plain list, already free (real `::`/List.isEmpty).
+        // No size keywords: a plain list.
         | Unbounded
-        // uniqueItems, no size bound: same plain list as Unbounded, ToJson drops duplicates.
+        // uniqueItems only: the plain list of Unbounded, and ToJson drops duplicates.
         | UniqueUnbounded
-        // uniqueItems + maxItems, no minItems: same option chain as MaxItemsSingle/MaxItemsChain, ToJson drops duplicates.
+        // uniqueItems and maxItems: the option chain of the maxItems shapes, and ToJson drops duplicates.
         | UniqueMaxItems of maxItems: int
 
-    // Helper function that turn a set of array keywords into an ArrayShape value.
+    // Sorts an array node into its ArrayShape.
     let classifyArrayShape
         (compileFlags: ProviderConfiguration.CompileFlags)
         (arrayKeywords: JsonArray.Keywords)
@@ -36,7 +36,7 @@ module ArrayShape =
         | { MinItems = Some minItems; MaxItems = Some maxItems } when minItems > maxItems ->
             InvalidBounds
 
-        // A keyword outside knownKeywordsFor (contains, prefixItems, enum, ...) gets no compiled shape either.
+        // Also when refinedTypes is off or the node has a keyword outside knownKeywordsFor (contains, enum, ...).
         | keys when not compileFlags.RefinedTypes
                     || not arrayKeywords.common.CanBeCompiled
                     || not keys.AllowAdditionalItems

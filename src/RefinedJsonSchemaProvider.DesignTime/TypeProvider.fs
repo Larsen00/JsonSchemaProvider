@@ -13,7 +13,7 @@ module TypeProvider =
     open System.Collections.Concurrent
     open FSharp.Quotations
 
-    // Function that can locate the next fsharpclass inside a type
+    // The objects in a node that aren't inside another object.
     let rec private extractNestedClasses (schemaType: JsonSchemaType)  =
         match schemaType with
         | JsonObject(classID, properties) -> [(classID, properties)]
@@ -21,6 +21,7 @@ module TypeProvider =
         | JsonOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
+    // A new provided type named className + suffix.
     let private createProvidedTypeDefinition (context: GenerationContext) (suffix: string) className =
         ProvidedTypeDefinition(
             context.Assembly,
@@ -39,7 +40,7 @@ module TypeProvider =
             invokeCode = fun args -> Expr.Application(conversion.Convert, args.[0])
         )
 
-    // create providedProperties for classes
+    // The properties of an object's provided type, one getter per property.
     let rec private createProvidedProperties
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -101,9 +102,10 @@ module TypeProvider =
         | JsonOneOf(_, head, tail) ->
             head :: tail
             |> List.iteri (fun i branch -> addArrayHelperTypes context typeMap parent $"{name}Case{i + 1}" branch)
-        // A class gets its own helpers when buildTypeMapHelper builds it.
+        // An object's provided type gets its own helpers in buildTypeMapHelper.
         | JsonObject _ | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> ()
 
+    // One Create parameter; an optional one defaults to null.
     let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) isRequired parameterName =
         let parameterType = schemaTypeToMethodParameterType context typeMap (not isRequired) schemaType
 
@@ -112,6 +114,7 @@ module TypeProvider =
         else
             ProvidedParameter(parameterName, parameterType, false, defaultValueForNullableType parameterType)
 
+    // The Create parameters: one per property for an object, otherwise a single value.
     let rec private createMethodParameters (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) =
         match schemaType with
         | JsonObject (_, []) -> []
@@ -123,7 +126,7 @@ module TypeProvider =
             [ createMethodParameter context typeMap schemaType true "value" ]
 
 
-    // The .create method to create in instance of the provided type
+    // The static Create method of a provided type.
     let private createProvidedCreateMethod
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -140,8 +143,7 @@ module TypeProvider =
         )
 
 
-    // Parse evaluates to Result<valueType, string list> for every root kind - see
-    // ExprGenerator.generateParseInvokeCode for why it can't drop the Result the way Create can.
+    // The static Parse method of a provided type, which always evaluates to a Result.
     let private createProvidedParseMethod
         (context: GenerationContext)
         (path: string)
@@ -158,7 +160,7 @@ module TypeProvider =
             invokeCode = generateParseInvokeCode context path runtimeType toRuntime
         )
 
-    // suffix identifies *why* this class is nested (property vs list item vs oneOf case); the root passes "".
+    // A provided type for every object in a node; suffix says how it is nested ("Obj", "Item", "Case<i>", "" at the root).
     let rec private buildTypeMapHelper
         (context: GenerationContext)
         (suffix: string)
@@ -178,7 +180,7 @@ module TypeProvider =
             nestedTypes
             |> List.iter (fun (_, nestedType) -> providedType.AddMember nestedType)
 
-            // The class itself is registered too, so convert can be called on its own node.
+            // The object's own provided type is added too, so convert works on the object itself.
             let typeMap = Map.ofList ((keywords.common.Path, providedType) :: nestedTypes)
             let conversion = convert context typeMap schemaType
 
@@ -193,7 +195,7 @@ module TypeProvider =
 
             // #omit-start
             // #region object-return-type
-            // Create returns the type directly when it can't fail, otherwise a Result.
+            // Create evaluates to the provided type when it can't fail, otherwise to a Result.
             let returnType =
                 if context.CompileFlags.SkipRuntimeValidation || isObjectFullyCompilable context typeMap keywords properties then
                     providedType :> Type
@@ -228,10 +230,12 @@ module TypeProvider =
         // #omit-end
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
+    // The type map of a node: each object's Path mapped to its provided type.
     let private buildTypeMap context (suffix: string) (name: string) (schemaType: JsonSchemaType) : TypeMap =
         buildTypeMapHelper context suffix name schemaType |> Map.ofList
 
 
+    // Builds the provided type the user gets back, chosen by the kind of root.
     let run
         (schema: JsonSchema)
         (schemaHashCode: int32)
@@ -248,9 +252,7 @@ module TypeProvider =
             RootBaseType = rootBaseType
             SchemaHashCode = schemaHashCode
             SchemaString = schema.ToJson()
-            CompileFlags = compileFlags 
-
-            // An empty conversion cache to store function calls to convert
+            CompileFlags = compileFlags
             ConversionCache = ConcurrentDictionary()
         }
 
@@ -263,7 +265,7 @@ module TypeProvider =
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ as schemaType ->
 
             // #omit-start
-            // Class map contains nested classes inside the type - since a primitive type dont have nested classes this is empty.
+            // A primitive root has no objects, so the type map is empty.
             // #omit-end
             let typeMap = Map.empty
 
@@ -309,7 +311,6 @@ module TypeProvider =
 
             let resultType =
                 if  context.CompileFlags.SkipRuntimeValidation || conversions.FullyCompilable then
-                    // When the conversion is fully compilable, we dont need to use the result wrapper as it dont need validation
                     innerReturnType
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)

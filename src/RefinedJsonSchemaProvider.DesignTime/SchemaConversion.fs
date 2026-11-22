@@ -7,10 +7,10 @@ module SchemaConversion =
     open FSharp.Data
 
 
-    // Jsonobject name
+    // The name of a property in a JSON object.
     type PropertyName = string
 
-    // type Name = string
+    // The intermediate representation of a schema node, one constructor per kind of node.
     type JsonSchemaType =
         | JsonObject of JsonObject.Keywords * List<PropertyName * JsonSchemaType>
         | JsonArray of JsonSchemaType * JsonArray.Keywords
@@ -20,20 +20,15 @@ module SchemaConversion =
         | JsonString of JsonString.Keywords
         // #omit-start
         // TODO: None is missing from the specification
-        | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // Oneof has atleast one element
+        | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // head and tail: oneOf has at least one branch
         // #omit-end
 
 
-    // Annotation keywords, legal anywhere, never affecting validation - plus "$schema", always
-    // injected by NJsonSchema's ToJson() regardless of source.
+    // Annotations, which never affect validation, plus "$schema", which NJsonSchema's ToJson always adds.
     let private alwaysIgnoredKeywords =
         set [ "title"; "description"; "default"; "examples"; "$comment"; "deprecated"; "$schema" ]
 
-    // Keywords allowed without disqualifying a node from CanBeCompiled: structural ones, plus the
-    // array size keywords and the integer bounds, whose compilability depends on their values
-    // and combination and is decided in NodeConversions.fs (via ArrayShape.fs/IntegerShape.fs)
-    // instead. Every other keyword (multipleOf, pattern, minProperties, ...) is never compiled at
-    // all, so its mere presence disqualifies right here.
+    // The keywords a compiled node may have; array sizes and integer bounds are judged later by their shape.
     let private knownKeywordsFor (schemaType: JsonObjectType) : Set<string> =
         match schemaType with
         | JsonObjectType.Array ->
@@ -43,12 +38,10 @@ module SchemaConversion =
         | JsonObjectType.Integer -> set [ "type"; "minimum"; "exclusiveMinimum"; "maximum"; "exclusiveMaximum" ]
         | JsonObjectType.Number -> set [ "type" ]
         | JsonObjectType.Boolean -> set [ "type" ]
-        | JsonObjectType.None -> set [ "oneOf" ] // parseOneOf is the only caller that hits this case
+        | JsonObjectType.None -> set [ "oneOf" ] // only a oneOf node has no type here
         | _ -> Set.empty
 
-    // True when this node's own JSON has no keyword outside knownKeywordsFor. Diffs ToJson()'s
-    // top-level keys rather than reflecting over JsonSchema's ~75 .NET properties, since ToJson()
-    // only round-trips keywords actually present - none of NJsonSchema's derived properties leak in.
+    // True when the node's own JSON has no keyword outside knownKeywordsFor and the annotations.
     let private canBeCompiled (schema: JsonSchema) : bool =
         match JsonValue.Parse(schema.ToJson()) with
         | JsonValue.Record fields ->
@@ -56,14 +49,14 @@ module SchemaConversion =
             fields |> Array.forall (fun (key, _) -> Set.contains key known || Set.contains key alwaysIgnoredKeywords)
         | _ -> false
 
+    // Parses an object node, its properties and which of them are required.
     let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
         let isRequired (name: string) =
             schema.RequiredProperties.Contains name
 
         let initialSpecific : JsonObject.Specific =
             { Required = Map.empty
-              // When minProperties/maxProperties are omitted, NJsonSchema defaults them to 0, same
-              // as MinItems/MaxItems above.
+              // NJsonSchema stores an omitted minProperties/maxProperties as 0.
               MinProperties = if schema.MinProperties > 0 then Some schema.MinProperties else None
               MaxProperties = if schema.MaxProperties > 0 then Some schema.MaxProperties else None
               HasPatternProperties = schema.PatternProperties.Count > 0
@@ -81,24 +74,23 @@ module SchemaConversion =
         ) schema.Properties (initialSpecific, [])
         |> fun (specific, properties) -> JsonObject({ common = common; specific = specific }, properties)
 
+    // Parses an array node, its item schema and its size keywords.
     and private parseArray (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
         let specific : JsonArray.Specific = {
-            // When minItems is omitted, it defaults to 0 according to the JSON Schema specification
+            // An omitted minItems is 0 by the specification, which allows every length.
             MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
-            // When maxItems is omitted, NJsonSchema defaults it to 0, same as MinItems above
+            // NJsonSchema stores an omitted maxItems as 0.
             MaxItems = if schema.MaxItems > 0 then Some schema.MaxItems else None
             UniqueItems = schema.UniqueItems
-            // additionalItems only has meaning for tuple-form `items` (an array of schemas), which
-            // this codebase doesn't model at all yet (schema.Item is always a single schema) - still
-            // captured here so a schema author using it doesn't silently get treated as fully covered.
+            // Only meaningful for tuple-form items, which isn't supported, so it keeps the node from compiling.
             AllowAdditionalItems = schema.AllowAdditionalItems
             HasAdditionalItemsSchema = not (isNull schema.AdditionalItemsSchema)
          }
         JsonArray(parseJsonSchemaStructured rootSchema schema.Item, { common = common; specific = specific })
 
+    // Parses a node by its type keyword.
     and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
-        // Path identifies this node's own position in rootSchema. We use it as a unique id in the
-        // typeMap and also to find this node's own subschema to validate against it.
+        // The Path keys the type map and finds the node's subschema for validation.
         let common : Common.Keywords =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
               CanBeCompiled = canBeCompiled schema }
@@ -131,14 +123,15 @@ module SchemaConversion =
             JsonString { common = common; specific = specific }
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
+    // Parses a oneOf node and its branches.
     and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
-        // Path identifies the oneOf node itself (not any one branch) - lets a nested oneOf be
-        // validated as a whole via its own subschema, same as every other case.
+        // The Path of the oneOf node itself, so a nested oneOf is validated as a whole.
         let common : Common.Keywords =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
               CanBeCompiled = canBeCompiled schema }
         schema.OneOf |> List.ofSeq |> List.map (parseJsonSchemaStructured rootSchema) |> fun l -> JsonOneOf (common, List.head l, List.tail l)
 
+    // Parses a schema node; a node without a type must be a oneOf.
     and parseJsonSchemaStructured (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
 
         match schema.Type with
@@ -150,6 +143,7 @@ module SchemaConversion =
 
         | _ -> parseObjectType rootSchema schema
 
+    // Parses schema text into the intermediate representation.
     let parseJsonSchema (input: string) : JsonSchemaType =
         let schema = SchemaCache.parseSchema input
         parseJsonSchemaStructured schema schema

@@ -4,7 +4,7 @@ module IntegerShape =
     open System
     open RefinedJsonSchemaProvider
 
-    // The F# integer types an integer node can map to. Qualified, so the names don't hide System.Int32 etc.
+    // The F# integer types an integer node can map to; qualified so the names don't hide System.Int32 etc.
     [<RequireQualifiedAccess>]
     type IntegerType =
         | Int8
@@ -67,17 +67,16 @@ module IntegerShape =
     let private upperBounds (specific: JsonNumber.Specific) : decimal list =
         List.choose id [ specific.Maximum |> Option.map floor; specific.ExclusiveMaximum |> Option.map (fun bound -> ceil bound - 1m) ]
 
+    // The smallest and the largest bound, None when there are no bounds.
     let private tryMin (bounds: decimal list) = if List.isEmpty bounds then None else Some(List.min bounds)
     let private tryMax (bounds: decimal list) = if List.isEmpty bounds then None else Some(List.max bounds)
 
+    // True when every bound lies in the range of integerType.
     let private allFitIn (integerType: IntegerType) (bounds: decimal list) : bool =
         let typeMin, typeMax = rangeOf integerType
         List.forall (fun bound -> typeMin <= bound && bound <= typeMax) bounds
 
     // The smallest type every bound fits in: unsigned when the loosest lower bound is >= 0, else signed.
-    // With both a lower and an upper bound every size is a candidate; with only one the smallest is 32 bits,
-    // since the open side would otherwise exclude valid numbers just above a small type's range.
-    // By design (not a bug): the loosest bounds let the author pick the type, e.g. exclusiveMaximum 256 next to maximum 10 gives byte.
     let private chooseIntegerType (lowers: decimal list) (uppers: decimal list) : IntegerType =
         let unsigned =
             match tryMin lowers with
@@ -90,22 +89,22 @@ module IntegerShape =
             else
                 [ IntegerType.Int8; IntegerType.Int16; IntegerType.Int32; IntegerType.Int64 ]
 
+        // With one bound only, the open side needs room, so the smallest candidate is 32 bits.
         let bothSides = not (List.isEmpty lowers || List.isEmpty uppers)
         let candidates = if bothSides then ladder else List.skip 2 ladder
 
-        // The 64-bit type is the fallback when even it can't hold a bound; values beyond it throw like int's do.
+        // The 64-bit type is the fallback when no type holds every bound.
         candidates
         |> List.tryFind (fun integerType -> allFitIn integerType (lowers @ uppers))
         |> Option.defaultValue (List.last candidates)
 
+    // SizedInteger, where the type enforces the bounds when the strictest ones are exactly its limits.
     let private sizedInteger (keywords: JsonNumber.Keywords) (integerType: IntegerType) (lowers: decimal list) (uppers: decimal list) =
         let typeMin, typeMax = rangeOf integerType
         let enforced (strictBound: decimal option) (typeLimit: decimal) = Option.forall ((=) typeLimit) strictBound
         SizedInteger(integerType, enforced (tryMax lowers) typeMin && enforced (tryMin uppers) typeMax)
 
-    // Helper function that turns a set of integer keywords into an IntegerShape value.
-    // The loosest bounds pick the type, the strictest are validated (e.g. minimum 0, maximum 11 and exclusiveMaximum 256 give byte).
-    // With requireIntegerBounds the type must hold every valid instance, so Parse can't overflow.
+    // Sorts an integer node into its IntegerShape; the loosest bounds pick the type, the strictest are validated.
     let classifyIntegerShape
         (compileFlags: ProviderConfiguration.CompileFlags)
         (keywords: JsonNumber.Keywords)
