@@ -482,12 +482,14 @@ module NodeConversions =
 
         // #omit-start buildHeadTailConversion
         // head :: tail.ToList(tail-value)
+        // #region head-tail-to-list
         let toList =
-            buildToList item runtimeType (fun valueVar ->
-                let headExpr = Expr.TupleGet(Expr.Var valueVar, 0)
-                let tailExpr = Expr.TupleGet(Expr.Var valueVar, 1)
-                let tailListExpr = Expr.Application((arrayHelpers tail).ToList.Convert, tailExpr)
-                CommonExprs.newListCons item.RuntimeType headExpr tailListExpr)
+            buildToList item runtimeType (fun termVar ->
+                let headRuntime = Expr.TupleGet(Expr.Var termVar, 0)
+                let tailRuntime = Expr.TupleGet(Expr.Var termVar, 1)
+                let tailList = Expr.Application((arrayHelpers tail).ToList.Convert, tailRuntime)
+                CommonExprs.newListCons item.RuntimeType headRuntime tailList)
+        // #endregion head-tail-to-list
 
         // #omit-end buildHeadTailConversion
         { CompileTimeType = compileTimeType
