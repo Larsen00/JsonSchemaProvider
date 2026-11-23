@@ -512,6 +512,7 @@ module NodeConversions =
 
 
     // The conversion of oneOf branches as nested Choice<head, tail>, since Choice has at most seven cases.
+    // #region oneof-full
     and buildOneOfConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
@@ -523,21 +524,33 @@ module NodeConversions =
         | headType :: restTypes ->
             let head = convert context typeMap headType
             let tail = buildOneOfConversion context typeMap restTypes
+
+            // #region oneof-types
             let compileTimeType =
+                // #elide-start buildOneOfConversion
                 ProvidedTypeBuilder.MakeGenericType(
                     typedefof<Choice<_, _>>,
                     [ head.CompileTimeType; tail.CompileTimeType ])
+                // #elide-end buildOneOfConversion
             let runtimeType =
+                // #elide-start buildOneOfConversion
                 ProvidedTypeBuilder.MakeGenericType(
                     typedefof<Choice<_, _>>,
                     [ head.RuntimeType; tail.RuntimeType ])
+                // #elide-end buildOneOfConversion
+            // #endregion oneof-types
+
+            // #omit-start buildOneOfConversion
+            // #region oneof-cases
             let cases =
                 Microsoft.FSharp.Reflection.FSharpType.GetUnionCases runtimeType
             let choice1, choice2 = cases.[0], cases.[1]
+            // #endregion oneof-cases
 
-            // #elide-start buildOneOfConversion
+            // #omit-end buildOneOfConversion
             // #region oneof-to-runtime
             let toRuntime =
+                // #elide-start buildOneOfConversion
                 CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (fun jsonValVar ->
                     let headMatches =
                         SchemaValidationExprs.validateJsonSchemaExpr
@@ -552,15 +565,25 @@ module NodeConversions =
                         Expr.NewUnionCase(choice2,
                             [ Expr.Application(tail.ToRuntime, Expr.Var jsonValVar) ])
                     Expr.IfThenElse(headMatches, thenBranch, elseBranch))
+                // #elide-end buildOneOfConversion
             // #endregion oneof-to-runtime
 
+            // #region oneof-to-json
             let toJson =
+                // #elide-start buildOneOfConversion
                 CommonExprs.freshLambda "term" runtimeType (fun termVar ->
                     let isChoice1 = Expr.UnionCaseTest(Expr.Var termVar, choice1)
-                    let headValue = CommonExprs.callGetChoice1Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
-                    let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
-                    Expr.IfThenElse(isChoice1, Expr.Application(head.ToJson, headValue), Expr.Application(tail.ToJson, tailValue)))
-            // #elide-end buildOneOfConversion
+                    let headValue =
+                        CommonExprs.callGetChoice1Of2
+                            head.RuntimeType tail.RuntimeType (Expr.Var termVar)
+                    let tailValue =
+                        CommonExprs.callGetChoice2Of2
+                            head.RuntimeType tail.RuntimeType (Expr.Var termVar)
+                    Expr.IfThenElse(isChoice1,
+                        Expr.Application(head.ToJson, headValue),
+                        Expr.Application(tail.ToJson, tailValue)))
+                // #elide-end buildOneOfConversion
+            // #endregion oneof-to-json
 
             { CompileTimeType = compileTimeType
               RuntimeType = runtimeType
@@ -568,9 +591,12 @@ module NodeConversions =
               ToJson = toJson
               FullyCompilable = head.FullyCompilable && tail.FullyCompilable
               // #omit-start buildOneOfConversion
+              // #omit-start oneof-full
               Specific = NoSpecific
+              // #omit-end oneof-full
               // #omit-end buildOneOfConversion
             }
+    // #endregion oneof-full
 
     // True when the object's own keywords compile and every property is fully compilable.
     // #elide-end object-fully-compilable
