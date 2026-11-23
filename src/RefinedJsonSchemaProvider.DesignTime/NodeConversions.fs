@@ -211,13 +211,15 @@ module NodeConversions =
     // The types and conversions of one node, built together so they can't disagree.
     // #elide-end
     // #region array-case
+    // #region oneof-case
     and conversion
         (context: GenerationContext)
         (typeMap: TypeMap)
         (schemaType: JsonSchemaType)
         : ProviderConfiguration.NodeConversion =
-        
+
         match schemaType with
+        // #elide-start oneof-case
         // #elide-start array-case
         // #elide-start object-fully-compilable
         | JsonBoolean keywords -> {
@@ -292,11 +294,17 @@ module NodeConversions =
             buildArrayConversion context typeMap itemType arrayKeywords
         // #endregion array-case
 
+        // #elide-end oneof-case
         // Several branches can overlap (e.g. integer and number), so only a single branch skips validation.
         | JsonOneOf (keywords, head, tail) ->
             let conv = buildOneOfConversion context typeMap (head :: tail)
             let branchesCannotOverlap = List.isEmpty tail
-            { conv with FullyCompilable = keywords.CanBeCompiled && branchesCannotOverlap && conv.FullyCompilable }
+            { conv with
+                FullyCompilable =
+                    keywords.CanBeCompiled
+                    && branchesCannotOverlap
+                    && conv.FullyCompilable }
+        // #endregion oneof-case
         // #elide-end object-fully-compilable
         // #elide-end convert-conversion
         // #endregion
@@ -515,18 +523,36 @@ module NodeConversions =
         | headType :: restTypes ->
             let head = convert context typeMap headType
             let tail = buildOneOfConversion context typeMap restTypes
-            let compileTimeType = ProvidedTypeBuilder.MakeGenericType(typedefof<Choice<_, _>>, [ head.CompileTimeType; tail.CompileTimeType ])
-            let runtimeType = ProvidedTypeBuilder.MakeGenericType(typedefof<Choice<_, _>>, [ head.RuntimeType; tail.RuntimeType ])
-            let cases = Microsoft.FSharp.Reflection.FSharpType.GetUnionCases runtimeType
+            let compileTimeType =
+                ProvidedTypeBuilder.MakeGenericType(
+                    typedefof<Choice<_, _>>,
+                    [ head.CompileTimeType; tail.CompileTimeType ])
+            let runtimeType =
+                ProvidedTypeBuilder.MakeGenericType(
+                    typedefof<Choice<_, _>>,
+                    [ head.RuntimeType; tail.RuntimeType ])
+            let cases =
+                Microsoft.FSharp.Reflection.FSharpType.GetUnionCases runtimeType
             let choice1, choice2 = cases.[0], cases.[1]
 
+            // #elide-start buildOneOfConversion
+            // #region oneof-to-runtime
             let toRuntime =
                 CommonExprs.freshLambda "jsonVal" typeof<JsonValue> (fun jsonValVar ->
                     let headMatches =
-                        SchemaValidationExprs.validateJsonSchemaExpr (Expr.Var jsonValVar) context.SchemaHashCode context.SchemaString (pathOf headType)
-                    let thenBranch = Expr.NewUnionCase(choice1, [ Expr.Application(head.ToRuntime, Expr.Var jsonValVar) ])
-                    let elseBranch = Expr.NewUnionCase(choice2, [ Expr.Application(tail.ToRuntime, Expr.Var jsonValVar) ])
+                        SchemaValidationExprs.validateJsonSchemaExpr
+                            (Expr.Var jsonValVar)
+                            context.SchemaHashCode
+                            context.SchemaString
+                            (pathOf headType)
+                    let thenBranch =
+                        Expr.NewUnionCase(choice1,
+                            [ Expr.Application(head.ToRuntime, Expr.Var jsonValVar) ])
+                    let elseBranch =
+                        Expr.NewUnionCase(choice2,
+                            [ Expr.Application(tail.ToRuntime, Expr.Var jsonValVar) ])
                     Expr.IfThenElse(headMatches, thenBranch, elseBranch))
+            // #endregion oneof-to-runtime
 
             let toJson =
                 CommonExprs.freshLambda "term" runtimeType (fun termVar ->
@@ -534,8 +560,17 @@ module NodeConversions =
                     let headValue = CommonExprs.callGetChoice1Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
                     let tailValue = CommonExprs.callGetChoice2Of2 head.RuntimeType tail.RuntimeType (Expr.Var termVar)
                     Expr.IfThenElse(isChoice1, Expr.Application(head.ToJson, headValue), Expr.Application(tail.ToJson, tailValue)))
+            // #elide-end buildOneOfConversion
 
-            { CompileTimeType = compileTimeType; RuntimeType = runtimeType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = head.FullyCompilable && tail.FullyCompilable; Specific = NoSpecific }
+            { CompileTimeType = compileTimeType
+              RuntimeType = runtimeType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = head.FullyCompilable && tail.FullyCompilable
+              // #omit-start buildOneOfConversion
+              Specific = NoSpecific
+              // #omit-end buildOneOfConversion
+            }
 
     // True when the object's own keywords compile and every property is fully compilable.
     // #elide-end object-fully-compilable

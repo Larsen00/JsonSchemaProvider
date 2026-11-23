@@ -10,18 +10,22 @@ module SchemaConversion =
     // The name of a property in a JSON object.
     type PropertyName = string
 
+    // #region json-oneof
     // The intermediate representation of a schema node, one constructor per kind of node.
     type JsonSchemaType =
+        // #elide-start json-oneof
         | JsonObject of JsonObject.Keywords * List<PropertyName * JsonSchemaType>
         | JsonArray of JsonSchemaType * JsonArray.Keywords
         | JsonBoolean of JsonBoolean.Keywords
         | JsonInteger of JsonNumber.Keywords
         | JsonNumber of JsonNumber.Keywords
         | JsonString of JsonString.Keywords
-        // #omit-start
+        // #elide-end json-oneof
+        // #omit-start PropertyName+JsonSchemaType
         // TODO: None is missing from the specification
         | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // head and tail: oneOf has at least one branch
-        // #omit-end
+        // #omit-end PropertyName+JsonSchemaType
+    // #endregion json-oneof
 
 
     // Annotations, which never affect validation, plus "$schema", which NJsonSchema's ToJson always adds.
