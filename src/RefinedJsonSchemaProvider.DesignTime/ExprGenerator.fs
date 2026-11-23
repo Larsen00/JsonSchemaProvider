@@ -28,7 +28,7 @@ module ExprGenerator =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords:  JsonObject.Keywords)
-        ((name, innertype): PropertyName * JsonSchemaType)
+        ((name, innertype): PropertyName * JsonSchemaNode)
         : Expr list -> Expr =
         let conv = convert context typeMap innertype
         let plainPropertyRuntimeType = conv.RuntimeType
@@ -76,10 +76,10 @@ module ExprGenerator =
         (typeMap: TypeMap)
         (name: string)
         (optional: bool)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         (arg: Expr)
         =
-        let conv = convert context typeMap schemaType
+        let conv = convert context typeMap schemaNode
         let toJson = wrapOptionalToJson conv optional
 
         if optional then
@@ -161,21 +161,21 @@ module ExprGenerator =
     let generateCreateInvokeCode
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : Expr list -> Expr =
 
         // Locals, so the quotations below don't capture the whole context.
         let schemaHashCode = context.SchemaHashCode
         let schemaSource = context.SchemaString
 
-        match schemaType with
+        match schemaNode with
         | JsonObject(keywords, properties) ->
             fun (args: Expr list) ->
                 let elementType = typedefof<(string * JsonValue)[]>
 
                 let elements =[
-                    for (name, itemType), arg in List.zip properties args ->
-                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) itemType arg
+                    for (name, itemNode), arg in List.zip properties args ->
+                        generatePropertyCreation context typeMap name (not <| Map.find name keywords.specific.Required) itemNode arg
                     ]
 
                 let fields = Expr.NewArray(elementType, elements)
@@ -183,7 +183,7 @@ module ExprGenerator =
                 let jsonValExpr = <@@ JsonValue.Record(Array.concat (%%fields: (string * JsonValue)[][])) @@>
 
                 // #region create-object
-                let conv = convert context typeMap schemaType
+                let conv = convert context typeMap schemaNode
                 let record = Expr.Application(conv.ToRuntime, jsonValExpr)
 
                 if context.CompileFlags.SkipRuntimeValidation || isObjectFullyCompilable context typeMap keywords properties then
@@ -198,21 +198,21 @@ module ExprGenerator =
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
             fun (args: Expr list) ->
                 
-                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaType).FullyCompilable then
-                    match schemaType with
+                if  context.CompileFlags.SkipRuntimeValidation || (convert context typeMap schemaNode).FullyCompilable then
+                    match schemaNode with
                     // Through JSON and back, which drops uniqueItems duplicates and throws on a null list or pair.
                     // TODO: skip the round trip for arrays whose ToJson changes nothing.
                     | JsonArray _ ->
-                        let conv = convert context typeMap schemaType
+                        let conv = convert context typeMap schemaNode
                         Expr.Application(conv.ToRuntime, Expr.Application(conv.ToJson, args[0]))
                     | _ -> args[0]
                 else
-                    let conv = convert context typeMap schemaType
+                    let conv = convert context typeMap schemaNode
                     let jsonValVar = Var($"jsonVal{Guid.NewGuid()}", typeof<JsonValue>)
                     let jsonValExpr = Expr.Var jsonValVar
                     let jsonTextExpr = <@@ (%%jsonValExpr: JsonValue).ToString() @@>
 
-                    let path = pathOf schemaType
+                    let path = pathOf schemaNode
                     let errorsExpr = <@@ collectValidationErrors path (%%jsonTextExpr: string) schemaHashCode schemaSource @@>
 
                     // Ok holds the JSON converted back, not args[0], so a oneOf term gets the branch Parse would pick.

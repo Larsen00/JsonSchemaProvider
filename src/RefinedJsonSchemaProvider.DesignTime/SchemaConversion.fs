@@ -12,19 +12,19 @@ module SchemaConversion =
 
     // #region json-oneof
     // The intermediate representation of a schema node, one constructor per kind of node.
-    type JsonSchemaType =
+    type JsonSchemaNode =
         // #elide-start json-oneof
-        | JsonObject of JsonObject.Keywords * List<PropertyName * JsonSchemaType>
-        | JsonArray of JsonSchemaType * JsonArray.Keywords
+        | JsonObject of JsonObject.Keywords * List<PropertyName * JsonSchemaNode>
+        | JsonArray of JsonSchemaNode * JsonArray.Keywords
         | JsonBoolean of JsonBoolean.Keywords
         | JsonInteger of JsonNumber.Keywords
         | JsonNumber of JsonNumber.Keywords
         | JsonString of JsonString.Keywords
         // #elide-end json-oneof
-        // #omit-start PropertyName+JsonSchemaType
+        // #omit-start PropertyName+JsonSchemaNode
         // TODO: None is missing from the specification
-        | JsonOneOf of Common.Keywords * JsonSchemaType * JsonSchemaType list // head and tail: oneOf has at least one branch
-        // #omit-end PropertyName+JsonSchemaType
+        | JsonOneOf of Common.Keywords * JsonSchemaNode * JsonSchemaNode list // head and tail: oneOf has at least one branch
+        // #omit-end PropertyName+JsonSchemaNode
     // #endregion json-oneof
 
 
@@ -54,7 +54,7 @@ module SchemaConversion =
         | _ -> false
 
     // Parses an object node, its properties and which of them are required.
-    let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
+    let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaNode =
         let isRequired (name: string) =
             schema.RequiredProperties.Contains name
 
@@ -69,17 +69,17 @@ module SchemaConversion =
 
         Seq.foldBack (fun (KeyValue(name, propertySchema)) (specific : JsonObject.Specific, properties') ->
 
-            let propertyType : JsonSchemaType = parseJsonSchemaStructured rootSchema propertySchema
+            let propertyNode : JsonSchemaNode = parseJsonSchemaStructured rootSchema propertySchema
 
             { specific with Required = Map.add name (isRequired name) specific.Required },
-            (name, propertyType) :: properties'
+            (name, propertyNode) :: properties'
 
 
         ) schema.Properties (initialSpecific, [])
         |> fun (specific, properties) -> JsonObject({ common = common; specific = specific }, properties)
 
     // Parses an array node, its item schema and its size keywords.
-    and private parseArray (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaType =
+    and private parseArray (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaNode =
         let specific : JsonArray.Specific = {
             // An omitted minItems is 0 by the specification, which allows every length.
             MinItems = if schema.MinItems > 0 then Some schema.MinItems else None
@@ -93,7 +93,7 @@ module SchemaConversion =
         JsonArray(parseJsonSchemaStructured rootSchema schema.Item, { common = common; specific = specific })
 
     // Parses a node by its type keyword.
-    and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
+    and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaNode =
         // The Path keys the type map and finds the node's subschema for validation.
         let common : Common.Keywords =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
@@ -128,7 +128,7 @@ module SchemaConversion =
         | _ -> failwithf "Unsupported JSON object type %A." schema.Type
 
     // Parses a oneOf node and its branches.
-    and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
+    and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaNode =
         // The Path of the oneOf node itself, so a nested oneOf is validated as a whole.
         let common : Common.Keywords =
             { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
@@ -136,7 +136,7 @@ module SchemaConversion =
         schema.OneOf |> List.ofSeq |> List.map (parseJsonSchemaStructured rootSchema) |> fun l -> JsonOneOf (common, List.head l, List.tail l)
 
     // Parses a schema node; a node without a type must be a oneOf.
-    and parseJsonSchemaStructured (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaType =
+    and parseJsonSchemaStructured (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaNode =
 
         match schema.Type with
         | JsonObjectType.None ->
@@ -148,6 +148,6 @@ module SchemaConversion =
         | _ -> parseObjectType rootSchema schema
 
     // Parses schema text into the intermediate representation.
-    let parseJsonSchema (input: string) : JsonSchemaType =
+    let parseJsonSchema (input: string) : JsonSchemaNode =
         let schema = SchemaCache.parseSchema input
         parseJsonSchemaStructured schema schema

@@ -12,8 +12,8 @@ module ExprGeneratorTests =
     open RefinedJsonSchemaProvider.DesignTime.ExprGenerator
     open TestHelpers
 
-    let private parse (f: Fixture) (path: string) (schemaType: JsonSchemaType) (jsonText: string) : obj =
-        let conv = convert f.Context f.TypeMap schemaType
+    let private parse (f: Fixture) (path: string) (schemaNode: JsonSchemaNode) (jsonText: string) : obj =
+        let conv = convert f.Context f.TypeMap schemaNode
         eval (generateParseInvokeCode f.Context path conv.RuntimeType conv.ToRuntime [ Expr.Value jsonText ])
 
     let private parseRoot (f: Fixture) (jsonText: string) = parse f "#" f.Root jsonText

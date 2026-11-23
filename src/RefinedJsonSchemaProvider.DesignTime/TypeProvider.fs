@@ -14,8 +14,8 @@ module TypeProvider =
     open FSharp.Quotations
 
     // The objects in a node that aren't inside another object.
-    let rec private extractNestedClasses (schemaType: JsonSchemaType)  =
-        match schemaType with
+    let rec private extractNestedClasses (schemaNode: JsonSchemaNode)  =
+        match schemaNode with
         | JsonObject(classID, properties) -> [(classID, properties)]
         | JsonArray(item, _) -> extractNestedClasses item
         | JsonOneOf (_, head, tail) -> head :: tail |> List.collect extractNestedClasses
@@ -44,14 +44,14 @@ module TypeProvider =
     let rec private createProvidedProperties
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (schemaType: JsonSchemaType )
+        (schemaNode: JsonSchemaNode )
         : ProvidedProperty list =
 
-        match schemaType with
+        match schemaNode with
         | JsonObject (_, []) -> []
-        | JsonObject (keywords, (name, schemaType as property :: rest)) -> 
+        | JsonObject (keywords, (name, schemaNode as property :: rest)) -> 
 
-            let plainPropertyCompileTimeType = (convert context typeMap schemaType).CompileTimeType
+            let plainPropertyCompileTimeType = (convert context typeMap schemaNode).CompileTimeType
 
             // TODO: AddXmlDoc on integer properties whose bounds don't fit their type, suggesting minimum/maximum.
             ProvidedProperty(
@@ -69,12 +69,12 @@ module TypeProvider =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (target: ProvidedTypeDefinition)
-        (itemType: JsonSchemaType)
+        (itemNode: JsonSchemaNode)
         (arrayKeywords: JsonArray.Keywords)
         : unit =
 
         // Through `convert`, so the array's conversion and helpers come from the cache.
-        let array = convert context typeMap (JsonArray(itemType, arrayKeywords))
+        let array = convert context typeMap (JsonArray(itemNode, arrayKeywords))
         let helpers = arrayHelpers array
         let parameterType = array.CompileTimeType
 
@@ -83,21 +83,21 @@ module TypeProvider =
         helpers.ToTuple
         |> Option.iter (fun toTuple -> target.AddMember(createProvidedConversionMethod "ToTuple" parameterType toTuple))
 
-        addArrayHelperTypes context typeMap target "Item" itemType
+        addArrayHelperTypes context typeMap target "Item" itemNode
 
-    // Adds a "<name>Array" helper type to `parent` for each array in `schemaType`; oneOf branch i is named "<name>Case<i>".
+    // Adds a "<name>Array" helper type to `parent` for each array in `schemaNode`; oneOf branch i is named "<name>Case<i>".
     and private addArrayHelperTypes
         (context: GenerationContext)
         (typeMap: TypeMap)
         (parent: ProvidedTypeDefinition)
         (name: string)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : unit =
 
-        match schemaType with
-        | JsonArray(itemType, arrayKeywords) ->
+        match schemaNode with
+        | JsonArray(itemNode, arrayKeywords) ->
             let helperType = createProvidedTypeDefinition context "Array" name
-            addArrayHelperMethods context typeMap helperType itemType arrayKeywords
+            addArrayHelperMethods context typeMap helperType itemNode arrayKeywords
             parent.AddMember helperType
         | JsonOneOf(_, head, tail) ->
             head :: tail
@@ -106,8 +106,8 @@ module TypeProvider =
         | JsonObject _ | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> ()
 
     // One Create parameter; an optional one defaults to null.
-    let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) isRequired parameterName =
-        let parameterType = schemaTypeToMethodParameterType context typeMap (not isRequired) schemaType
+    let private createMethodParameter (context: GenerationContext) (typeMap: TypeMap) (schemaNode: JsonSchemaNode) isRequired parameterName =
+        let parameterType = schemaTypeToMethodParameterType context typeMap (not isRequired) schemaNode
 
         if isRequired then
             ProvidedParameter(parameterName, parameterType)
@@ -115,30 +115,30 @@ module TypeProvider =
             ProvidedParameter(parameterName, parameterType, false, defaultValueForNullableType parameterType)
 
     // The Create parameters: one per property for an object, otherwise a single value.
-    let rec private createMethodParameters (context: GenerationContext) (typeMap: TypeMap) (schemaType: JsonSchemaType) =
-        match schemaType with
+    let rec private createMethodParameters (context: GenerationContext) (typeMap: TypeMap) (schemaNode: JsonSchemaNode) =
+        match schemaNode with
         | JsonObject (_, []) -> []
         | JsonObject (keywords, (name, innerSchemaType) :: rest) ->
             createMethodParameter context typeMap innerSchemaType (Map.find name keywords.specific.Required) name
             :: createMethodParameters context typeMap (JsonObject (keywords, rest))
 
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ | JsonArray _ | JsonOneOf _ ->
-            [ createMethodParameter context typeMap schemaType true "value" ]
+            [ createMethodParameter context typeMap schemaNode true "value" ]
 
 
     // The static Create method of a provided type.
     let private createProvidedCreateMethod
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         (returnType: Type)
         : ProvidedMethod =
 
         ProvidedMethod(
             methodName = "Create",
-            parameters = createMethodParameters context typeMap schemaType,
+            parameters = createMethodParameters context typeMap schemaNode,
             returnType = returnType,
-            invokeCode = generateCreateInvokeCode context typeMap schemaType,
+            invokeCode = generateCreateInvokeCode context typeMap schemaNode,
             isStatic = true
         )
 
@@ -165,32 +165,32 @@ module TypeProvider =
         (context: GenerationContext)
         (suffix: string)
         (name: string)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : (String * ProvidedTypeDefinition) list =
 
-        match schemaType with
+        match schemaNode with
         | JsonObject(keywords, properties) ->
             let providedType = createProvidedTypeDefinition context suffix name
 
             let nestedTypes =
                 properties
-                |> List.collect (fun (propertyName, propertyType) ->
-                    buildTypeMapHelper context "Obj" propertyName propertyType)
+                |> List.collect (fun (propertyName, propertyNode) ->
+                    buildTypeMapHelper context "Obj" propertyName propertyNode)
 
             nestedTypes
             |> List.iter (fun (_, nestedType) -> providedType.AddMember nestedType)
 
             // The object's own provided type is added too, so convert works on the object itself.
             let typeMap = Map.ofList ((keywords.common.Path, providedType) :: nestedTypes)
-            let conversion = convert context typeMap schemaType
+            let conversion = convert context typeMap schemaNode
 
-            createProvidedProperties context typeMap schemaType
+            createProvidedProperties context typeMap schemaNode
             |> List.iter (fun property -> providedType.AddMember property)
 
             // #elide-start
             properties
-            |> List.iter (fun (propertyName, propertyType) ->
-                addArrayHelperTypes context typeMap providedType propertyName propertyType)
+            |> List.iter (fun (propertyName, propertyNode) ->
+                addArrayHelperTypes context typeMap providedType propertyName propertyNode)
             // #elide-end
 
             // #omit-start
@@ -206,7 +206,7 @@ module TypeProvider =
             // #old let returnType = providedType :> Type
 
             let createMethod =
-                createProvidedCreateMethod context typeMap schemaType returnType
+                createProvidedCreateMethod context typeMap schemaNode returnType
             providedType.AddMember createMethod
 
             let parseMethod =
@@ -218,7 +218,7 @@ module TypeProvider =
             providedType.AddMember parseMethod
 
             (keywords.common.Path, providedType) :: nestedTypes
-        | JsonArray(itemType, _) -> buildTypeMapHelper context "Item" name itemType
+        | JsonArray(itemNode, _) -> buildTypeMapHelper context "Item" name itemNode
         // #omit-start
         // #region oneof-case-naming
         | JsonOneOf (_, head, tail) ->
@@ -231,8 +231,8 @@ module TypeProvider =
         | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
     // The type map of a node: each object's Path mapped to its provided type.
-    let private buildTypeMap context (suffix: string) (name: string) (schemaType: JsonSchemaType) : TypeMap =
-        buildTypeMapHelper context suffix name schemaType |> Map.ofList
+    let private buildTypeMap context (suffix: string) (name: string) (schemaNode: JsonSchemaNode) : TypeMap =
+        buildTypeMapHelper context suffix name schemaNode |> Map.ofList
 
 
     // Builds the provided type the user gets back, chosen by the kind of root.
@@ -258,11 +258,11 @@ module TypeProvider =
 
         // #region root-match
         match parseJsonSchemaStructured schema schema with
-        | JsonObject(keywords, _) as schemaType ->
-            buildTypeMap context "" typeName schemaType
+        | JsonObject(keywords, _) as schemaNode ->
+            buildTypeMap context "" typeName schemaNode
             |> Map.find keywords.common.Path
 
-        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ as schemaType ->
+        | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ as schemaNode ->
 
             // #omit-start
             // A primitive root has no objects, so the type map is empty.
@@ -271,7 +271,7 @@ module TypeProvider =
 
             let providedTypeDefinition = createProvidedTypeDefinition context "" typeName
 
-            let conversions = convert context typeMap schemaType
+            let conversions = convert context typeMap schemaNode
             // #omit-start
             let innerReturnType = conversions.CompileTimeType
             let resultType =
@@ -283,29 +283,29 @@ module TypeProvider =
             // #old let returnType = conversions.CompileTimeType
 
             // #omit-start
-            let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
+            let createMethod = createProvidedCreateMethod context typeMap schemaNode resultType
             // #omit-end
-            // #old let createMethod = createProvidedCreateMethod context typeMap schemaType returnType
+            // #old let createMethod = createProvidedCreateMethod context typeMap schemaNode returnType
             providedTypeDefinition.AddMember createMethod
 
-            let parseMethod = createProvidedParseMethod context (pathOf schemaType) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
+            let parseMethod = createProvidedParseMethod context (pathOf schemaNode) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             providedTypeDefinition
 
         // #omit-start
-        | JsonArray _ | JsonOneOf _ as schemaType ->
+        | JsonArray _ | JsonOneOf _ as schemaNode ->
         // #omit-end
-        // #old | JsonArray _ as schemaType ->
-            let typeMap = buildTypeMap context "" "" schemaType
+        // #old | JsonArray _ as schemaNode ->
+            let typeMap = buildTypeMap context "" "" schemaNode
 
             let providedTypeDefinition = createProvidedTypeDefinition context "" typeName
 
-            extractNestedClasses schemaType
+            extractNestedClasses schemaNode
             |> List.iter (fun (keywords, _) -> providedTypeDefinition.AddMember typeMap[keywords.common.Path])
             // #elide-start
 
-            let conversions = convert context typeMap schemaType
+            let conversions = convert context typeMap schemaNode
             let innerReturnType = conversions.CompileTimeType
 
 
@@ -315,16 +315,16 @@ module TypeProvider =
                 else
                     typedefof<Result<_,_>>.MakeGenericType(innerReturnType, typeof<string list>)
 
-            let createMethod = createProvidedCreateMethod context typeMap schemaType resultType
+            let createMethod = createProvidedCreateMethod context typeMap schemaNode resultType
             providedTypeDefinition.AddMember createMethod
 
-            let parseMethod = createProvidedParseMethod context (pathOf schemaType) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
+            let parseMethod = createProvidedParseMethod context (pathOf schemaNode) conversions.CompileTimeType conversions.RuntimeType conversions.ToRuntime
             providedTypeDefinition.AddMember parseMethod
 
             // Root array: helpers go directly on the root type. Root oneOf: "Case<i>Array" types.
-            match schemaType with
-            | JsonArray(itemType, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition itemType arrayKeywords
-            | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" schemaType
+            match schemaNode with
+            | JsonArray(itemNode, arrayKeywords) -> addArrayHelperMethods context typeMap providedTypeDefinition itemNode arrayKeywords
+            | _ -> addArrayHelperTypes context typeMap providedTypeDefinition "" schemaNode
             // #elide-end
 
             providedTypeDefinition

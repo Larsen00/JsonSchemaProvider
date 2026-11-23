@@ -17,8 +17,8 @@ module NodeConversions =
     type TypeMap = Map<string, ProvidedTypeDefinition>
 
     // The Path of a node; the root's is "#".
-    let pathOf (schemaType: JsonSchemaType) : string =
-        match schemaType with
+    let pathOf (schemaNode: JsonSchemaNode) : string =
+        match schemaNode with
         | JsonNumber keywords
         | JsonInteger keywords            -> keywords.common.Path
         | JsonBoolean keywords           -> keywords.common.Path
@@ -194,16 +194,16 @@ module NodeConversions =
     let rec convert
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : ProviderConfiguration.NodeConversion =
         
         // #omit-start
         // useConversionCache=false skips the cache (used by the cache benchmark and equivalence tests)
-        if not context.CompileFlags.UseConversionCache then conversion context typeMap schemaType else
+        if not context.CompileFlags.UseConversionCache then conversion context typeMap schemaNode else
         // #omit-end
         context.ConversionCache.GetOrAdd(
-            pathOf schemaType,
-            fun _ -> conversion context typeMap schemaType
+            pathOf schemaNode,
+            fun _ -> conversion context typeMap schemaNode
         )
 
 
@@ -215,10 +215,10 @@ module NodeConversions =
     and conversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : ProviderConfiguration.NodeConversion =
 
-        match schemaType with
+        match schemaNode with
         // #elide-start oneof-case
         // #elide-start array-case
         // #elide-start object-fully-compilable
@@ -290,8 +290,8 @@ module NodeConversions =
         // #elide-start object-fully-compilable
         // An array's type depends on its shape, so buildArrayConversion builds it.
         // #elide-end array-case
-        | JsonArray(itemType, arrayKeywords) ->
-            buildArrayConversion context typeMap itemType arrayKeywords
+        | JsonArray(itemNode, arrayKeywords) ->
+            buildArrayConversion context typeMap itemNode arrayKeywords
         // #endregion array-case
 
         // #elide-end oneof-case
@@ -317,14 +317,14 @@ module NodeConversions =
     and buildArrayConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (itemType: JsonSchemaType)
+        (itemNode: JsonSchemaNode)
         (arrayKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
 
         // #elide-start buildArrayConversion
         // The plain list conversion of the shapes without a compiled size.
         let defaultArrayConversion: ProviderConfiguration.NodeConversion =
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
 
             let compileTimeType = typedefof<_ list>.MakeGenericType item.CompileTimeType
             let runtimeType     = typedefof<_ list>.MakeGenericType item.RuntimeType
@@ -375,53 +375,53 @@ module NodeConversions =
         // One item left: the item itself.
         | ExactLength 1 ->
             // #elide-start buildArrayConversion
-            buildSingleItemConversion arrayKeywords (convert context typeMap itemType)
+            buildSingleItemConversion arrayKeywords (convert context typeMap itemNode)
             // #elide-end buildArrayConversion
 
         // (head, tail), where the tail has exactly n - 1 items.
         | ExactLength n ->
             // #elide-start buildArrayConversion
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
             let tailKeywords =
                 { arrayKeywords with
                     specific.MinItems = Some(n - 1)
                     specific.MaxItems = Some(n - 1) }
-            let headTail = buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
+            let headTail = buildHeadTailConversion context typeMap itemNode arrayKeywords item tailKeywords
             { headTail with Specific = ArraySpecific { arrayHelpers headTail with ToTuple = Some(buildExactLengthToTuple n item headTail.RuntimeType) } }
             // #elide-end buildArrayConversion
 
         // (head, tail), where the tail has minItems - 1 and ends as a plain list.
         | MinItemsPrefix minItems ->
             // #elide-start buildArrayConversion
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
             let tailKeywords =
                 { arrayKeywords with
                     specific.MinItems = if minItems > 1 then Some(minItems - 1) else None }
-            buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
+            buildHeadTailConversion context typeMap itemNode arrayKeywords item tailKeywords
             // #elide-end buildArrayConversion
 
         // (head, tail), where the tail has both bounds lowered by one and ends as a maxItems shape.
         | MinMaxItems(minItems, maxItems) ->
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
             let tailKeywords =
                 { arrayKeywords with
                     specific.MinItems = if minItems > 1 then Some(minItems - 1) else None
                     specific.MaxItems = Some(maxItems - 1) }
-            buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords
+            buildHeadTailConversion context typeMap itemNode arrayKeywords item tailKeywords
 
         // The empty array or one item.
         | MaxItemsSingle ->
             // #elide-start buildArrayConversion
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
             buildOptionConversion item (buildSingleItemConversion arrayKeywords item)
             // #elide-end buildArrayConversion
 
         // The empty array, or one item followed by at most maxItems - 1 more.
         | MaxItemsChain maxItems ->
             // #elide-start buildArrayConversion
-            let item = convert context typeMap itemType
+            let item = convert context typeMap itemNode
             let tailKeywords = { arrayKeywords with specific.MaxItems = Some(maxItems - 1) }
-            buildOptionConversion item (buildHeadTailConversion context typeMap itemType arrayKeywords item tailKeywords)
+            buildOptionConversion item (buildHeadTailConversion context typeMap itemNode arrayKeywords item tailKeywords)
             // #elide-end buildArrayConversion
 
         | Unbounded -> defaultArrayConversion
@@ -436,20 +436,20 @@ module NodeConversions =
         // Built without uniqueItems, so only the whole array drops duplicates, not each tail.
         | UniqueMaxItems _ ->
             let nestedPairs =
-                buildArrayConversion context typeMap itemType { arrayKeywords with specific.UniqueItems = false }
+                buildArrayConversion context typeMap itemNode { arrayKeywords with specific.UniqueItems = false }
             { nestedPairs with ToJson = dropDuplicatesAfter nestedPairs.ToJson nestedPairs.RuntimeType }
 
     // The pair (head, tail) of a non-empty array, where the tail is built from tailKeywords.
     and private buildHeadTailConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (itemType: JsonSchemaType)
+        (itemNode: JsonSchemaNode)
         (arrayKeywords: JsonArray.Keywords)
         (item: ProviderConfiguration.NodeConversion)
         (tailKeywords: JsonArray.Keywords)
         : ProviderConfiguration.NodeConversion =
 
-        let tail = buildArrayConversion context typeMap itemType tailKeywords
+        let tail = buildArrayConversion context typeMap itemNode tailKeywords
 
         // #region head-tail-types
         let compileTimeType =
@@ -515,9 +515,9 @@ module NodeConversions =
     and buildOneOfConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
-        (branchSchemaTypes: JsonSchemaType list)
+        (branchNodes: JsonSchemaNode list)
         : ProviderConfiguration.NodeConversion =
-        match branchSchemaTypes with
+        match branchNodes with
         | [] -> failwith "OneOf must have at least one type"
         | [ single ] -> convert context typeMap single
         | headType :: restTypes ->
@@ -578,10 +578,10 @@ module NodeConversions =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords: JsonObject.Keywords)
-        (properties: (PropertyName * JsonSchemaType) list)
+        (properties: (PropertyName * JsonSchemaNode) list)
         : bool =
-        let isCompilable (_, propertyType) =
-            (convert context typeMap propertyType).FullyCompilable
+        let isCompilable (_, propertyNode) =
+            (convert context typeMap propertyNode).FullyCompilable
         keywords.common.CanBeCompiled && List.forall isCompilable properties
     // #endregion object-fully-compilable
 
@@ -611,7 +611,7 @@ module NodeConversions =
         (context: GenerationContext)
         (typeMap: TypeMap)
         (optional: bool)
-        (schemaType: JsonSchemaType)
+        (schemaNode: JsonSchemaNode)
         : Type =
-        let compileTimeType = (convert context typeMap schemaType).CompileTimeType
+        let compileTimeType = (convert context typeMap schemaNode).CompileTimeType
         nullableOrPlainType optional compileTimeType

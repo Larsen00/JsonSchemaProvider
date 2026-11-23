@@ -24,7 +24,7 @@ module NodeConversionsTests =
 
     let jsonBooleanKeywords : RefinedJsonSchemaProvider.JsonBoolean.Keywords = { common = commonKeywords }
 
-    // "...At" variants for building several nodes that appear *together* in one JsonSchemaType tree
+    // "...At" variants for building several nodes that appear *together* in one JsonSchemaNode tree
     // (e.g. oneOf branches, or an array and its own inner type). convert now caches by Path, and
     // a real schema never gives a node and its own descendant the same Path - the plain
     // (non-"At") values above are only safe for a single, standalone node with no same-tree
@@ -50,7 +50,7 @@ module NodeConversionsTests =
     let defaultFlags = { SkipRuntimeValidation = false; RefinedTypes = true; RequireIntegerBounds = false; UseConversionCache = true }
 
     // A function, not a single top-level value: convert now caches by the node's own Path, and
-    // several tests below reuse the same Path ("#") for structurally different JsonSchemaType shapes
+    // several tests below reuse the same Path ("#") for structurally different JsonSchemaNode shapes
     // (that was harmless before caching existed). A fresh context - and so a fresh, empty
     // ConversionCache - per test keeps those tests independent of each other and of test order.
     let private dummyContext () : GenerationContext =
@@ -62,8 +62,8 @@ module NodeConversionsTests =
           CompileFlags = defaultFlags
           ConversionCache = System.Collections.Concurrent.ConcurrentDictionary() }
 
-    let toCompileTimeType (schemaType: JsonSchemaType) =
-        (convert (dummyContext ()) Map.empty schemaType).CompileTimeType
+    let toCompileTimeType (schemaNode: JsonSchemaNode) =
+        (convert (dummyContext ()) Map.empty schemaNode).CompileTimeType
 
     let oneOfSingleBranchYieldsPlainType =
         test "oneOf with a single branch yields the branch type directly" {
@@ -123,10 +123,10 @@ module NodeConversionsTests =
     let convertCachesRepeatedCallsOnTheSameNode =
         test "convert returns the exact same cached instance for a repeated call on the same node" {
             let context = dummyContext ()
-            let schemaType = JsonInteger jsonIntegerNoneKeywords
+            let schemaNode = JsonInteger jsonIntegerNoneKeywords
 
-            let first = convert context Map.empty schemaType
-            let second = convert context Map.empty schemaType
+            let first = convert context Map.empty schemaNode
+            let second = convert context Map.empty schemaNode
 
             Expect.isTrue (obj.ReferenceEquals(first, second)) "second call should hit the cache, not recompute"
         }

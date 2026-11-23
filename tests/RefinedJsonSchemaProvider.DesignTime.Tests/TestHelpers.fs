@@ -29,15 +29,15 @@ module TestHelpers =
           ConversionCache = Collections.Concurrent.ConcurrentDictionary() }
 
     // One placeholder provided type per object node, keyed by its Path.
-    let typeMapFor (context: GenerationContext) (schemaType: JsonSchemaType) : TypeMap =
-        let rec objectPaths schemaType =
-            match schemaType with
+    let typeMapFor (context: GenerationContext) (schemaNode: JsonSchemaNode) : TypeMap =
+        let rec objectPaths schemaNode =
+            match schemaNode with
             | JsonObject(keywords, properties) -> keywords.common.Path :: (properties |> List.collect (snd >> objectPaths))
             | JsonArray(inner, _) -> objectPaths inner
             | JsonOneOf(_, head, tail) -> head :: tail |> List.collect objectPaths
             | JsonBoolean _ | JsonInteger _ | JsonNumber _ | JsonString _ -> []
 
-        objectPaths schemaType
+        objectPaths schemaNode
         |> List.mapi (fun i path ->
             path, ProvidedTypeDefinition(context.Assembly, context.NamespaceName, $"Obj{i}", Some typeof<NullableJsonValue>))
         |> Map.ofList
@@ -45,7 +45,7 @@ module TestHelpers =
     type Fixture =
         { Context: GenerationContext
           TypeMap: TypeMap
-          Root: JsonSchemaType }
+          Root: JsonSchemaNode }
 
     let fixtureWith (flags: CompileFlags) (schemaText: string) : Fixture =
         let context = contextWith flags schemaText

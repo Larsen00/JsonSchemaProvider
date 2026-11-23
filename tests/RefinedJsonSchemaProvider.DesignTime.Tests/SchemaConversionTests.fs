@@ -85,7 +85,7 @@ module SchemaConversionTests =
         }"""
 
     // Path is computed via NJsonSchema's own JsonPathUtilities.GetJsonPath(root, node) - a JSON
-    // Pointer identifying this node's own position in the document. Every JsonSchemaType
+    // Pointer identifying this node's own position in the document. Every JsonSchemaNode
     // case now carries its own Path (via `common`), not just objects - see
     // ideas/oneof-runtime-disambiguation.md's "Superseded: path lives on every type's own Keywords"
     // section. Values below were captured by running the real conversion against these exact

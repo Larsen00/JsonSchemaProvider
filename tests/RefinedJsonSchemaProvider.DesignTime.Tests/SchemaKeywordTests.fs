@@ -7,8 +7,8 @@ module SchemaKeywordTests =
     open RefinedJsonSchemaProvider.DesignTime.SchemaConversion
     open RefinedJsonSchemaProvider.DesignTime.NodeConversions
 
-    let private canBeCompiled (schemaType: JsonSchemaType) =
-        match schemaType with
+    let private canBeCompiled (schemaNode: JsonSchemaNode) =
+        match schemaNode with
         | JsonBoolean k -> k.common.CanBeCompiled
         | JsonInteger k
         | JsonNumber k -> k.common.CanBeCompiled
@@ -226,9 +226,9 @@ module SchemaKeywordTests =
                           "b": { "oneOf": [ { "type": "object", "properties": { "x": { "type": "string" } } }, { "type": "integer" } ] }
                         } }"""
 
-                  let rec paths schemaType =
-                      pathOf schemaType
-                      :: match schemaType with
+                  let rec paths schemaNode =
+                      pathOf schemaNode
+                      :: match schemaNode with
                          | JsonObject(_, properties) -> properties |> List.collect (snd >> paths)
                          | JsonArray(inner, _) -> paths inner
                          | JsonOneOf(_, head, tail) -> head :: tail |> List.collect paths

@@ -40,8 +40,8 @@ module Draft2020KeywordTests =
             else
                 case)
 
-    let private canBeCompiled schemaType =
-        match schemaType with
+    let private canBeCompiled schemaNode =
+        match schemaNode with
         | JsonArray(_, k) -> k.common.CanBeCompiled
         | JsonObject(k, _) -> k.common.CanBeCompiled
         | other -> failwithf "Expected an array or object, got %A" other
