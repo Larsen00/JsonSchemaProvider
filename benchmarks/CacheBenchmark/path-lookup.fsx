@@ -1,5 +1,5 @@
 // Cost of NJsonSchema's GetJsonPath as the provider calls it, against a shared contract resolver and
-// the batch GetJsonPaths (notes/cache-benchmark.md, section 5). Run: dotnet fsi path-lookup.fsx
+// the batch GetJsonPaths. Run: dotnet fsi path-lookup.fsx
 // Needs a Release build of the benchmark first: dotnet build -c Release (in this folder).
 #r "bin/Release/net10.0/Newtonsoft.Json.dll"
 #r "bin/Release/net10.0/Namotion.Reflection.dll"

@@ -54,8 +54,7 @@ module NJsonSchemaTests =
             Expect.isTrue (Seq.isEmpty (schema.Validate "[1,2]")) "[1,2] is wrongly accepted"
         }
 
-    // ActualProperties reflects only the last allOf branch, not a union of all branches -
-    // contrary to what SPEC_GAPS.md previously assumed.
+    // ActualProperties reflects only the last allOf branch, not a union of all branches.
     let actualPropertiesDoesNotMergePlainAllOfBranches =
         test "ActualProperties does not merge properties across plain (non-$ref) allOf branches" {
             let schema =
@@ -133,10 +132,9 @@ module NJsonSchemaTests =
             Expect.isTrue (Seq.isEmpty errors) "The document is valid overall - satisfied uniquely by the string branch"
         }
 
-    // Probing test for notes/any-type-as-root-refactor.md open item #1 (nested-class validation)
-    // and #6 (primitive-root Create validation): does a nested property's own JsonSchema object
+    // Probing test for nested-class validation and primitive-root Create validation: does a nested property's own JsonSchema object
     // validate a JSON fragment correctly on its own, with no dependency on the parent document?
-    // If so, item #1 doesn't need a full-document re-validate at all - just a reference to the
+    // If so, nested-class validation doesn't need a full-document re-validate at all - just a reference to the
     // right nested JsonSchema node.
     let nestedPropertySchemaValidatesItsOwnFragmentIndependently =
         test "a property's own JsonSchema validates its own JSON value independently of the parent" {
@@ -160,8 +158,7 @@ module NJsonSchemaTests =
         }
 
     // Probing test for the "how do we relocate a nested schema fragment after a runtime
-    // re-parse" problem (see notes/any-type-as-root-refactor.md open item #6 and
-    // [[baseline-validation-behavior]]): a design-time JsonSchema object can't be embedded in a
+    // re-parse" problem: a design-time JsonSchema object can't be embedded in a
     // quotation, only simple values (strings/ints/Guids) can. JsonPathUtilities.GetJsonPath gives
     // a path string identifying a node's position in the tree - if that path is stable across
     // independent parses of the same schema text, it's a candidate for "the id to carry in

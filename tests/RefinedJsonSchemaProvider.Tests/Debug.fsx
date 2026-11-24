@@ -83,8 +83,8 @@ try
 with ex ->
     printfn "this is x (threw): %s" ex.Message
 
-// Person2: person.name has NO constraint at all - so per the bottom-up skip rule discussed in
-// notes/, `person` is fully compiled (nothing in its subtree can fail) and only `age` is a
+// Person2: person.name has NO constraint at all - so per the bottom-up skip rule,
+// `person` is fully compiled (nothing in its subtree can fail) and only `age` is a
 // genuine failure source. Today, before any of that design is implemented, this still goes
 // through the same schema.Validate mechanism as Person - but since `name` has nothing to
 // violate, the error should mention ONLY age, not both. Contrast with `x` above, where BOTH
