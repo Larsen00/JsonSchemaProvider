@@ -600,7 +600,7 @@ module NodeConversions =
 
     // True when the object's own keywords compile and every property is fully compilable.
     // #elide-end object-fully-compilable
-    and isObjectFullyCompilable
+    let isObjectFullyCompilable
         (context: GenerationContext)
         (typeMap: TypeMap)
         (keywords: JsonObject.Keywords)
