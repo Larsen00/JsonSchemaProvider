@@ -53,6 +53,9 @@ module SchemaConversion =
             fields |> Array.forall (fun (key, _) -> Set.contains key known || Set.contains key alwaysIgnoredKeywords)
         | _ -> false
 
+    // One contract resolver for every GetJsonPath call. Without it NJsonSchema builds a new one per
+    let private contractResolver = Newtonsoft.Json.Serialization.DefaultContractResolver()
+
     // Parses an object node, its properties and which of them are required.
     let rec private parseObject (rootSchema: JsonSchema) (schema: JsonSchema) (common: Common.Keywords) : JsonSchemaNode =
         let isRequired (name: string) =
@@ -96,7 +99,7 @@ module SchemaConversion =
     and private parseObjectType (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaNode =
         // The Path keys the type map and finds the node's subschema for validation.
         let common : Common.Keywords =
-            { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
+            { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema, contractResolver)
               CanBeCompiled = canBeCompiled schema }
 
         let m x = x |> Option.ofNullable
@@ -131,7 +134,7 @@ module SchemaConversion =
     and private parseOneOf (rootSchema: JsonSchema) (schema: JsonSchema) : JsonSchemaNode =
         // The Path of the oneOf node itself, so a nested oneOf is validated as a whole.
         let common : Common.Keywords =
-            { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema)
+            { Path = JsonPathUtilities.GetJsonPath(rootSchema, schema, contractResolver)
               CanBeCompiled = canBeCompiled schema }
         schema.OneOf |> List.ofSeq |> List.map (parseJsonSchemaStructured rootSchema) |> fun l -> JsonOneOf (common, List.head l, List.tail l)
 
