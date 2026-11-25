@@ -13,6 +13,7 @@
     <Compile Include="Keywords/IntegerRangeTests.fs" />
     <Compile Include="Keywords/NonNegativeIntegerTests.fs" />
     <Compile Include="Keywords/IntegerTypeTests.fs" />
+    <Compile Include="Keywords/LargeIntegerWorkaroundTests.fs" />
     <Compile Include="Keywords/StringKeywordTests.fs" />
     <Compile Include="Keywords/ArrayKeywordTests.fs" />
     <Compile Include="Keywords/ObjectKeywordTests.fs" />

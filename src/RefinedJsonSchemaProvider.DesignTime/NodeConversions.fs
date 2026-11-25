@@ -135,28 +135,68 @@ module NodeConversions =
             CommonExprs.callDistinctItems (Expr.Application(toJson, Expr.Var termVar)))
 
     // Each integer type's conversions; the narrower ones are Checked so an out-of-range number throws instead of wrapping.
-    let private integerConversion (integerType: IntegerType) (fullyCompilable: bool) : ProviderConfiguration.NodeConversion =
-        let sized (dotnetType: Type) (toRuntime: Expr) (toJson: Expr) : ProviderConfiguration.NodeConversion =
-            { CompileTimeType = dotnetType; RuntimeType = dotnetType; ToRuntime = toRuntime; ToJson = toJson; FullyCompilable = fullyCompilable; Specific = NoSpecific }
+    let private integerConversion
+        (integerType: IntegerType)
+        (fullyCompilable: bool)
+        : ProviderConfiguration.NodeConversion =
+        let sized
+            (dotnetType: Type)
+            (toRuntime: Expr)
+            (toJson: Expr)
+            : ProviderConfiguration.NodeConversion =
+            { CompileTimeType = dotnetType
+              RuntimeType = dotnetType
+              ToRuntime = toRuntime
+              ToJson = toJson
+              FullyCompilable = fullyCompilable
+              Specific = NoSpecific }
 
         match integerType with
         | IntegerType.Int8 ->
-            sized typeof<sbyte> <@@ fun (jsonVal: JsonValue) -> Checked.sbyte (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: sbyte) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<sbyte>
+                <@@ fun (jsonVal: JsonValue) -> Checked.sbyte (jsonVal.AsInteger64()) @@>
+                <@@ fun (runtimeObj: sbyte) -> JsonValue.Number(decimal runtimeObj) @@>
+        // #elide-start
         | IntegerType.UInt8 ->
-            sized typeof<byte> <@@ fun (jsonVal: JsonValue) -> Checked.byte (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: byte) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<byte>
+                <@@ fun (jsonVal: JsonValue) -> Checked.byte (jsonVal.AsInteger64()) @@>
+                <@@ fun (runtimeObj: byte) -> JsonValue.Number(decimal runtimeObj) @@>
         | IntegerType.Int16 ->
-            sized typeof<int16> <@@ fun (jsonVal: JsonValue) -> Checked.int16 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: int16) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<int16>
+                <@@ fun (jsonVal: JsonValue) -> Checked.int16 (jsonVal.AsInteger64()) @@>
+                <@@ fun (runtimeObj: int16) -> JsonValue.Number(decimal runtimeObj) @@>
         | IntegerType.UInt16 ->
-            sized typeof<uint16> <@@ fun (jsonVal: JsonValue) -> Checked.uint16 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: uint16) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<uint16>
+                <@@ fun (jsonVal: JsonValue) -> Checked.uint16 (jsonVal.AsInteger64()) @@>
+                <@@ fun (runtimeObj: uint16) -> JsonValue.Number(decimal runtimeObj) @@>
+        // #elide-end
         | IntegerType.Int32 ->
-            sized typeof<int> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@> <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<int>
+                <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger() @@>
+                <@@ fun (runtimeObj: int) -> JsonValue.Number(decimal runtimeObj) @@>
+        // #elide-start
         | IntegerType.UInt32 ->
-            sized typeof<uint32> <@@ fun (jsonVal: JsonValue) -> Checked.uint32 (jsonVal.AsInteger64()) @@> <@@ fun (runtimeObj: uint32) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<uint32>
+                <@@ fun (jsonVal: JsonValue) -> Checked.uint32 (jsonVal.AsInteger64()) @@>
+                <@@ fun (runtimeObj: uint32) -> JsonValue.Number(decimal runtimeObj) @@>
         | IntegerType.Int64 ->
-            sized typeof<int64> <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger64() @@> <@@ fun (runtimeObj: int64) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<int64>
+                <@@ fun (jsonVal: JsonValue) -> jsonVal.AsInteger64() @@>
+                <@@ fun (runtimeObj: int64) -> JsonValue.Number(decimal runtimeObj) @@>
+        // #elide-end
         // AsInteger64 can't hold the upper half of uint64, so this one goes through decimal.
         | IntegerType.UInt64 ->
-            sized typeof<uint64> <@@ fun (jsonVal: JsonValue) -> Checked.uint64 (jsonVal.AsDecimal()) @@> <@@ fun (runtimeObj: uint64) -> JsonValue.Number(decimal runtimeObj) @@>
+            sized
+                typeof<uint64>
+                <@@ fun (jsonVal: JsonValue) -> Checked.uint64 (jsonVal.AsDecimal()) @@>
+                <@@ fun (runtimeObj: uint64) -> JsonValue.Number(decimal runtimeObj) @@>
 
     // The compile error for an unbounded integer; the hinted limits belong to the type the existing bounds pick.
     let unboundedIntegerMessage (path: string) (reason: UnboundedReason) : string =
@@ -210,6 +250,7 @@ module NodeConversions =
     // #elide-start
     // The types and conversions of one node, built together so they can't disagree.
     // #elide-end
+    // #region integer-case
     // #region array-case
     // #region oneof-case
     and conversion
@@ -219,6 +260,7 @@ module NodeConversions =
         : ProviderConfiguration.NodeConversion =
 
         match schemaNode with
+        // #elide-start integer-case
         // #elide-start oneof-case
         // #elide-start array-case
         // #elide-start object-fully-compilable
@@ -236,17 +278,28 @@ module NodeConversions =
             }
 
         // #elide-start convert-conversion
+        // #elide-end integer-case
         | JsonInteger keywords ->
             match classifyIntegerShape context.CompileFlags keywords with
             | InvalidIntegerBounds ->
-                failwith "A lower bound (minimum or exclusiveMinimum) is above an upper bound (maximum or exclusiveMaximum), so no integer is valid - Please check your schema."
+                failwith (
+                    "A lower bound (minimum or exclusiveMinimum) is above "
+                    + "an upper bound (maximum or exclusiveMaximum), "
+                    + "so no integer is valid - Please check your schema."
+                )
 
-            | UnboundedInteger(reason) -> failwith (unboundedIntegerMessage keywords.common.Path reason)
+            | UnboundedInteger(reason) ->
+                failwith (unboundedIntegerMessage keywords.common.Path reason)
 
             | UnsupportedIntegerKeywords -> integerConversion IntegerType.Int32 false
 
             | SizedInteger(integerType, typeEnforcesBounds) ->
-                integerConversion integerType (keywords.common.CanBeCompiled && typeEnforcesBounds)
+                integerConversion
+                    integerType
+                    (keywords.common.CanBeCompiled && typeEnforcesBounds)
+        // #elide-start integer-case
+        // #elide-end integer-case
+        // #endregion integer-case
 
         | JsonNumber keywords -> {
                 CompileTimeType = typeof<double>
@@ -513,11 +566,14 @@ module NodeConversions =
 
     // The conversion of oneOf branches as nested Choice<head, tail>, since Choice has at most seven cases.
     // #region oneof-full
+    // #region oneof-part1
+    // #region oneof-part2
     and buildOneOfConversion
         (context: GenerationContext)
         (typeMap: TypeMap)
         (branchNodes: JsonSchemaNode list)
         : ProviderConfiguration.NodeConversion =
+        // #elide-start oneof-part2
         match branchNodes with
         | [] -> failwith "OneOf must have at least one type"
         | [ single ] -> convert context typeMap single
@@ -568,6 +624,10 @@ module NodeConversions =
                 // #elide-end buildOneOfConversion
             // #endregion oneof-to-runtime
 
+            // #elide-start oneof-part1
+            // #elide-end oneof-part1
+            // #endregion oneof-part1
+            // #elide-end oneof-part2
             // #region oneof-to-json
             let toJson =
                 // #elide-start buildOneOfConversion
@@ -592,10 +652,13 @@ module NodeConversions =
               FullyCompilable = head.FullyCompilable && tail.FullyCompilable
               // #omit-start buildOneOfConversion
               // #omit-start oneof-full
+              // #omit-start oneof-part2
               Specific = NoSpecific
+              // #omit-end oneof-part2
               // #omit-end oneof-full
               // #omit-end buildOneOfConversion
             }
+    // #endregion oneof-part2
     // #endregion oneof-full
 
     // True when the object's own keywords compile and every property is fully compilable.

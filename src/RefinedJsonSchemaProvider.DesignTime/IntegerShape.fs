@@ -77,7 +77,10 @@ module IntegerShape =
         List.forall (fun bound -> typeMin <= bound && bound <= typeMax) bounds
 
     // The smallest type every bound fits in: unsigned when the loosest lower bound is >= 0, else signed.
-    let private chooseIntegerType (lowers: decimal list) (uppers: decimal list) : IntegerType =
+    let private chooseIntegerType
+        (lowers: decimal list)
+        (uppers: decimal list)
+        : IntegerType =
         let unsigned =
             match tryMin lowers with
             | Some lower -> lower >= 0m
@@ -114,21 +117,27 @@ module IntegerShape =
 
         // refinedTypes = false and a node without bounds always give int.
         let integerType =
-            if not compileFlags.RefinedTypes || (List.isEmpty lowers && List.isEmpty uppers) then IntegerType.Int32
-            else chooseIntegerType lowers uppers
+            if not compileFlags.RefinedTypes
+               || (List.isEmpty lowers && List.isEmpty uppers) then
+                IntegerType.Int32
+            else
+                chooseIntegerType lowers uppers
 
         let unboundedReason =
             match lowers, uppers with
             | [], [] -> Some NoBounds
             | [], _ -> Some(NoLowerBound integerType)
             | _, [] -> Some(NoUpperBound integerType)
-            | _ when not (allFitIn integerType [ List.max lowers; List.min uppers ]) -> Some(RangeTooWide integerType)
+            | _ when not (allFitIn integerType [ List.max lowers; List.min uppers ]) ->
+                Some(RangeTooWide integerType)
             | _ -> None
 
         match lowers, uppers, unboundedReason with
         // Checked before the flags, like minItems > maxItems for arrays.
-        | _ :: _, _ :: _, _ when List.max lowers > List.min uppers -> InvalidIntegerBounds
-        | _, _, Some reason when compileFlags.RequireIntegerBounds -> UnboundedInteger reason
+        | _ :: _, _ :: _, _ when List.max lowers > List.min uppers ->
+            InvalidIntegerBounds
+        | _, _, Some reason when compileFlags.RequireIntegerBounds ->
+            UnboundedInteger reason
         | [], [], _ -> SizedInteger(IntegerType.Int32, true)
         | _ when not compileFlags.RefinedTypes -> UnsupportedIntegerKeywords
         | _ -> sizedInteger keywords integerType lowers uppers
