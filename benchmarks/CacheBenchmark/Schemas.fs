@@ -27,7 +27,12 @@ module Schemas =
                 |> List.map (fun c -> 3 * k + c)
                 |> List.filter (fun child -> child < objects)
                 |> List.mapi (fun i child -> $"child{i}", objectAt child)
-            let tags = "tags", array (obj [ "key", """{ "type": "string" }"""; "value", """{ "type": "string" }""" ] [ "key" ]) ""
+            let tag =
+                obj
+                    [ "key", """{ "type": "string" }"""
+                      "value", """{ "type": "string" }""" ]
+                    [ "key" ]
+            let tags = "tags", array tag ""
             obj (primitives @ [ tags ] @ children) [ "id"; "name" ]
         objectAt 0
 
@@ -36,14 +41,16 @@ module Schemas =
     let refinedArrays (n: int) : string =
         let item = obj primitives [ "id"; "name" ]
         let bounded = """{ "type": "integer", "minimum": 0, "maximum": 255 }"""
+        let exact = $", \"minItems\": {n}, \"maxItems\": {n}"
+        let range = $", \"minItems\": {max 1 (n / 2)}, \"maxItems\": {n}"
         obj
-            [ "exactInts", array bounded $", \"minItems\": {n}, \"maxItems\": {n}"
-              "exactObjects", array item $", \"minItems\": {n}, \"maxItems\": {n}"
+            [ "exactInts", array bounded exact
+              "exactObjects", array item exact
               "minInts", array bounded $", \"minItems\": {n}"
               "maxInts", array bounded $", \"maxItems\": {n}"
               "maxObjects", array item $", \"maxItems\": {n}"
-              "rangeInts", array bounded $", \"minItems\": {max 1 (n / 2)}, \"maxItems\": {n}"
-              "matrix", array (array bounded $", \"minItems\": {n}, \"maxItems\": {n}") $", \"minItems\": {n}, \"maxItems\": {n}" ]
+              "rangeInts", array bounded range
+              "matrix", array (array bounded exact) exact ]
             [ "exactInts" ]
 
     // A chain of objects nested `depth` levels deep, each with two primitive properties.
