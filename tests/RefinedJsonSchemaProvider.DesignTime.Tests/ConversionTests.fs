@@ -44,6 +44,12 @@ module ConversionTests =
                   Expect.isFalse (conversionOf """{ "type": "string" }""").FullyCompilable "a string can be null"
               }
 
+              test "with allowNullStrings a string is FullyCompilable unless it has keywords string can't encode" {
+                  let flags = { defaultFlags with AllowNullStrings = true }
+                  Expect.isTrue (convertRoot (fixtureWith flags """{ "type": "string" }""")).FullyCompilable "plain"
+                  Expect.isFalse (convertRoot (fixtureWith flags """{ "type": "string", "minLength": 1 }""")).FullyCompilable "minLength"
+              }
+
               test "a non-negative integer maps to uint32 and is FullyCompilable" {
                   for schemaText in [ """{ "type": "integer", "minimum": 0 }"""; """{ "type": "integer", "exclusiveMinimum": -1 }""" ] do
                       let conv = conversionOf schemaText

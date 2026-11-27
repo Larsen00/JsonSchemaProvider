@@ -310,15 +310,16 @@ module NodeConversions =
                 Specific = NoSpecific
             }
 
-        // A .NET string can be null and F# can't rule that out for provided types, so a string
-        // node always needs a runtime check: null becomes JSON null, which validation rejects.
-        | JsonString _ -> {
+        // A .NET string can be null and F# can't rule that out for provided types, so by default a
+        // string node needs a runtime check: null becomes JSON null, which validation rejects.
+        // With allowNullStrings the user accepts that risk, and the node compiles like a number.
+        | JsonString keywords -> {
                 CompileTimeType = typeof<string>
                 RuntimeType = typeof<string>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsString() @@>
                 ToJson = <@@ fun (runtimeObj: string) ->
                                 if isNull runtimeObj then JsonValue.Null else JsonValue.String runtimeObj @@>
-                FullyCompilable = false
+                FullyCompilable = context.CompileFlags.AllowNullStrings && keywords.common.CanBeCompiled
                 Specific = NoSpecific
             }
 

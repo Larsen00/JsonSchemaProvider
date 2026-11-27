@@ -44,6 +44,7 @@ module ProviderConfiguration =
         RefinedTypes: bool // false: no refined types, every type-specific keyword is validated at runtime
         RequireIntegerBounds: bool // strict: integers must have bounds that fit their type, so Parse can't overflow
         UseConversionCache: bool // reuse a node's NodeConversion instead of rebuilding it on every convert call
+        AllowNullStrings: bool // unsafe: a null string isn't checked, so string nodes count as fully compilable
     }
 
     // Shared data for one generation run, passed through every generation function.

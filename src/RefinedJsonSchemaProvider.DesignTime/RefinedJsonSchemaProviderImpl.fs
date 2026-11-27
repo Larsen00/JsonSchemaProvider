@@ -26,6 +26,7 @@ type RefinedJsonSchemaProviderImpl(config: TypeProviderConfig) as this =
             ProvidedStaticParameter("refinedTypes", typeof<bool>, true)
             ProvidedStaticParameter("requireIntegerBounds", typeof<bool>, false)
             ProvidedStaticParameter("useConversionCache", typeof<bool>, true)
+            ProvidedStaticParameter("allowNullStrings", typeof<bool>, false)
         ]
 
     let rootBaseType = typeof<NullableJsonValue>
@@ -36,7 +37,7 @@ type RefinedJsonSchemaProviderImpl(config: TypeProviderConfig) as this =
     // Builds the provided type for one use of the provider, from its static parameter values.
     let instantiate (typeName: string) (parameterValues: obj[]) =
         match parameterValues with
-        | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as refinedTypes; :? bool as requireIntegerBounds; :? bool as useConversionCache |] ->
+        | [| :? string as schemaSource; :? string as schemaFile; :? bool as skipRuntimeValidation; :? bool as refinedTypes; :? bool as requireIntegerBounds; :? bool as useConversionCache; :? bool as allowNullStrings |] ->
             if schemaSource = "" && schemaFile = "" || schemaSource <> "" && schemaFile <> "" then
                 failwith "Only one of schema or schemaFile must be set."
 
@@ -53,6 +54,7 @@ type RefinedJsonSchemaProviderImpl(config: TypeProviderConfig) as this =
                 RefinedTypes = refinedTypes
                 RequireIntegerBounds = requireIntegerBounds
                 UseConversionCache = useConversionCache
+                AllowNullStrings = allowNullStrings
             }
 
             let providedType =

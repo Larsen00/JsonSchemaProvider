@@ -17,7 +17,8 @@ module CacheSupport =
         { SkipRuntimeValidation = false
           RefinedTypes = true
           RequireIntegerBounds = false
-          UseConversionCache = useCache }
+          UseConversionCache = useCache
+          AllowNullStrings = false }
 
     let provide (flags: CompileFlags) (schemaText: string) : ProvidedTypeDefinition =
         let schema = SchemaCache.parseSchema schemaText
