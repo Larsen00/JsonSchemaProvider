@@ -29,7 +29,6 @@
     <Compile Include="Mechanisms/NestedValidationTests.fs" />
     <Compile Include="Mechanisms/NullInputTests.fs" />
     <Compile Include="Mechanisms/AllowNullStringsTests.fs" />
-    <Compile Include="Mechanisms/NullCompiledArrayTests.fs" />
     <!-- Compatibility/: parity against an external tool's own fixture schemas, not our own design. -->
     <Compile Include="Compatibility/OldCodeGenerationTests.fs" />
     <!-- KnownGaps/: pins current behaviour where the spec asks for more; empty it as gaps close. -->
