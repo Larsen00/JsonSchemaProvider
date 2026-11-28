@@ -10,6 +10,38 @@ module NestedValidationTests =
 
     // #region create-usage
     [<Literal>]
+    let evenSchema = """
+    {
+        "type": "object",
+        "properties": {
+            "even": {
+                "type": "integer",
+                "minimum": -2147483648,
+                "maximum": 2147483647,
+                "multipleOf": 2
+            }
+        },
+        "required": ["even"]
+    }
+    """
+
+    type Even = RefinedJsonSchemaProvider<schema=evenSchema>
+
+    let message =
+        match Even.Create(even = 4) with
+        | Ok value -> sprintf "Even: %d" value.even
+        | Error errors -> sprintf "Invalid: %A" errors
+    // #endregion
+
+    [<Fact>]
+    let ``user-style match on Create takes the Ok arm for an even value`` () =
+        expectEqual message "Even: 4"
+
+    [<Fact>]
+    let ``an odd value is rejected by Create`` () =
+        expectError (Even.Create(even = 3))
+
+    [<Literal>]
     let ageSchema = """
     {
         "type": "object",
@@ -26,15 +58,14 @@ module NestedValidationTests =
 
     type Age = RefinedJsonSchemaProvider<schema=ageSchema>
 
-    let message =
+    let ageMessage =
         match Age.Create(age = 7.0) with
         | Ok person -> sprintf "Age: %g" person.age
         | Error errors -> sprintf "Invalid: %A" errors
-    // #endregion
 
     [<Fact>]
     let ``user-style match on Create takes the Ok arm for an in-range value`` () =
-        expectEqual message "Age: 7"
+        expectEqual ageMessage "Age: 7"
 
     [<Fact>]
     let ``in-range value is accepted by Create`` () =

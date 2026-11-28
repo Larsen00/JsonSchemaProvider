@@ -36,10 +36,15 @@ module RootTypeTests =
     [<Literal>]
     let numberRootSchema = """{ "type": "number" }"""
     type NumberRoot = RefinedJsonSchemaProvider<schema=numberRootSchema>
+    type UncheckedNumberRoot = RefinedJsonSchemaProvider<schema=numberRootSchema, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``number root Create builds the value`` () =
-        expectEqual (NumberRoot.Create 3.14) 3.14
+        expectEqual (UncheckedNumberRoot.Create 3.14) 3.14
+
+    [<Fact>]
+    let ``number root Create gives Ok by default`` () =
+        expectEqual (expectOk (NumberRoot.Create 3.14)) 3.14
 
     [<Fact>]
     let ``number root Parse builds the value`` () =

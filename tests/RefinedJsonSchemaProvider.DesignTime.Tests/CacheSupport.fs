@@ -18,7 +18,7 @@ module CacheSupport =
           RefinedTypes = true
           RequireIntegerBounds = false
           UseConversionCache = useCache
-          AllowNullStrings = false }
+          AllowNullStrings = false; AllowNonFiniteNumbers = false }
 
     let provide (flags: CompileFlags) (schemaText: string) : ProvidedTypeDefinition =
         let schema = SchemaCache.parseSchema schemaText

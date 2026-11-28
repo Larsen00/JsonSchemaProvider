@@ -707,10 +707,16 @@ module ArrayKeywordTests =
     let numberArray =
         """{ "type": "object", "properties": { "values": { "type": "array", "items": {"type": "number"} } }, "required": ["values"] }"""
     type NumberArray = RefinedJsonSchemaProvider<schema=numberArray>
+    type UncheckedNumberArray = RefinedJsonSchemaProvider<schema=numberArray, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``select from number array should yield input value`` () =
-        let numArray = NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])
+        let numArray = UncheckedNumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ])
+        expectEqual numArray.values[1] 12.0
+
+    [<Fact>]
+    let ``select from number array should yield input value when Create gives Ok by default`` () =
+        let numArray = expectOk (NumberArray.Create([ 11.0; 12.0; 11.6; 12.1 ]))
         expectEqual numArray.values[1] 12.0
 
     [<Literal>]

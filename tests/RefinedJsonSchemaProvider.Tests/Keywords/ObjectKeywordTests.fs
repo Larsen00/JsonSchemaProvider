@@ -33,16 +33,30 @@ module ObjectKeywordTests =
     let optionalPrimitivesSchema =
         """{ "type": "object", "properties": { "flag": {"type": "boolean"}, "amount": {"type": "number"} } }"""
     type OptionalPrimitives = RefinedJsonSchemaProvider<schema=optionalPrimitivesSchema>
+    type UncheckedOptionalPrimitives =
+        RefinedJsonSchemaProvider<schema=optionalPrimitivesSchema, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``optional boolean and number properties round-trip when present`` () =
-        let v = OptionalPrimitives.Create(flag = true, amount = 1.5)
+        let v = UncheckedOptionalPrimitives.Create(flag = true, amount = 1.5)
         expectEqual v.flag (Some true)
         expectEqual v.amount (Some 1.5)
 
     [<Fact>]
     let ``optional boolean and number properties give None when absent`` () =
-        let v = OptionalPrimitives.Create()
+        let v = UncheckedOptionalPrimitives.Create()
+        expectEqual v.flag None
+        expectEqual v.amount None
+
+    [<Fact>]
+    let ``optional boolean and number properties round-trip when present and Create gives Ok by default`` () =
+        let v = expectOk (OptionalPrimitives.Create(flag = true, amount = 1.5))
+        expectEqual v.flag (Some true)
+        expectEqual v.amount (Some 1.5)
+
+    [<Fact>]
+    let ``optional boolean and number properties give None when absent and Create gives Ok by default`` () =
+        let v = expectOk (OptionalPrimitives.Create())
         expectEqual v.flag None
         expectEqual v.amount None
 
@@ -74,10 +88,17 @@ module ObjectKeywordTests =
           "required": ["city", "globalPosition"]
         }"""
     type CityPosition = RefinedJsonSchemaProvider<schema=cityPosition>
+    type UncheckedCityPosition = RefinedJsonSchemaProvider<schema=cityPosition, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``value from nested objects should be created`` () =
-        let globalPosition = CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954)
+        let globalPosition = UncheckedCityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954)
+        let created = expectOk (UncheckedCityPosition.Create(city = "Berlin", globalPosition = globalPosition))
+        expectEqual created.globalPosition.lat 52.520007
+
+    [<Fact>]
+    let ``value from nested objects should be created when the nested Create gives Ok by default`` () =
+        let globalPosition = expectOk (CityPosition.globalPositionObj.Create(lat = 52.520007, lon = 13.404954))
         let created = expectOk (CityPosition.Create(city = "Berlin", globalPosition = globalPosition))
         expectEqual created.globalPosition.lat 52.520007
 

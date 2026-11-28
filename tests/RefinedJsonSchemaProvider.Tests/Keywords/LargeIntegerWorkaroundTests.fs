@@ -52,6 +52,7 @@ module LargeIntegerWorkaroundTests =
     [<Literal>]
     let numberRootSchema = """{ "type": "number" }"""
     type NumberRoot = RefinedJsonSchemaProvider<schema=numberRootSchema>
+    type UncheckedNumberRoot = RefinedJsonSchemaProvider<schema=numberRootSchema, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``a number root Parse gives the int64 Error on a large integer literal without exponent`` () =
@@ -73,7 +74,11 @@ module LargeIntegerWorkaroundTests =
 
     [<Fact>]
     let ``a number root Create takes the large integer as a float`` () =
-        expectEqual (NumberRoot.Create 123456789012345678901234567890.0) 1.2345678901234568e29
+        expectEqual (UncheckedNumberRoot.Create 123456789012345678901234567890.0) 1.2345678901234568e29
+
+    [<Fact>]
+    let ``a number root Create takes the large integer as a float and gives Ok by default`` () =
+        expectEqual (expectOk (NumberRoot.Create 123456789012345678901234567890.0)) 1.2345678901234568e29
 
     [<Literal>]
     let numberPropertySchema = """{ "type": "object", "properties": { "id": { "type": "number" } }, "required": ["id"] }"""

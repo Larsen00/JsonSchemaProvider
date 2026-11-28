@@ -69,10 +69,15 @@ module OldCodeGenerationTests =
     [<Literal>]
     let numberPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/06-number.json"
     type Number = RefinedJsonSchemaProvider<schemaFile=numberPath>
+    type UncheckedNumber = RefinedJsonSchemaProvider<schemaFile=numberPath, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``number root loaded from file Create builds the value`` () =
-        expectEqual (Number.Create 3.14) 3.14
+        expectEqual (UncheckedNumber.Create 3.14) 3.14
+
+    [<Fact>]
+    let ``number root loaded from file Create gives Ok by default`` () =
+        expectEqual (expectOk (Number.Create 3.14)) 3.14
 
     // "type": "null" isn't supported - design-time throws (parseObjectType has no Null case).
     // The failure is pinned in the design-time project's KnownGaps/KnownGapTests.fs.
@@ -116,10 +121,18 @@ module OldCodeGenerationTests =
     [<Literal>]
     let objectWithoutRequiredPath = __SOURCE_DIRECTORY__ + "/../schemas/OldCodeGenerationTests/11-object-without-required.json"
     type ObjectWithoutRequired = RefinedJsonSchemaProvider<schemaFile=objectWithoutRequiredPath>
+    type UncheckedObjectWithoutRequired =
+        RefinedJsonSchemaProvider<schemaFile=objectWithoutRequiredPath, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``object without required properties loaded from file Create builds the record`` () =
-        let v = ObjectWithoutRequired.Create()
+        let v = UncheckedObjectWithoutRequired.Create()
+        expectEqual v.first_name None
+        expectEqual v.last_name None
+
+    [<Fact>]
+    let ``object without required properties loaded from file Create gives Ok by default`` () =
+        let v = expectOk (ObjectWithoutRequired.Create())
         expectEqual v.first_name None
         expectEqual v.last_name None
 

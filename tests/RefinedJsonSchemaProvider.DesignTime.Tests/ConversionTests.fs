@@ -50,6 +50,16 @@ module ConversionTests =
                   Expect.isFalse (convertRoot (fixtureWith flags """{ "type": "string", "minLength": 1 }""")).FullyCompilable "minLength"
               }
 
+              test "a number is not FullyCompilable by default, since a float can be nan or infinite" {
+                  Expect.isFalse (convertRoot (fixtureWith defaultFlags """{ "type": "number" }""")).FullyCompilable "plain"
+              }
+
+              test "with allowNonFiniteNumbers a number is FullyCompilable unless it has keywords number can't encode" {
+                  let flags = { defaultFlags with AllowNonFiniteNumbers = true }
+                  Expect.isTrue (convertRoot (fixtureWith flags """{ "type": "number" }""")).FullyCompilable "plain"
+                  Expect.isFalse (convertRoot (fixtureWith flags """{ "type": "number", "minimum": 0 }""")).FullyCompilable "minimum"
+              }
+
               test "a non-negative integer maps to uint32 and is FullyCompilable" {
                   for schemaText in [ """{ "type": "integer", "minimum": 0 }"""; """{ "type": "integer", "exclusiveMinimum": -1 }""" ] do
                       let conv = conversionOf schemaText

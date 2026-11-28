@@ -301,18 +301,21 @@ module NodeConversions =
         // #elide-end integer-case
         // #endregion integer-case
 
+        // A float can be nan, infinity or -infinity, which no JSON number matches (FSharp.Data writes
+        // them as null), so by default a number node needs a runtime check, like a string node.
+        // With allowNonFiniteNumbers the user accepts that risk, and the node compiles like a boolean.
         | JsonNumber keywords -> {
                 CompileTimeType = typeof<double>
                 RuntimeType = typeof<double>
                 ToRuntime = <@@ fun (jsonVal: JsonValue) -> jsonVal.AsFloat() @@>
                 ToJson = <@@ fun (runtimeObj: double) -> JsonValue.Float runtimeObj @@>
-                FullyCompilable = keywords.common.CanBeCompiled
+                FullyCompilable = context.CompileFlags.AllowNonFiniteNumbers && keywords.common.CanBeCompiled
                 Specific = NoSpecific
             }
 
         // A .NET string can be null and F# can't rule that out for provided types, so by default a
         // string node needs a runtime check: null becomes JSON null, which validation rejects.
-        // With allowNullStrings the user accepts that risk, and the node compiles like a number.
+        // With allowNullStrings the user accepts that risk, and the node compiles like a boolean.
         | JsonString keywords -> {
                 CompileTimeType = typeof<string>
                 RuntimeType = typeof<string>

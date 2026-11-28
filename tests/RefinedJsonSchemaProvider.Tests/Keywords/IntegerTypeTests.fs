@@ -171,12 +171,19 @@ module IntegerTypeTests =
     [<Literal>]
     let numberSchema = """{ "type": "number" }"""
     type NumberRoot = RefinedJsonSchemaProvider<schema=numberSchema>
+    type UncheckedNumberRoot = RefinedJsonSchemaProvider<schema=numberSchema, allowNonFiniteNumbers=true>
 
     [<Fact>]
     let ``a number node with an integer literal outside int64 gets the same Error, and Create accepts the value`` () =
+        expectNJsonSchemaLimit "18446744073709551616" (UncheckedNumberRoot.Parse("18446744073709551616"))
+        expectEqual (expectOk (UncheckedNumberRoot.Parse("1.8446744073709552E+19"))) 1.8446744073709552E+19
+        expectEqual (UncheckedNumberRoot.Create 1.8446744073709552E+19) 1.8446744073709552E+19
+
+    [<Fact>]
+    let ``a number node with an integer literal outside int64 gets the same Error, and Create gives Ok by default`` () =
         expectNJsonSchemaLimit "18446744073709551616" (NumberRoot.Parse("18446744073709551616"))
         expectEqual (expectOk (NumberRoot.Parse("1.8446744073709552E+19"))) 1.8446744073709552E+19
-        expectEqual (NumberRoot.Create 1.8446744073709552E+19) 1.8446744073709552E+19
+        expectEqual (expectOk (NumberRoot.Create 1.8446744073709552E+19)) 1.8446744073709552E+19
 
     // NJsonSchema doesn't look at a property the schema doesn't describe, so a large integer there validates.
     [<Literal>]

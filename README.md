@@ -294,6 +294,7 @@ Compiles, but beware:
 | `refinedTypes` | `true` | Refined types for the keywords the provider supports. With `false`: plain lists and `int` instead, and the keywords are checked at runtime. With `requireIntegerBounds = true`, integer bounds must still fit in `int`. |
 | `requireIntegerBounds` | `false` | Makes an integer without both bounds (or with bounds too wide for its type) a compile error, so `Parse` can't overflow. When `false`, such an integer compiles and `Parse` can raise on a number that overflows its type. |
 | `allowNullStrings` | `false` | Treats a string as if it can't be null, so a string without keywords needs no runtime validation and `Create` gives the value directly. A null string is then stored as JSON `null` instead of giving an `Error`. |
+| `allowNonFiniteNumbers` | `false` | Treats a number as if it can't be `nan`, `infinity` or `-infinity`, so a number without keywords needs no runtime validation and `Create` gives the value directly. Such a value is then stored as JSON `null` instead of giving an `Error`. |
 
 **Methods:** every provided type except the array helpers has `Create` (named arguments for objects, one `value` otherwise)
 and `Parse : string -> Result<'T, string list>`. Errors are NJsonSchema messages such as
