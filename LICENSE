@@ -1,6 +1,8 @@
 MIT License
 
-Copyright (c) 2024 Florian Lorenzen
+Copyright (c) 2026 Jonas Dahl Larsen
+Copyright (c) 2024 Florian Lorenzen (original JsonSchemaProvider,
+https://github.com/florenzen/JsonSchemaProvider)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

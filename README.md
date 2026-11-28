@@ -332,4 +332,4 @@ language server while building.
 
 ## License
 
-[MIT](LICENSE) © 2024 Florian Lorenzen. The fork uses the same license.
+[MIT](LICENSE) © 2026 Jonas Dahl Larsen. Based on [JsonSchemaProvider](https://github.com/florenzen/JsonSchemaProvider), © 2024 Florian Lorenzen, also MIT.
